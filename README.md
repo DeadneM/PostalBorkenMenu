@@ -12,6 +12,11 @@
 
 **V2A8** is the current validated base.
 
+### Download
+
+**[Download PostalBorkenMenu V2A8](https://github.com/DeadneM/PostalBorkenMenu/releases/download/V2A8/POSTAL_Brain_Damaged_PostalBorkenMenu_V2A8.zip)**  
+[View release notes](https://github.com/DeadneM/PostalBorkenMenu/releases/tag/V2A8)
+
 Validated behavior:
 
 - native developer-command bridge through Unity IL2CPP
