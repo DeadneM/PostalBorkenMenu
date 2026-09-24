@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.jpg" alt="PostalBorkenMenu banner" width="100%">
+  <img src="assets/banner.png" alt="PostalBorkenMenu banner" width="100%">
 </p>
 
 # PostalBorkenMenu
@@ -33,7 +33,7 @@ PostalBorkenMenu calls the game's native developer systems directly and does not
 ## Artwork
 
 <p align="center">
-  <img src="assets/thumbnail.jpg" alt="PostalBorkenMenu thumbnail" width="320">
+  <img src="assets/thumbnail.png" alt="PostalBorkenMenu thumbnail" width="320">
 </p>
 
 ## Installation
