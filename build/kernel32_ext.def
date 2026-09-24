@@ -1,0 +1,21 @@
+LIBRARY KERNEL32.dll
+EXPORTS
+GetModuleHandleW
+GetProcAddress
+LoadLibraryW
+CreateThread
+Sleep
+GetCurrentProcessId
+GetModuleFileNameW
+GetSystemDirectoryW
+DisableThreadLibraryCalls
+GetPrivateProfileIntW
+GetPrivateProfileStringW
+WritePrivateProfileStringW
+CreateFileW
+WriteFile
+SetFilePointer
+CloseHandle
+FindFirstFileW
+FindNextFileW
+FindClose
