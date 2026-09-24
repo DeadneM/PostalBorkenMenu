@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/banner.jpg" alt="PostalBorkenMenu banner" width="100%">
+</p>
+
 # PostalBorkenMenu
 
 **PostalBorkenMenu** is an in-game developer menu and gameplay-enhancement project for **POSTAL: Brain-Damaged**.
@@ -25,6 +29,12 @@ Validated behavior:
 **Remove `-debug` from POSTAL: Brain-Damaged launch options before using PostalBorkenMenu.**
 
 PostalBorkenMenu calls the game's native developer systems directly and does not require the game's own debug startup mode.
+
+## Artwork
+
+<p align="center">
+  <img src="assets/thumbnail.jpg" alt="PostalBorkenMenu thumbnail" width="320">
+</p>
 
 ## Installation
 
