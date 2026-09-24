@@ -54,3 +54,5 @@ jobs:
           else
             gh release create V2A8               POSTAL_Brain_Damaged_PostalBorkenMenu_V2A8.zip               --repo "$GITHUB_REPOSITORY"               --title "PostalBorkenMenu V2A8"               --notes-file release_payload/V2A8/RELEASE_NOTES.md
           fi
+
+# Release payload finalized and verified locally.
