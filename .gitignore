@@ -1,0 +1,22 @@
+# Build products
+*.asi
+*.dll
+*.lib
+*.obj
+*.pdb
+*.exp
+*.ilk
+*.log
+
+# Local build/output folders
+build/
+out/
+.vs/
+.vscode/
+
+# User-local config
+PostalBorkenMenu.ini
+
+# Keep examples and documentation
+!config/*.ini
+!docs/*.log
