@@ -345,8 +345,11 @@ struct Il2CppApi {
     const char* (*class_get_namespace)(Il2CppClass*);
     const MethodInfo* (*class_get_method_from_name)(Il2CppClass*, const char*, int);
     const MethodInfo* (*class_get_methods)(Il2CppClass*, void**);
+    const FieldInfo* (*class_get_fields)(Il2CppClass*, void**);
+    const char* (*field_get_name)(const FieldInfo*);
     const char* (*method_get_name)(const MethodInfo*);
     const Il2CppType* (*method_get_param)(const MethodInfo*, unsigned int);
+    const Il2CppType* (*method_get_return_type)(const MethodInfo*);
     unsigned int (*method_get_param_count)(const MethodInfo*);
     BOOL (*method_is_instance)(const MethodInfo*);
     Il2CppObject* (*object_new)(Il2CppClass*);
@@ -432,7 +435,7 @@ static CommandRec g_cmds[] = {
     {"__WeaponListBase9", L"9 Base Weapon", L"WeaponListBase9", 0,0,0,0,0,0,0,{L'9',0}},
     {"__WeaponListDlc9", L"9 DLC Weapon", L"WeaponListDlc9", 0,0,0,0,0,0,0,{L'9',0}},
     {"__GiveAllDlcWeapons", L"Give All DLC Weapons", L"GiveAllDlcWeapons", 0,0,0,0,0,0,0,{0}},
-    {"__InitDlcHook", L"DLC Hook Probe", L"InitDlcHook", 0,0,0,0,0,0,0,{0}},
+    {"__InitDlcHook", L"DLC Hook Deep Probe", L"InitDlcHook", 0,0,0,0,0,0,0,{0}},
     {"__WeaponKeysMode", L"Weapon Keys Mode", L"WeaponKeysMode", 0,0,0,0,0,0,0,{L'O',L'F',L'F',0}},
     {"__BaseWeaponWheel", L"Base Weapon Wheel", L"BaseWeaponWheel", 0,0,0,0,0,0,0,{0}},
     {"__DlcWeaponWheel", L"DLC Weapon Wheel", L"DlcWeaponWheel", 0,0,0,0,0,0,0,{0}},
@@ -454,8 +457,11 @@ static BOOL ResolveIl2CppApi() {
     RESOLVE(class_get_namespace)
     RESOLVE(class_get_method_from_name)
     RESOLVE(class_get_methods)
+    RESOLVE(class_get_fields)
+    RESOLVE(field_get_name)
     RESOLVE(method_get_name)
     RESOLVE(method_get_param)
+    RESOLVE(method_get_return_type)
     RESOLVE(method_get_param_count)
     RESOLVE(method_is_instance)
     RESOLVE(object_new)
