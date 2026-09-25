@@ -649,6 +649,223 @@ static void ExecuteWeaponKeyMapping(int slot, int mode) {
     ReleaseIl2CppThread(attached,thread);
 }
 
+
+static BOOL GetWheelButtonsCollection(Il2CppObject* collection, Il2CppClass** outClass, int* outCount, BOOL* outArray) {
+    if (!collection || !outClass || !outCount || !outArray) return FALSE;
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+    if (!objectGetClass) return FALSE;
+
+    Il2CppClass* klass=objectGetClass(collection);
+    if (!klass) return FALSE;
+    const char* name=g_il2cpp.class_get_name(klass);
+    if (!name) return FALSE;
+
+    int n=StrLenA(name);
+    BOOL isArray=(n>=2 && name[n-2]=='[' && name[n-1]==']');
+    int count=0;
+    if (isArray) {
+        SIZE_T len=g_il2cpp.array_length((Il2CppArray*)collection);
+        if (len>64) return FALSE;
+        count=(int)len;
+    } else {
+        const MethodInfo* getCount=g_il2cpp.class_get_method_from_name(klass,"get_Count",0);
+        if (!getCount) return FALSE;
+        Il2CppException* ex=0;
+        Il2CppObject* boxed=g_il2cpp.runtime_invoke(getCount,collection,0,&ex);
+        if (ex || !boxed) return FALSE;
+        void* raw=g_il2cpp.object_unbox(boxed);
+        if (!raw) return FALSE;
+        count=*(int*)raw;
+        if (count<0 || count>64) return FALSE;
+    }
+
+    *outClass=klass;
+    *outCount=count;
+    *outArray=isArray;
+    return TRUE;
+}
+
+static Il2CppObject* GetWheelButtonFromCollection(Il2CppObject* collection, Il2CppClass* collectionClass, BOOL isArray, int index) {
+    if (!collection || !collectionClass || index<0) return 0;
+    if (isArray) {
+        Il2CppArray* arr=(Il2CppArray*)collection;
+        SIZE_T len=g_il2cpp.array_length(arr);
+        if ((SIZE_T)index>=len) return 0;
+        unsigned int hdr=g_il2cpp.array_object_header_size();
+        Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+        return elems[index];
+    }
+
+    const MethodInfo* getItem=g_il2cpp.class_get_method_from_name(collectionClass,"get_Item",1);
+    if (!getItem) return 0;
+    void* pars[1]; pars[0]=&index;
+    Il2CppException* ex=0;
+    Il2CppObject* item=g_il2cpp.runtime_invoke(getItem,collection,pars,&ex);
+    if (ex) return 0;
+    return item;
+}
+
+static BOOL ShowNativeWeaponWheelBank(int category) {
+    if (category!=0 && category!=1) return FALSE;
+    if (category==1 && !IsTheseSunnyDazeOwned()) {
+        LogA("[WHEEL] DLC wheel blocked: These Sunny Daze ownership not confirmed.");
+        return FALSE;
+    }
+
+    Il2CppClass* wheelClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent") : 0;
+    Il2CppClass* wheelButtonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
+    Il2CppClass* wheelViewClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerView","PlayerWheelView") : 0;
+    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    if (!wheelClass || !wheelButtonClass || !wheelViewClass || !weaponIdClass) {
+        LogA("[ERROR] Native weapon wheel metadata classes unresolved");
+        return FALSE;
+    }
+
+    const FieldInfo* buttonsField=g_il2cpp.class_get_field_from_name(wheelClass,"_weaponWheelButtons");
+    const MethodInfo* buttonGetWeapon= g_il2cpp.class_get_method_from_name(wheelButtonClass,"get_WeaponId",0);
+    const MethodInfo* buttonEnable= g_il2cpp.class_get_method_from_name(wheelButtonClass,"Enable",1);
+    const MethodInfo* getCategory= g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Category",0);
+    const MethodInfo* showMethod= g_il2cpp.class_get_method_from_name(wheelViewClass,"Show",0);
+    const MethodInfo* restoreMethod= g_il2cpp.class_get_method_from_name(wheelClass,"EnableButtons",0);
+    if (!buttonsField || !buttonGetWeapon || !buttonEnable || !getCategory || !showMethod || !restoreMethod) {
+        LogA("[ERROR] Native weapon wheel bridge unresolved");
+        return FALSE;
+    }
+
+    Il2CppObject* wheel=FindLiveObject(wheelClass);
+    Il2CppObject* view=FindLiveObject(wheelViewClass);
+    if (!wheel || !view) {
+        LogA("[ERROR] Live native weapon wheel/view not found");
+        return FALSE;
+    }
+
+    Il2CppObject* collection=0;
+    g_il2cpp.field_get_value(wheel,buttonsField,&collection);
+    if (!collection) {
+        LogA("[ERROR] PlayerWeaponWheelComponent._weaponWheelButtons is null");
+        return FALSE;
+    }
+
+    Il2CppClass* collectionClass=0;
+    int count=0;
+    BOOL isArray=FALSE;
+    if (!GetWheelButtonsCollection(collection,&collectionClass,&count,&isArray)) {
+        LogA("[ERROR] Could not inspect native weapon wheel button collection");
+        return FALSE;
+    }
+
+    int baseCount=0, dlcCount=0, targetCount=0, unknownCount=0;
+    for (int i=0;i<count;i++) {
+        Il2CppObject* button=GetWheelButtonFromCollection(collection,collectionClass,isArray,i);
+        if (!button) { ++unknownCount; continue; }
+
+        Il2CppException* ex=0;
+        Il2CppObject* weapon=g_il2cpp.runtime_invoke(buttonGetWeapon,button,0,&ex);
+        if (ex || !weapon) { ++unknownCount; continue; }
+
+        ex=0;
+        Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,weapon,0,&ex);
+        if (ex || !catBox) { ++unknownCount; continue; }
+        void* raw=g_il2cpp.object_unbox(catBox);
+        if (!raw) { ++unknownCount; continue; }
+        int cat=*(int*)raw;
+        if (cat==0) ++baseCount;
+        else if (cat==1) ++dlcCount;
+
+        BOOL enabled=(cat==category) ? TRUE : FALSE;
+        void* enablePars[1]; enablePars[0]=&enabled;
+        ex=0;
+        g_il2cpp.runtime_invoke(buttonEnable,button,enablePars,&ex);
+        if (ex) { ++unknownCount; continue; }
+        if (enabled) ++targetCount;
+    }
+
+    LogIntA("[WHEEL] Native wheel buttons total: ",count);
+    LogIntA("[WHEEL] Native wheel BASE buttons: ",baseCount);
+    LogIntA("[WHEEL] Native wheel DLC buttons: ",dlcCount);
+    LogIntA("[WHEEL] Enabled buttons for selected bank: ",targetCount);
+    if (unknownCount) LogIntA("[WHEEL] Buttons not classified cleanly: ",unknownCount);
+
+    if (!targetCount) {
+        Il2CppException* ex=0;
+        g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&ex);
+        LogA(category==1 ? "[WHEEL] No DLC buttons exist in the live native wheel." : "[WHEEL] No base buttons exist in the live native wheel.");
+        return FALSE;
+    }
+
+    Il2CppException* ex=0;
+    g_il2cpp.runtime_invoke(showMethod,view,0,&ex);
+    if (ex) {
+        LogA("[ERROR] PlayerWheelView.Show() threw:");
+        FormatExceptionToLog(ex);
+        ex=0;
+        g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&ex);
+        return FALSE;
+    }
+
+    g_activeWheelBank=category+1;
+    LogA(category==1 ? "[WHEEL] DLC native wheel opened" : "[WHEEL] BASE native wheel opened");
+    return TRUE;
+}
+
+static BOOL HideNativeWeaponWheelBank() {
+    if (!g_activeWheelBank) return TRUE;
+
+    Il2CppClass* wheelClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent") : 0;
+    Il2CppClass* wheelViewClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerView","PlayerWheelView") : 0;
+    if (!wheelClass || !wheelViewClass) {
+        g_activeWheelBank=0;
+        return FALSE;
+    }
+
+    const MethodInfo* hideMethod=g_il2cpp.class_get_method_from_name(wheelViewClass,"Hide",0);
+    const MethodInfo* restoreMethod=g_il2cpp.class_get_method_from_name(wheelClass,"EnableButtons",0);
+    Il2CppObject* wheel=FindLiveObject(wheelClass);
+    Il2CppObject* view=FindLiveObject(wheelViewClass);
+
+    BOOL ok=TRUE;
+    Il2CppException* ex=0;
+    if (view && hideMethod) {
+        g_il2cpp.runtime_invoke(hideMethod,view,0,&ex);
+        if (ex) {
+            LogA("[ERROR] PlayerWheelView.Hide() threw:");
+            FormatExceptionToLog(ex);
+            ok=FALSE;
+        }
+    } else ok=FALSE;
+
+    ex=0;
+    if (wheel && restoreMethod) {
+        g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&ex);
+        if (ex) {
+            LogA("[ERROR] PlayerWeaponWheelComponent.EnableButtons() restore threw:");
+            FormatExceptionToLog(ex);
+            ok=FALSE;
+        }
+    } else ok=FALSE;
+
+    LogA(g_activeWheelBank==2 ? "[WHEEL] DLC native wheel closed; native button state restored" :
+                               "[WHEEL] BASE native wheel closed; native button state restored");
+    g_activeWheelBank=0;
+    return ok;
+}
+
+static void ExecuteNativeWheelBank(int bank, BOOL show) {
+    if (!g_ready || g_shuttingDown) return;
+    BOOL attached=FALSE; void* thread=0;
+    if (!EnsureIl2CppThread(&attached,&thread)) return;
+
+    if (show) {
+        if (g_activeWheelBank) HideNativeWeaponWheelBank();
+        ShowNativeWeaponWheelBank(bank==2 ? 1 : 0);
+    } else {
+        HideNativeWeaponWheelBank();
+    }
+
+    ReleaseIl2CppThread(attached,thread);
+}
+
 static BOOL SetCrosshairVisualAlpha(float alpha) {
     if (!g_crosshairControllerClass || !g_currentCrosshairField || !g_componentGetGameObject ||
         !g_gameObjectGetComponentsInChildren || !g_canvasRendererSetAlpha || !g_canvasRendererTypeObject) {
@@ -752,6 +969,8 @@ static void ExecuteCommandIndex(int i) {
     else if (StrEqA(g_cmds[i].className,"__EquipBaseWeapon")) EquipBaseWeaponInSlot(i);
     else if (StrEqA(g_cmds[i].className,"__GiveAllDlcWeapons")) GiveAllOwnedDlcWeapons();
     else if (StrEqA(g_cmds[i].className,"__WeaponKeysMode")) LogA("[KEYMAP] Weapon Keys Mode changed through its Argument field");
+    else if (StrEqA(g_cmds[i].className,"__BaseWeaponWheel") || StrEqA(g_cmds[i].className,"__DlcWeaponWheel"))
+        LogA("[WHEEL] Bind this row to a key and HOLD the key to use the selected native wheel bank.");
     else if (StrEqA(g_cmds[i].className,"TimeScale")) ApplyTimeScaleToggle(i);
     else InvokeNativeCommand(i);
 
