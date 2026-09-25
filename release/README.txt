@@ -1,4 +1,4 @@
-PostalBorkenMenu V2A30 TEST
+PostalBorkenMenu V2A31 TEST
 POSTAL: Brain-Damaged
 
 IMPORTANT
@@ -6,59 +6,56 @@ IMPORTANT
 - F1 opens/closes the PostalBorkenMenu overlay.
 - PostalBorkenMenu.log is generated automatically at runtime and is not included in this archive.
 
-V2A30 PURPOSE
-Keep the V2A29 wheel behavior exactly as validated, and fix the crashing Hook probe.
+V2A31 PURPOSE
+Preserve the validated V2A29 wheel behavior and the crash-safe V2A30 hook probe, then observe exactly what native GiveAllWeapons() does to the hook state.
 
-V2A29 WHEELS PRESERVED
-- Base Weapon Wheel uses the V2A20 wheel implementation.
-- DLC Weapon Wheel can show an empty native wheel shell.
-- no GiveAllWeapons fallback
-- no automatic Hook call from either wheel
+RESULT FROM V2A30
+- Base Weapon Wheel still opens/closes correctly.
+- DLC Weapon Wheel still opens as an empty native shell when no DLC/PTSD wheel button exists.
+- DLC Hook Safe Probe no longer crashes.
+- _hookWeapon = null before InitHook().
+- get_Hook() = null before InitHook().
+- after InitHook(), both values remain null.
+- therefore InitHook() alone does not create or assign the Hook WeaponId.
 
-WHY THE OLD PROBE CRASHED
-The V2A26/V2A29 Hook Deep Probe enumerated classes and members across all of Assembly-CSharp.
-The user log shows that scan starting successfully, then terminating mid-class before the end marker.
-The broad substring search also matched unrelated names such as Graphic / GatherProperties, causing a huge unsafe metadata walk.
+V2A31 CHANGE
+Give All Weapons remains the same validated native PlayerInventoryComponent.GiveAllWeapons() command.
 
-V2A30 SAFE HOOK PROBE
-The global Assembly-CSharp scan is completely disabled.
+The only addition is targeted logging immediately before and immediately after that native call.
 
-The probe now only touches known objects:
-- PlayerInventoryComponent._weaponsController
-- WeaponsInventory._hookWeapon
-- WeaponsInventory.get_Hook()
-- WeaponsInventory.InitHook()
-- WeaponId.get_Category()
-- WeaponId.get_Slot()
+Each snapshot logs:
+- WeaponsInventory._hookWeapon null / non-null
+- WeaponsInventory.get_Hook() null / non-null
+- whether both references are identical
+- Hook WeaponId category if present
+- Hook WeaponId slot if present
 
-Sequence:
-1. verify DLC ownership
-2. locate the live WeaponsInventory
-3. read _hookWeapon
-4. call get_Hook()
-5. log category/slot if a Hook WeaponId already exists
-6. if no Hook exists, call InitHook() once
-7. read _hookWeapon and get_Hook() again
-8. log category/slot if available
+This is observation only.
 
-It does NOT:
-- enumerate Assembly-CSharp globally
-- call GiveAllWeapons()
-- add any weapon
-- equip any weapon
+NO NEW MUTATION
+V2A31 does not:
+- globally scan Assembly-CSharp
+- add an extra weapon
+- equip an extra weapon
+- call InitHook automatically from Give All Weapons
+- alter either Weapon Wheel
 
-IMPORTANT DISCOVERY FROM THE CRASH LOG
-- WeaponsInventory.get_Hook() returns Hyperstrange.PBD.WeaponId
-- WeaponsInventory contains a field named _hookWeapon
-
-This is now the focus of the investigation.
+TEST
+1. Start a session where Hook is not already initialized if possible.
+2. Run DLC Hook Safe Probe once.
+3. Run Give All Weapons once.
+4. Send PostalBorkenMenu.log.
+Look for:
+[GIVEALL HOOK] BEFORE GiveAllWeapons
+[GIVEALL HOOK] AFTER GiveAllWeapons
 
 PRESERVED
 - V2A29 V2A20-style Base Weapon Wheel
-- V2A29 empty DLC wheel shell behavior
-- V2A25 Weapon List with visible Argument slots 1..9
+- V2A29 empty DLC wheel shell
+- V2A25 Weapon List / Arguments
 - ALT behavior
-- V2A8 shutdown/lifetime model
+- V2A30 safe Hook probe
+- V2A8 clean shutdown
 - No Crosshair
 - TimeScale
 - DLC ownership checks
@@ -68,11 +65,7 @@ PostalBorkenMenu.asi
 PostalBorkenMenu.ini
 README.txt
 
-TEST
-1. Confirm both weapon wheels still behave exactly as in V2A29.
-2. Run DLC Hook Safe Probe once.
-3. Confirm no crash.
-4. Send PostalBorkenMenu.log if _hookWeapon/get_Hook remain null.
+PostalBorkenMenu.log is runtime-generated and is not included.
 
 PROJECT
 https://github.com/DeadneM/PostalBorkenMenu
