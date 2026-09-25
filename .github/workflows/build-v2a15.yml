@@ -38,9 +38,28 @@ jobs:
         run: |
           Get-FileHash build\PostalBorkenMenu.asi -Algorithm SHA256 | Format-List
 
-      - name: Upload ASI
+      - name: Stage V2A23 package
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          Copy-Item build\PostalBorkenMenu.asi package\PostalBorkenMenu.asi
+          Copy-Item config\PostalBorkenMenu.ini package\PostalBorkenMenu.ini
+          Copy-Item release\README.txt package\README.txt
+
+      - name: Verify package contents
+        shell: powershell
+        run: |
+          $files = Get-ChildItem package -File | Select-Object -ExpandProperty Name
+          $expected = @('PostalBorkenMenu.asi','PostalBorkenMenu.ini','README.txt')
+          if (Compare-Object ($files | Sort-Object) ($expected | Sort-Object)) {
+            Write-Error "Unexpected V2A23 package contents"
+            exit 1
+          }
+          Get-ChildItem package -File | Format-Table Name,Length
+
+      - name: Upload V2A23 package
         uses: actions/upload-artifact@v4
         with:
-          name: PostalBorkenMenu_V2A23_ASI
-          path: build/PostalBorkenMenu.asi
+          name: POSTAL_Brain_Damaged_PostalBorkenMenu_V2A23_ALT_RESTORE_DUAL_WHEEL_TEST
+          path: package/*
           if-no-files-found: error
