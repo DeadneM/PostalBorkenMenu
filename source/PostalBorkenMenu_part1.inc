@@ -167,8 +167,7 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 #define WM_APP_CROSSHAIR (WM_APP + 0x33)
 #define WM_APP_SHUTDOWN (WM_APP + 0x34)
 #define WM_APP_WEAPONKEY (WM_APP + 0x35)
-#define WM_APP_BASEWHEEL (WM_APP + 0x36)
-#define WM_APP_DLCWHEEL (WM_APP + 0x37)
+#define WM_APP_WHEELBANK (WM_APP + 0x36)
 
 #define VK_BACK 0x08
 #define VK_TAB 0x09
@@ -237,10 +236,8 @@ static volatile LONG g_crosshairReapplyCountdown = 0;
 static int g_scrollRow = 0;
 static BYTE g_altSlotFlip[10] = {};
 static int g_menuTab = 0; // 0 Gameplay, 1 Weapons, 2 Weapon List, 3 Visual
-static volatile LONG g_baseWheelActive = 0;
-static int g_baseWheelVk = 0;
-static volatile LONG g_dlcWheelActive = 0;
-static int g_dlcWheelVk = 0;
+static volatile LONG g_activeWheelBank = 0;
+static int g_activeWheelVk = 0;
 static BYTE g_keyPrev[256] = {};
 static int g_bindIndex = -1;
 static int g_overlayX = 32;
