@@ -89,6 +89,7 @@ static int CommandMenuTab(int i) {
     if (StrEqA(n,"GiveAll") ||
         StrEqA(n,"__GiveAllWeapons") ||
         StrEqA(n,"__GiveAllDlcWeapons") ||
+        StrEqA(n,"__WeaponCatalog") ||
         StrEqA(n,"__InitDlcHook") ||
         StrEqA(n,"__WeaponKeysMode") ||
         StrEqA(n,"__BaseWeaponWheel") ||
@@ -573,7 +574,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A32 HOOK SLOT99 ADDWEAPON TEST");
+    LogA("PostalBorkenMenu V2A33 WEAPON CATALOG TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -582,7 +583,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Weapon List / Visual. V2A29 wheels preserved; Hook Slot99 AddWeapon isolation test active.");
+    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Weapon List / Visual. V2A32 preserved; non-destructive Weapon Catalog available.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
