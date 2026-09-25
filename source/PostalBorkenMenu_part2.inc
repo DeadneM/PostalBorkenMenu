@@ -477,67 +477,88 @@ static void LogGlobalHookDiscovery() {
 
 static BOOL InitOwnedDlcHook() {
     if (!IsTheseSunnyDazeOwned()) {
-        LogA("[HOOK] These Sunny Daze ownership not confirmed; hook init blocked.");
+        LogA("[HOOK SAFE] These Sunny Daze ownership not confirmed; hook probe blocked.");
         return FALSE;
     }
 
     Il2CppClass* inventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerInventoryComponent") : 0;
     Il2CppClass* weaponsInventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.Inventory","WeaponsInventory") : 0;
-    if (!inventoryClass || !weaponsInventoryClass) {
+    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    if (!inventoryClass || !weaponsInventoryClass || !weaponIdClass) {
         LogA("[ERROR] DLC hook metadata classes unresolved");
         return FALSE;
     }
 
-    LogHookLikeMethods(inventoryClass,"[HOOK AUDIT] PlayerInventoryComponent Hook/Grap methods:");
-    LogHookLikeMethods(weaponsInventoryClass,"[HOOK AUDIT] WeaponsInventory Hook/Grap methods:");
-    LogAllFieldsForClass(inventoryClass,"[HOOK DEEP] PlayerInventoryComponent fields:");
-    LogAllFieldsForClass(weaponsInventoryClass,"[HOOK DEEP] WeaponsInventory fields:");
-    LogGlobalHookDiscovery();
-
-    // V2A25: hook probe must be side-effect free with respect to weapon grants.
-    // Do NOT call GiveAllWeapons here: user confirmed that doing so only grants
-    // the weapon set and does not make the DLC hook usable.
-    LogA("[HOOK] Pure hook probe: no GiveAllWeapons call will be made.");
+    LogHookLikeMethods(inventoryClass,"[HOOK SAFE] PlayerInventoryComponent hook-related methods:");
+    LogHookLikeMethods(weaponsInventoryClass,"[HOOK SAFE] WeaponsInventory hook-related methods:");
+    LogA("[HOOK SAFE] Global Assembly-CSharp scan is DISABLED.");
 
     const FieldInfo* weaponsControllerField=g_il2cpp.class_get_field_from_name(inventoryClass,"_weaponsController");
+    const FieldInfo* hookWeaponField=g_il2cpp.class_get_field_from_name(weaponsInventoryClass,"_hookWeapon");
     const MethodInfo* getHook=g_il2cpp.class_get_method_from_name(weaponsInventoryClass,"get_Hook",0);
     const MethodInfo* initHook=g_il2cpp.class_get_method_from_name(weaponsInventoryClass,"InitHook",0);
-    if (getHook) {
-        LogA("[HOOK DEEP] WeaponsInventory.get_Hook return metadata:");
-        LogMethodReturnType(getHook);
-    }
-    if (!weaponsControllerField || !getHook || !initHook) {
-        LogA("[ERROR] WeaponsInventory get_Hook / InitHook bridge unresolved");
+    const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Category",0);
+    const MethodInfo* getSlot=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Slot",0);
+
+    if (!weaponsControllerField || !hookWeaponField || !getHook || !initHook || !getCategory || !getSlot) {
+        LogA("[ERROR] Safe hook bridge unresolved (_hookWeapon/get_Hook/InitHook/WeaponId metadata)");
         return FALSE;
     }
 
+    LogA("[HOOK SAFE] WeaponsInventory.get_Hook return metadata:");
+    LogMethodReturnType(getHook);
+
     Il2CppObject* playerInv=FindLiveObject(inventoryClass);
     if (!playerInv) {
-        LogA("[ERROR] PlayerInventoryComponent instance not found for hook init");
+        LogA("[ERROR] PlayerInventoryComponent instance not found for hook probe");
         return FALSE;
     }
 
     Il2CppObject* weaponsInv=0;
     g_il2cpp.field_get_value(playerInv,weaponsControllerField,&weaponsInv);
     if (!weaponsInv) {
-        LogA("[ERROR] PlayerInventoryComponent._weaponsController is null for hook init");
+        LogA("[ERROR] PlayerInventoryComponent._weaponsController is null for hook probe");
         return FALSE;
     }
 
+    Il2CppObject* hookFieldValue=0;
+    g_il2cpp.field_get_value(weaponsInv,hookWeaponField,&hookFieldValue);
+    LogA(hookFieldValue ? "[HOOK SAFE] _hookWeapon field BEFORE InitHook: NON-NULL"
+                        : "[HOOK SAFE] _hookWeapon field BEFORE InitHook: NULL");
+
     Il2CppException* ex=0;
-    Il2CppObject* hook=g_il2cpp.runtime_invoke(getHook,weaponsInv,0,&ex);
+    Il2CppObject* hookGetterValue=g_il2cpp.runtime_invoke(getHook,weaponsInv,0,&ex);
     if (ex) {
         LogA("[ERROR] WeaponsInventory.get_Hook() threw:");
         FormatExceptionToLog(ex);
         return FALSE;
     }
+    LogA(hookGetterValue ? "[HOOK SAFE] get_Hook() BEFORE InitHook: NON-NULL"
+                         : "[HOOK SAFE] get_Hook() BEFORE InitHook: NULL");
 
-    if (hook) {
-        LogA("[HOOK] Hook object already exists; InitHook skipped.");
+    if (hookFieldValue && hookGetterValue)
+        LogA(hookFieldValue==hookGetterValue ? "[HOOK SAFE] _hookWeapon == get_Hook()"
+                                            : "[HOOK SAFE] _hookWeapon != get_Hook()");
+
+    Il2CppObject* inspectWeapon=hookGetterValue ? hookGetterValue : hookFieldValue;
+    if (inspectWeapon) {
+        ex=0;
+        Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,inspectWeapon,0,&ex);
+        if (!ex && catBox && g_il2cpp.object_unbox(catBox))
+            LogIntA("[HOOK SAFE] Hook WeaponId category BEFORE InitHook: ",*(int*)g_il2cpp.object_unbox(catBox));
+
+        ex=0;
+        Il2CppObject* slotBox=g_il2cpp.runtime_invoke(getSlot,inspectWeapon,0,&ex);
+        if (!ex && slotBox && g_il2cpp.object_unbox(slotBox))
+            LogIntA("[HOOK SAFE] Hook WeaponId slot BEFORE InitHook: ",*(int*)g_il2cpp.object_unbox(slotBox));
+    }
+
+    if (hookGetterValue) {
+        LogA("[HOOK SAFE] Hook WeaponId already exists; InitHook skipped.");
         return TRUE;
     }
 
-    LogA("[HOOK] Hook object missing; calling native WeaponsInventory.InitHook().");
+    LogA("[HOOK SAFE] Calling native WeaponsInventory.InitHook() only.");
     ex=0;
     g_il2cpp.runtime_invoke(initHook,weaponsInv,0,&ex);
     if (ex) {
@@ -546,20 +567,40 @@ static BOOL InitOwnedDlcHook() {
         return FALSE;
     }
 
+    hookFieldValue=0;
+    g_il2cpp.field_get_value(weaponsInv,hookWeaponField,&hookFieldValue);
+    LogA(hookFieldValue ? "[HOOK SAFE] _hookWeapon field AFTER InitHook: NON-NULL"
+                        : "[HOOK SAFE] _hookWeapon field AFTER InitHook: NULL");
+
     ex=0;
-    hook=g_il2cpp.runtime_invoke(getHook,weaponsInv,0,&ex);
+    hookGetterValue=g_il2cpp.runtime_invoke(getHook,weaponsInv,0,&ex);
     if (ex) {
         LogA("[ERROR] WeaponsInventory.get_Hook() after InitHook threw:");
         FormatExceptionToLog(ex);
         return FALSE;
     }
+    LogA(hookGetterValue ? "[HOOK SAFE] get_Hook() AFTER InitHook: NON-NULL"
+                         : "[HOOK SAFE] get_Hook() AFTER InitHook: NULL");
 
-    if (hook) {
-        LogA("[OK] DLC hook object initialized without Give All Weapons.");
+    inspectWeapon=hookGetterValue ? hookGetterValue : hookFieldValue;
+    if (inspectWeapon) {
+        ex=0;
+        Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,inspectWeapon,0,&ex);
+        if (!ex && catBox && g_il2cpp.object_unbox(catBox))
+            LogIntA("[HOOK SAFE] Hook WeaponId category AFTER InitHook: ",*(int*)g_il2cpp.object_unbox(catBox));
+
+        ex=0;
+        Il2CppObject* slotBox=g_il2cpp.runtime_invoke(getSlot,inspectWeapon,0,&ex);
+        if (!ex && slotBox && g_il2cpp.object_unbox(slotBox))
+            LogIntA("[HOOK SAFE] Hook WeaponId slot AFTER InitHook: ",*(int*)g_il2cpp.object_unbox(slotBox));
+    }
+
+    if (hookGetterValue || hookFieldValue) {
+        LogA("[HOOK SAFE] Hook WeaponId is now available.");
         return TRUE;
     }
 
-    LogA("[WARN] InitHook completed but get_Hook() is still null.");
+    LogA("[HOOK SAFE] InitHook completed, but both _hookWeapon and get_Hook() remain null.");
     return FALSE;
 }
 
