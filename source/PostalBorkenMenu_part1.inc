@@ -236,7 +236,7 @@ static DWORD g_lastCrosshairTick = 0;
 static volatile LONG g_crosshairReapplyCountdown = 0;
 static int g_scrollRow = 0;
 static BYTE g_altSlotFlip[10] = {};
-static int g_menuTab = 0; // 0 Gameplay, 1 Weapons, 2 Visual
+static int g_menuTab = 0; // 0 Gameplay, 1 Weapons, 2 Weapon List, 3 Visual
 static volatile LONG g_baseWheelActive = 0;
 static int g_baseWheelVk = 0;
 static volatile LONG g_dlcWheelActive = 0;
@@ -258,6 +258,29 @@ static BOOL StrEqA(const char* a, const char* b) {
     if (!a || !b) return FALSE;
     while (*a && *b) { if (*a != *b) return FALSE; ++a; ++b; }
     return *a == *b;
+}
+static BOOL StrStartsWithA(const char* s, const char* prefix) {
+    if (!s || !prefix) return FALSE;
+    while (*prefix) {
+        if (*s != *prefix) return FALSE;
+        ++s; ++prefix;
+    }
+    return TRUE;
+}
+static BOOL StrContainsNoCaseA(const char* s, const char* needle) {
+    if (!s || !needle || !*needle) return FALSE;
+    for (int i=0; s[i]; ++i) {
+        int j=0;
+        while (needle[j] && s[i+j]) {
+            char a=s[i+j], b=needle[j];
+            if (a>='A' && a<='Z') a=(char)(a-'A'+'a');
+            if (b>='A' && b<='Z') b=(char)(b-'A'+'a');
+            if (a!=b) break;
+            ++j;
+        }
+        if (!needle[j]) return TRUE;
+    }
+    return FALSE;
 }
 static void CopyW(WCHAR* dst, int cap, const WCHAR* src) {
     if (!dst || cap <= 0) return;
@@ -390,12 +413,24 @@ static CommandRec g_cmds[] = {
     {"LogTime", L"Log Time", L"LogTime", 0,0,0,0,0,0,0,{0}},
     {"GiveAll", L"Give All", L"GiveAll", VK_F6,0,0,0,0,0,0,{0}},
     {"__GiveAllWeapons", L"Give All Weapons", L"GiveAllWeapons", 0,0,0,0,0,0,0,{0}},
-    {"__EquipDlcWeapon", L"Equip DLC Weapon", L"EquipDlcWeapon", 0,0,0,0,0,0,0,{L'1',0}},
-    {"__EquipBaseWeapon", L"Equip Base Weapon", L"EquipBaseWeapon", 0,0,0,0,0,0,0,{L'1',0}},
-    {"__BaseWeaponShortcut1", L"Base Weapon 1", L"BaseWeapon1", 0,0,0,0,0,0,0,{L'1',0}},
-    {"__BaseWeaponShortcut2", L"Base Weapon 2", L"BaseWeapon2", 0,0,0,0,0,0,0,{L'1',0}},
-    {"__DlcWeaponShortcut1", L"DLC Weapon 1", L"DlcWeapon1", 0,0,0,0,0,0,0,{L'1',0}},
-    {"__DlcWeaponShortcut2", L"DLC Weapon 2", L"DlcWeapon2", 0,0,0,0,0,0,0,{L'1',0}},
+    {"__WeaponListBase1", L"1 Base Weapon 1", L"WeaponListBase1", 0,0,0,0,0,0,0,{0}},
+    {"__WeaponListDlc1", L"1 DLC Weapon 1", L"WeaponListDlc1", 0,0,0,0,0,0,0,{0}},
+    {"__WeaponListBase2", L"2 Base Weapon 2", L"WeaponListBase2", 0,0,0,0,0,0,0,{0}},
+    {"__WeaponListDlc2", L"2 DLC Weapon 2", L"WeaponListDlc2", 0,0,0,0,0,0,0,{0}},
+    {"__WeaponListBase3", L"3 Base Weapon 3", L"WeaponListBase3", 0,0,0,0,0,0,0,{0}},
+    {"__WeaponListDlc3", L"3 DLC Weapon 3", L"WeaponListDlc3", 0,0,0,0,0,0,0,{0}},
+    {"__WeaponListBase4", L"4 Base Weapon 4", L"WeaponListBase4", 0,0,0,0,0,0,0,{0}},
+    {"__WeaponListDlc4", L"4 DLC Weapon 4", L"WeaponListDlc4", 0,0,0,0,0,0,0,{0}},
+    {"__WeaponListBase5", L"5 Base Weapon 5", L"WeaponListBase5", 0,0,0,0,0,0,0,{0}},
+    {"__WeaponListDlc5", L"5 DLC Weapon 5", L"WeaponListDlc5", 0,0,0,0,0,0,0,{0}},
+    {"__WeaponListBase6", L"6 Base Weapon 6", L"WeaponListBase6", 0,0,0,0,0,0,0,{0}},
+    {"__WeaponListDlc6", L"6 DLC Weapon 6", L"WeaponListDlc6", 0,0,0,0,0,0,0,{0}},
+    {"__WeaponListBase7", L"7 Base Weapon 7", L"WeaponListBase7", 0,0,0,0,0,0,0,{0}},
+    {"__WeaponListDlc7", L"7 DLC Weapon 7", L"WeaponListDlc7", 0,0,0,0,0,0,0,{0}},
+    {"__WeaponListBase8", L"8 Base Weapon 8", L"WeaponListBase8", 0,0,0,0,0,0,0,{0}},
+    {"__WeaponListDlc8", L"8 DLC Weapon 8", L"WeaponListDlc8", 0,0,0,0,0,0,0,{0}},
+    {"__WeaponListBase9", L"9 Base Weapon 9", L"WeaponListBase9", 0,0,0,0,0,0,0,{0}},
+    {"__WeaponListDlc9", L"9 DLC Weapon 9", L"WeaponListDlc9", 0,0,0,0,0,0,0,{0}},
     {"__GiveAllDlcWeapons", L"Give All DLC Weapons", L"GiveAllDlcWeapons", 0,0,0,0,0,0,0,{0}},
     {"__InitDlcHook", L"Give / Init DLC Hook", L"InitDlcHook", 0,0,0,0,0,0,0,{0}},
     {"__WeaponKeysMode", L"Weapon Keys Mode", L"WeaponKeysMode", 0,0,0,0,0,0,0,{L'O',L'F',L'F',0}},
