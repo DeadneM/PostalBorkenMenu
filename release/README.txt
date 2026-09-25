@@ -1,4 +1,4 @@
-PostalBorkenMenu V2A32 TEST
+PostalBorkenMenu V2A33 TEST
 POSTAL: Brain-Damaged
 
 IMPORTANT
@@ -6,69 +6,76 @@ IMPORTANT
 - F1 opens/closes the PostalBorkenMenu overlay.
 - PostalBorkenMenu.log is generated automatically at runtime and is not included in this archive.
 
-V2A32 PURPOSE
-Use the V2A31 discovery to isolate the Hook without GiveAllWeapons.
+V2A33 PURPOSE
+Start strictly from V2A32 and add one new read-only function:
+Weapon Catalog
 
-V2A31 DISCOVERY
-Immediately before native GiveAllWeapons():
-- WeaponsInventory._hookWeapon = NULL
-- WeaponsInventory.get_Hook() = NULL
+WEAPON CATALOG
+The new Weapon Catalog row is in the Weapons tab.
 
-Immediately after native GiveAllWeapons():
-- WeaponsInventory._hookWeapon still = NULL
-- WeaponsInventory.get_Hook() = NON-NULL
-- returned WeaponId category = 0
-- returned WeaponId slot = 99
+When RUN is pressed, it enumerates loaded Hyperstrange.PBD.WeaponId objects with:
+UnityEngine.Resources.FindObjectsOfTypeAll(WeaponId)
 
-This strongly indicates that get_Hook() resolves a special collected WeaponId rather than simply returning _hookWeapon.
+For every loaded WeaponId it logs:
+- scan index
+- UnityEngine.Object.name
+- WeaponId.ToString() when available
+- numeric category
+- category label:
+  0 = BASE
+  1 = PTSD / These Sunny Daze
+  other = OTHER
+- native slot
+- whether that exact WeaponId is already in PlayerInventoryComponent.CollectedWeapons:
+  YES / NO / UNKNOWN
 
-V2A32 TEST
-The menu row is now:
-DLC Hook Slot99 Test
-
-Sequence:
-1. enforce These Sunny Daze ownership
-2. run the safe get_Hook / InitHook observation from V2A30
-3. if Hook remains null, scan loaded WeaponId objects
-4. require exactly ONE candidate with:
-   category = 0
-   slot = 99
-5. check whether that exact candidate is already collected
-6. if not collected, invoke native WeaponsInventory.AddWeapon(candidate)
-7. DO NOT call EquipWeapon
-8. DO NOT call GiveAllWeapons
-9. re-check get_Hook()
-10. compare get_Hook() pointer against the exact slot99 candidate
+Example log shape:
+[WEAPON CATALOG] #12 | name=<Unity name> | toString=<managed text> | category=0(BASE) | slot=5 | collected=YES
 
 SAFETY
-- if zero or multiple category0/slot99 candidates are found, no mutation occurs
-- if CollectedWeapons state cannot be inspected, no mutation occurs
-- DLC ownership remains enforced
-- no global Assembly-CSharp scan
-- no automatic weapon equip
-- no GiveAllWeapons
-- no Weapon Wheel changes
+Weapon Catalog is observation-only.
 
-PRESERVED
+It does NOT:
+- AddWeapon
+- EquipWeapon
+- GiveAllWeapons
+- GiveAllDlcWeapons
+- InitHook
+- modify _hookWeapon
+- modify the Weapon Wheels
+
+The IL2CPP string helper exports used only for catalog text are optional.
+If unavailable, startup behavior remains unchanged and names may appear as <empty>.
+
+PRESERVED FROM V2A32
 - V2A29 V2A20-style Base Weapon Wheel
 - V2A29 empty DLC wheel shell
 - V2A25 Weapon List / Arguments
 - ALT behavior
-- V2A31 GiveAll snapshot logging
+- V2A30 safe Hook probe
+- V2A31 GiveAll Hook snapshots
+- V2A32 category0 / slot99 Hook isolation test
 - V2A8 clean shutdown
 - No Crosshair
 - TimeScale
+- DLC ownership checks
 
 PACKAGE CONTENTS
 PostalBorkenMenu.asi
 PostalBorkenMenu.ini
 README.txt
 
+PostalBorkenMenu.log is runtime-generated and is not included.
+
 TEST
-1. Prefer a fresh session before using Give All Weapons.
-2. Run DLC Hook Slot99 Test once.
-3. If the command reports SUCCESS, test the actual hook in gameplay.
+1. Start the game normally.
+2. Open F1 -> Weapons.
+3. RUN "Weapon Catalog".
 4. Send PostalBorkenMenu.log.
+5. Search for:
+   [WEAPON CATALOG] ===== BEGIN =====
+   ...
+   [WEAPON CATALOG] ===== END =====
 
 PROJECT
 https://github.com/DeadneM/PostalBorkenMenu
