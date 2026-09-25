@@ -168,14 +168,23 @@ static BOOL InvokeNativeCommand(int i) {
     return TRUE;
 }
 
+static void LogCurrentHookState(const char* phase);
+
 static BOOL GiveAllWeaponsOnly() {
     if (!g_inventoryClass || !g_giveAllWeapons) { LogA("[ERROR] Give All Weapons bridge unresolved"); return FALSE; }
     Il2CppObject* inv=FindLiveObject(g_inventoryClass);
     if (!inv) { LogA("[ERROR] PlayerInventoryComponent instance not found"); return FALSE; }
+
+    // V2A31: observation only. Snapshot the known hook state immediately
+    // before and after the validated native GiveAllWeapons() call.
+    LogCurrentHookState("[GIVEALL HOOK] BEFORE GiveAllWeapons");
+
     Il2CppException* ex=0;
     g_il2cpp.runtime_invoke(g_giveAllWeapons,inv,0,&ex);
     if (ex) { LogA("[ERROR] GiveAllWeapons() threw:"); FormatExceptionToLog(ex); return FALSE; }
     LogA("[OK] Give All Weapons executed (quest items untouched)");
+
+    LogCurrentHookState("[GIVEALL HOOK] AFTER GiveAllWeapons");
     return TRUE;
 }
 
@@ -209,6 +218,72 @@ static void LogIntA(const char* prefix, int v) {
 
 
 static BOOL IsTheseSunnyDazeOwned();
+
+static void LogCurrentHookState(const char* phase) {
+    if (phase) LogA(phase);
+
+    Il2CppClass* inventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerInventoryComponent") : 0;
+    Il2CppClass* weaponsInventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.Inventory","WeaponsInventory") : 0;
+    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    if (!inventoryClass || !weaponsInventoryClass || !weaponIdClass) {
+        LogA("[GIVEALL HOOK] metadata unresolved");
+        return;
+    }
+
+    const FieldInfo* weaponsControllerField=g_il2cpp.class_get_field_from_name(inventoryClass,"_weaponsController");
+    const FieldInfo* hookWeaponField=g_il2cpp.class_get_field_from_name(weaponsInventoryClass,"_hookWeapon");
+    const MethodInfo* getHook=g_il2cpp.class_get_method_from_name(weaponsInventoryClass,"get_Hook",0);
+    const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Category",0);
+    const MethodInfo* getSlot=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Slot",0);
+    if (!weaponsControllerField || !hookWeaponField || !getHook || !getCategory || !getSlot) {
+        LogA("[GIVEALL HOOK] targeted bridge unresolved");
+        return;
+    }
+
+    Il2CppObject* playerInv=FindLiveObject(inventoryClass);
+    if (!playerInv) {
+        LogA("[GIVEALL HOOK] PlayerInventoryComponent not found");
+        return;
+    }
+
+    Il2CppObject* weaponsInv=0;
+    g_il2cpp.field_get_value(playerInv,weaponsControllerField,&weaponsInv);
+    if (!weaponsInv) {
+        LogA("[GIVEALL HOOK] _weaponsController is null");
+        return;
+    }
+
+    Il2CppObject* fieldValue=0;
+    g_il2cpp.field_get_value(weaponsInv,hookWeaponField,&fieldValue);
+
+    Il2CppException* ex=0;
+    Il2CppObject* getterValue=g_il2cpp.runtime_invoke(getHook,weaponsInv,0,&ex);
+    if (ex) {
+        LogA("[GIVEALL HOOK] get_Hook() threw:");
+        FormatExceptionToLog(ex);
+        getterValue=0;
+    }
+
+    LogA(fieldValue ? "[GIVEALL HOOK] _hookWeapon: NON-NULL" : "[GIVEALL HOOK] _hookWeapon: NULL");
+    LogA(getterValue ? "[GIVEALL HOOK] get_Hook(): NON-NULL" : "[GIVEALL HOOK] get_Hook(): NULL");
+
+    if (fieldValue && getterValue)
+        LogA(fieldValue==getterValue ? "[GIVEALL HOOK] _hookWeapon == get_Hook()"
+                                    : "[GIVEALL HOOK] _hookWeapon != get_Hook()");
+
+    Il2CppObject* hook=getterValue ? getterValue : fieldValue;
+    if (!hook) return;
+
+    ex=0;
+    Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,hook,0,&ex);
+    if (!ex && catBox && g_il2cpp.object_unbox(catBox))
+        LogIntA("[GIVEALL HOOK] WeaponId category: ",*(int*)g_il2cpp.object_unbox(catBox));
+
+    ex=0;
+    Il2CppObject* slotBox=g_il2cpp.runtime_invoke(getSlot,hook,0,&ex);
+    if (!ex && slotBox && g_il2cpp.object_unbox(slotBox))
+        LogIntA("[GIVEALL HOOK] WeaponId slot: ",*(int*)g_il2cpp.object_unbox(slotBox));
+}
 
 static int CollectionContainsWeaponId(Il2CppObject* collection, Il2CppObject* weapon) {
     if (!collection || !weapon) return 0;
