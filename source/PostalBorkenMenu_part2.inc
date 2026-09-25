@@ -983,6 +983,199 @@ static void ExecuteNativeBaseWheel(BOOL show) {
     ReleaseIl2CppThread(attached,thread);
 }
 
+
+static int FilterNativeWheelForCategory(Il2CppObject* wheel,
+                                        const FieldInfo* buttonsField,
+                                        const MethodInfo* buttonGetWeapon,
+                                        const MethodInfo* buttonEnable,
+                                        const MethodInfo* getCategory,
+                                        int wantedCategory,
+                                        const char* phase) {
+    if (!wheel || !buttonsField || !buttonGetWeapon || !buttonEnable || !getCategory) return -1;
+
+    Il2CppObject* collection=0;
+    g_il2cpp.field_get_value(wheel,buttonsField,&collection);
+    if (!collection) {
+        LogA("[ERROR] PlayerWeaponWheelComponent._weaponWheelButtons is null");
+        return -1;
+    }
+
+    Il2CppClass* collectionClass=0;
+    int count=0;
+    BOOL isArray=FALSE;
+    if (!GetBaseWheelButtonsCollection(collection,&collectionClass,&count,&isArray)) {
+        LogA("[ERROR] Could not inspect native wheel button collection");
+        return -1;
+    }
+
+    int baseCount=0, dlcCount=0, otherCount=0, enabledCount=0;
+    for (int i=0;i<count;i++) {
+        Il2CppObject* button=GetBaseWheelButtonFromCollection(collection,collectionClass,isArray,i);
+        if (!button) continue;
+
+        Il2CppException* ex=0;
+        Il2CppObject* weapon=g_il2cpp.runtime_invoke(buttonGetWeapon,button,0,&ex);
+        if (ex || !weapon) continue;
+
+        ex=0;
+        Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,weapon,0,&ex);
+        if (ex || !catBox) continue;
+        void* raw=g_il2cpp.object_unbox(catBox);
+        if (!raw) continue;
+        int cat=*(int*)raw;
+
+        if (cat==0) ++baseCount;
+        else if (cat==1) ++dlcCount;
+        else ++otherCount;
+
+        BOOL enabled=(cat==wantedCategory) ? TRUE : FALSE;
+        void* ep[1]; ep[0]=&enabled;
+        ex=0;
+        g_il2cpp.runtime_invoke(buttonEnable,button,ep,&ex);
+        if (!ex && enabled) ++enabledCount;
+    }
+
+    if (phase) LogA(phase);
+    LogIntA("[WHEEL] Native wheel buttons total: ",count);
+    LogIntA("[WHEEL] Native BASE buttons seen: ",baseCount);
+    LogIntA("[WHEEL] Native DLC/PTSD buttons seen: ",dlcCount);
+    if (otherCount) LogIntA("[WHEEL] Native other-category buttons seen: ",otherCount);
+    LogIntA("[WHEEL] Buttons enabled for requested bank: ",enabledCount);
+    return enabledCount;
+}
+
+static BOOL ShowNativeDlcWeaponWheel() {
+    if (!IsTheseSunnyDazeOwned()) {
+        LogA("[WHEEL] DLC wheel blocked: These Sunny Daze ownership not confirmed.");
+        return FALSE;
+    }
+
+    Il2CppClass* wheelClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent") : 0;
+    Il2CppClass* wheelButtonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
+    Il2CppClass* wheelViewClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerView","PlayerWheelView") : 0;
+    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    if (!wheelClass || !wheelButtonClass || !wheelViewClass || !weaponIdClass) {
+        LogA("[ERROR] DLC weapon wheel metadata classes unresolved");
+        return FALSE;
+    }
+
+    const FieldInfo* buttonsField=g_il2cpp.class_get_field_from_name(wheelClass,"_weaponWheelButtons");
+    const MethodInfo* buttonGetWeapon=g_il2cpp.class_get_method_from_name(wheelButtonClass,"get_WeaponId",0);
+    const MethodInfo* buttonEnable=g_il2cpp.class_get_method_from_name(wheelButtonClass,"Enable",1);
+    const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Category",0);
+    const MethodInfo* showMethod=g_il2cpp.class_get_method_from_name(wheelViewClass,"Show",0);
+    const MethodInfo* restoreMethod=g_il2cpp.class_get_method_from_name(wheelClass,"EnableButtons",0);
+    if (!buttonsField || !buttonGetWeapon || !buttonEnable || !getCategory || !showMethod || !restoreMethod) {
+        LogA("[ERROR] DLC weapon wheel native bridge unresolved");
+        return FALSE;
+    }
+
+    Il2CppObject* wheel=FindLiveObject(wheelClass);
+    Il2CppObject* view=FindLiveObject(wheelViewClass);
+    if (!wheel || !view) {
+        LogA("[ERROR] Live DLC weapon wheel/view not found");
+        return FALSE;
+    }
+
+    // Start from the game's own enabled-button state before classifying it.
+    Il2CppException* ex=0;
+    g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&ex);
+    if (ex) {
+        LogA("[WARN] EnableButtons() pre-refresh threw before DLC wheel scan:");
+        FormatExceptionToLog(ex);
+    }
+
+    int enabled=FilterNativeWheelForCategory(wheel,buttonsField,buttonGetWeapon,buttonEnable,getCategory,1,
+                                             "[WHEEL] DLC scan BEFORE native GiveAllWeapons fallback");
+
+    if (enabled<=0) {
+        LogA("[WHEEL] No DLC/PTSD button is currently usable. Running validated PlayerInventoryComponent.GiveAllWeapons().");
+        BOOL giveOk=GiveAllWeaponsOnly();
+        BOOL hookOk=InitOwnedDlcHook();
+        LogA(giveOk ? "[WHEEL] GiveAllWeapons fallback completed." : "[WHEEL] GiveAllWeapons fallback failed.");
+        LogA(hookOk ? "[WHEEL] Native DLC hook is initialized." : "[WHEEL] Native DLC hook init did not confirm an object.");
+
+        ex=0;
+        g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&ex);
+        if (ex) {
+            LogA("[WARN] EnableButtons() refresh threw after GiveAllWeapons:");
+            FormatExceptionToLog(ex);
+        }
+
+        enabled=FilterNativeWheelForCategory(wheel,buttonsField,buttonGetWeapon,buttonEnable,getCategory,1,
+                                             "[WHEEL] DLC scan AFTER native GiveAllWeapons + InitHook refresh");
+    }
+
+    if (enabled<=0) {
+        ex=0;
+        g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&ex);
+        LogA("[WHEEL] DLC wheel still has no native PTSD buttons after GiveAllWeapons. Collection likely contains base-wheel buttons only.");
+        return FALSE;
+    }
+
+    ex=0;
+    g_il2cpp.runtime_invoke(showMethod,view,0,&ex);
+    if (ex) {
+        LogA("[ERROR] PlayerWheelView.Show() threw for DLC wheel:");
+        FormatExceptionToLog(ex);
+        ex=0;
+        g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&ex);
+        return FALSE;
+    }
+
+    g_dlcWheelActive=1;
+    LogA("[WHEEL] DLC native weapon wheel opened");
+    return TRUE;
+}
+
+static BOOL HideNativeDlcWeaponWheel() {
+    if (!g_dlcWheelActive) return TRUE;
+
+    Il2CppClass* wheelClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent") : 0;
+    Il2CppClass* wheelViewClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerView","PlayerWheelView") : 0;
+    if (!wheelClass || !wheelViewClass) {
+        g_dlcWheelActive=0;
+        return FALSE;
+    }
+
+    const MethodInfo* hideMethod=g_il2cpp.class_get_method_from_name(wheelViewClass,"Hide",0);
+    const MethodInfo* restoreMethod=g_il2cpp.class_get_method_from_name(wheelClass,"EnableButtons",0);
+    Il2CppObject* wheel=FindLiveObject(wheelClass);
+    Il2CppObject* view=FindLiveObject(wheelViewClass);
+
+    BOOL ok=TRUE;
+    Il2CppException* ex=0;
+    if (view && hideMethod) {
+        g_il2cpp.runtime_invoke(hideMethod,view,0,&ex);
+        if (ex) { FormatExceptionToLog(ex); ok=FALSE; }
+    } else ok=FALSE;
+
+    ex=0;
+    if (wheel && restoreMethod) {
+        g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&ex);
+        if (ex) { FormatExceptionToLog(ex); ok=FALSE; }
+    } else ok=FALSE;
+
+    g_dlcWheelActive=0;
+    LogA("[WHEEL] DLC native weapon wheel closed; native buttons restored");
+    return ok;
+}
+
+static void ExecuteNativeDlcWheel(BOOL show) {
+    if (!g_ready || g_shuttingDown) return;
+    BOOL attached=FALSE; void* thread=0;
+    if (!EnsureIl2CppThread(&attached,&thread)) return;
+
+    if (show) {
+        if (g_baseWheelActive) HideNativeBaseWeaponWheel();
+        ShowNativeDlcWeaponWheel();
+    } else {
+        HideNativeDlcWeaponWheel();
+    }
+
+    ReleaseIl2CppThread(attached,thread);
+}
+
 static BOOL SetCrosshairVisualAlpha(float alpha) {
     if (!g_crosshairControllerClass || !g_currentCrosshairField || !g_componentGetGameObject ||
         !g_gameObjectGetComponentsInChildren || !g_canvasRendererSetAlpha || !g_canvasRendererTypeObject) {
@@ -1090,6 +1283,7 @@ static void ExecuteCommandIndex(int i) {
     else if (StrEqA(g_cmds[i].className,"__InitDlcHook")) InitOwnedDlcHook();
     else if (StrEqA(g_cmds[i].className,"__WeaponKeysMode")) LogA("[KEYMAP] Weapon Keys Mode changed through its Argument field");
     else if (StrEqA(g_cmds[i].className,"__BaseWeaponWheel")) LogA("[WHEEL] Bind Base Weapon Wheel to a key, then HOLD that key to open it.");
+    else if (StrEqA(g_cmds[i].className,"__DlcWeaponWheel")) LogA("[WHEEL] Bind DLC Weapon Wheel to a key, then HOLD that key to open it. Empty-wheel fallback uses native GiveAllWeapons.");
     else if (StrEqA(g_cmds[i].className,"TimeScale")) ApplyTimeScaleToggle(i);
     else InvokeNativeCommand(i);
 
