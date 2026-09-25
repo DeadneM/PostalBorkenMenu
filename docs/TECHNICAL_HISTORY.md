@@ -548,3 +548,29 @@ Hook correction:
 - command display renamed DLC Hook Probe
 - probe now performs only ownership check, Hook/Grap method audit, get_Hook(), InitHook(), and final get_Hook()
 - V2A25 does not claim the hook itself is fixed; it removes the weapon-grant side effect and gathers cleaner evidence
+
+
+### V2A26
+
+Evidence from V2A25 user log:
+- DLC Hook Probe no longer invokes GiveAllWeapons
+- get_Hook() is null before direct InitHook()
+- InitHook() completes without an IL2CPP exception
+- get_Hook() remains null after InitHook()
+- V2A24 historical lines show get_Hook() already non-null after GiveAllWeapons(), before InitHook would have been needed
+
+Conclusion:
+- InitHook() alone is insufficient
+- a prerequisite state or object is created/configured elsewhere on the native GiveAllWeapons path
+- do not reintroduce GiveAllWeapons into the hook probe
+
+V2A26 diagnostic expansion:
+- add il2cpp_class_get_fields
+- add il2cpp_field_get_name
+- add il2cpp_method_get_return_type
+- log exact get_Hook return class metadata
+- dump fields of PlayerInventoryComponent and WeaponsInventory
+- scan Assembly-CSharp for class, namespace, method or field names containing Hook, Grap, Rope, Cable or Tether
+- for matching classes, dump methods, parameter counts, return classes and fields
+- keep get_Hook -> InitHook -> get_Hook as the only active hook mutation
+- no weapon grants are performed by the probe
