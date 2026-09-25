@@ -379,6 +379,7 @@ static CommandRec g_cmds[] = {
     {"LogTime", L"Log Time", L"LogTime", 0,0,0,0,0,0,0,{0}},
     {"GiveAll", L"Give All", L"GiveAll", VK_F6,0,0,0,0,0,0,{0}},
     {"__GiveAllWeapons", L"Give All Weapons", L"GiveAllWeapons", 0,0,0,0,0,0,0,{0}},
+    {"__CallDlcWeapon", L"Call DLC Weapon", L"CallDlcWeapon", 0,0,0,0,0,0,0,{L'1',0}},
     {"UnlockAll", L"Unlock All", L"UnlockAll", VK_F7,0,0,0,0,0,0,{0}},
     {"NoMenu", L"No Menu", L"NoMenu", 0,0,0,0,0,0,0,{0}},
     {"KillPresident", L"Kill President", L"KillPresident", 0,0,0,0,0,0,0,{0}},
