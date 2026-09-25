@@ -1200,7 +1200,6 @@ static void ExecuteNativeBaseWheel(BOOL show) {
     ReleaseIl2CppThread(attached,thread);
 }
 
-
 static int FilterNativeWheelForCategory(Il2CppObject* wheel,
                                         const FieldInfo* buttonsField,
                                         const MethodInfo* buttonGetWeapon,
