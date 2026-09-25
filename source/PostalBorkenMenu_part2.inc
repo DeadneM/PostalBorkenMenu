@@ -61,6 +61,17 @@ static Il2CppClass* g_timeManagerClass = 0;
 static const MethodInfo* g_timeScaleSetter = 0;
 static const MethodInfo* g_timeScaleGetter = 0;
 
+static Il2CppClass* g_weaponIdClass = 0;
+static Il2CppClass* g_dlcCategoryClass = 0;
+static Il2CppClass* g_downloadableContentClass = 0;
+static Il2CppClass* g_weaponsInventoryClass = 0;
+static const FieldInfo* g_weaponsControllerField = 0;
+static const MethodInfo* g_weaponGetCategory = 0;
+static const MethodInfo* g_isDlcPurchased = 0;
+static const MethodInfo* g_addWeapon = 0;
+static const MethodInfo* g_findObjectsOfTypeAll = 0;
+static Il2CppObject* g_weaponIdTypeObject = 0;
+
 static BOOL IsSynthetic(const char* n) {
     return n && n[0]=='_' && n[1]=='_';
 }
@@ -179,6 +190,129 @@ static BOOL GiveAllWeaponsOnly() {
     return TRUE;
 }
 
+static void LogUIntA(const char* prefix, unsigned int v) {
+    char b[192]; int p=0;
+    if (prefix) while (*prefix && p<170) b[p++]=*prefix++;
+    char tmp[16]; int n=0;
+    do { tmp[n++]=(char)('0'+(v%10)); v/=10; } while (v && n<15);
+    while (n>0 && p<190) b[p++]=tmp[--n];
+    b[p]=0; LogA(b);
+}
+
+static BOOL GiveLoadedOwnedDlcWeapons() {
+    if (!g_isDlcPurchased || !g_findObjectsOfTypeAll || !g_weaponIdTypeObject ||
+        !g_weaponGetCategory || !g_inventoryClass || !g_weaponsControllerField ||
+        !g_addWeapon) {
+        LogA("[ERROR] Loaded DLC Weapons probe bridge unresolved");
+        return FALSE;
+    }
+
+    int dlc=1; // Hyperstrange.Base.DLCCategory.PTSD / These Sunny Daze
+    void* ownPars[1]; ownPars[0]=&dlc;
+    Il2CppException* ex=0;
+    Il2CppObject* ownBox=g_il2cpp.runtime_invoke(g_isDlcPurchased,0,ownPars,&ex);
+    if (ex) {
+        LogA("[ERROR] IsDlcPurchased(PTSD) threw:");
+        FormatExceptionToLog(ex);
+        return FALSE;
+    }
+    if (!ownBox) {
+        LogA("[ERROR] IsDlcPurchased(PTSD) returned null");
+        return FALSE;
+    }
+    void* ownRaw=g_il2cpp.object_unbox(ownBox);
+    if (!ownRaw) {
+        LogA("[ERROR] IsDlcPurchased(PTSD) could not be unboxed");
+        return FALSE;
+    }
+    BOOL owned=(*(BYTE*)ownRaw)!=0;
+    LogA(owned ? "[DLC] These Sunny Daze ownership: YES" : "[DLC] These Sunny Daze ownership: NO");
+    if (!owned) {
+        LogA("[DLC] No weapons were granted. Ownership check remains enforced.");
+        return FALSE;
+    }
+
+    Il2CppObject* playerInv=FindLiveObject(g_inventoryClass);
+    if (!playerInv) {
+        LogA("[ERROR] PlayerInventoryComponent instance not found");
+        return FALSE;
+    }
+    Il2CppObject* weaponsInv=0;
+    g_il2cpp.field_get_value(playerInv,g_weaponsControllerField,&weaponsInv);
+    if (!weaponsInv) {
+        LogA("[ERROR] PlayerInventoryComponent._weaponsController is null");
+        return FALSE;
+    }
+
+    void* findPars[1]; findPars[0]=g_weaponIdTypeObject;
+    ex=0;
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(g_findObjectsOfTypeAll,0,findPars,&ex);
+    if (ex) {
+        LogA("[ERROR] Resources.FindObjectsOfTypeAll(WeaponId) threw:");
+        FormatExceptionToLog(ex);
+        return FALSE;
+    }
+    if (!arrObj) {
+        LogA("[ERROR] Resources.FindObjectsOfTypeAll(WeaponId) returned null");
+        return FALSE;
+    }
+
+    Il2CppArray* arr=(Il2CppArray*)arrObj;
+    SIZE_T n=g_il2cpp.array_length(arr);
+    LogUIntA("[DLC] Loaded WeaponId objects visible to Resources: ",(unsigned int)n);
+    if (n>1024) {
+        LogA("[WARN] Loaded WeaponId count exceeds defensive limit 1024; aborting probe.");
+        return FALSE;
+    }
+
+    unsigned int hdr=g_il2cpp.array_object_header_size();
+    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+    unsigned int noneCount=0, ptsdCount=0, otherCount=0, added=0, errors=0;
+
+    for (SIZE_T i=0;i<n;i++) {
+        Il2CppObject* weapon=elems[i];
+        if (!weapon) continue;
+
+        ex=0;
+        Il2CppObject* catBox=g_il2cpp.runtime_invoke(g_weaponGetCategory,weapon,0,&ex);
+        if (ex) { ++errors; continue; }
+        if (!catBox) { ++errors; continue; }
+        void* catRaw=g_il2cpp.object_unbox(catBox);
+        if (!catRaw) { ++errors; continue; }
+        int category=*(int*)catRaw;
+
+        if (category==0) ++noneCount;
+        else if (category==1) {
+            ++ptsdCount;
+            void* addPars[1]; addPars[0]=weapon;
+            ex=0;
+            g_il2cpp.runtime_invoke(g_addWeapon,weaponsInv,addPars,&ex);
+            if (ex) {
+                ++errors;
+                LogA("[WARN] WeaponsInventory.AddWeapon(PTSD WeaponId) threw:");
+                FormatExceptionToLog(ex);
+            } else {
+                ++added;
+            }
+        } else ++otherCount;
+    }
+
+    LogUIntA("[DLC] Loaded category NONE WeaponIds: ",noneCount);
+    LogUIntA("[DLC] Loaded category PTSD WeaponIds: ",ptsdCount);
+    LogUIntA("[DLC] Loaded other-category WeaponIds: ",otherCount);
+    LogUIntA("[DLC] AddWeapon calls completed: ",added);
+    if (errors) LogUIntA("[DLC] Probe errors: ",errors);
+
+    if (!ptsdCount) {
+        LogA("[DLC] No loaded PTSD WeaponId exists in this base-campaign level.");
+        LogA("[DLC] This confirms the DLC weapon assets/catalog are not loaded yet; no global game state was modified.");
+        return FALSE;
+    }
+
+    LogA("[OK] Loaded owned PTSD WeaponIds were passed to native WeaponsInventory.AddWeapon.");
+    return added>0;
+}
+
 static BOOL SetCrosshairVisualAlpha(float alpha) {
     if (!g_crosshairControllerClass || !g_currentCrosshairField || !g_componentGetGameObject ||
         !g_gameObjectGetComponentsInChildren || !g_canvasRendererSetAlpha || !g_canvasRendererTypeObject) {
@@ -278,6 +412,7 @@ static void ExecuteCommandIndex(int i) {
 
     if (StrEqA(g_cmds[i].className,"__NoCrosshair")) ToggleNoCrosshair();
     else if (StrEqA(g_cmds[i].className,"__GiveAllWeapons")) GiveAllWeaponsOnly();
+    else if (StrEqA(g_cmds[i].className,"__GiveLoadedDlcWeapons")) GiveLoadedOwnedDlcWeapons();
     else if (StrEqA(g_cmds[i].className,"TimeScale")) ApplyTimeScaleToggle(i);
     else InvokeNativeCommand(i);
 
@@ -350,6 +485,22 @@ static BOOL InitIl2Cpp() {
     g_inventoryClass=FindClassBySimpleName("PlayerInventoryComponent");
     g_giveAllWeapons=g_inventoryClass ? g_il2cpp.class_get_method_from_name(g_inventoryClass,"GiveAllWeapons",0) : 0;
 
+    g_weaponIdClass=FindClassBySimpleName("WeaponId");
+    g_dlcCategoryClass=FindClassBySimpleName("DLCCategory");
+    g_downloadableContentClass=FindClassBySimpleName("DownloadableContent");
+    g_weaponsInventoryClass=FindClassBySimpleName("WeaponsInventory");
+    g_weaponsControllerField=g_inventoryClass ? g_il2cpp.class_get_field_from_name(g_inventoryClass,"_weaponsController") : 0;
+    g_weaponGetCategory=g_weaponIdClass ? g_il2cpp.class_get_method_from_name(g_weaponIdClass,"get_Category",0) : 0;
+    g_isDlcPurchased=(g_downloadableContentClass && g_dlcCategoryClass) ? FindMethodExact(g_downloadableContentClass,"IsDlcPurchased",1,g_dlcCategoryClass) : 0;
+    g_addWeapon=(g_weaponsInventoryClass && g_weaponIdClass) ? FindMethodExact(g_weaponsInventoryClass,"AddWeapon",1,g_weaponIdClass) : 0;
+
+    Il2CppClass* resourcesClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Resources") : 0;
+    g_findObjectsOfTypeAll=resourcesClass ? FindMethodExact(resourcesClass,"FindObjectsOfTypeAll",1,g_systemTypeClass) : 0;
+    if (g_weaponIdClass) {
+        const Il2CppType* wt=g_il2cpp.class_get_type(g_weaponIdClass);
+        if (wt) g_weaponIdTypeObject=g_il2cpp.type_get_object(wt);
+    }
+
     g_crosshairControllerClass=FindClassBySimpleName("PlayerCrosshairController");
     g_currentCrosshairField=g_crosshairControllerClass ? g_il2cpp.class_get_field_from_name(g_crosshairControllerClass,"_currentCrosshair") : 0;
 
@@ -359,6 +510,11 @@ static BOOL InitIl2Cpp() {
 
     if (g_findObjectOfType2 && g_giveAllWeapons) LogA("[OK] Give All Weapons bridge resolved");
     else LogA("[WARN] Give All Weapons bridge incomplete");
+    if (g_isDlcPurchased && g_findObjectsOfTypeAll && g_weaponIdTypeObject && g_weaponGetCategory &&
+        g_weaponsControllerField && g_addWeapon)
+        LogA("[OK] Loaded DLC Weapons probe bridge resolved (ownership + Resources scan + native AddWeapon)");
+    else
+        LogA("[WARN] Loaded DLC Weapons probe bridge incomplete");
     if (g_findObjectOfType2 && g_crosshairControllerClass && g_currentCrosshairField && g_componentGetGameObject &&
         g_gameObjectGetComponentsInChildren && g_canvasRendererSetAlpha && g_canvasRendererTypeObject)
         LogA("[OK] No Crosshair CanvasRenderer bridge resolved");
