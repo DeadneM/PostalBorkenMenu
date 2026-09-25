@@ -622,3 +622,29 @@ V2A30 correction:
 - log get_Hook() before/after InitHook.
 - if a WeaponId exists, log get_Category() and get_Slot().
 - no GiveAllWeapons, AddWeapon or EquipWeapon is called by the probe.
+
+
+### V2A31
+
+V2A30 user log result:
+- V2A30 completed without the previous deep-probe crash.
+- V2A29 Base and DLC wheel behavior remained intact.
+- DLC empty native wheel shell opened and closed repeatedly.
+- shutdown remained clean through the V2A8 fence.
+- safe Hook probe showed _hookWeapon=NULL and get_Hook()=NULL before InitHook().
+- after native InitHook(), both values remained NULL.
+- user then invoked Give All Weapons immediately after the probe.
+
+Reason for V2A31:
+- older logs showed get_Hook() becoming non-null after GiveAllWeapons.
+- V2A30 did not yet snapshot hook state around the GiveAllWeapons call itself.
+- instrumentation is therefore placed around the validated native call rather than adding another speculative activation path.
+
+V2A31 instrumentation:
+- preserve GiveAllWeapons behavior exactly.
+- before call: targeted snapshot of WeaponsInventory._hookWeapon and get_Hook().
+- after call: same snapshot.
+- if a Hook WeaponId exists, log WeaponId.get_Category() and get_Slot().
+- compare _hookWeapon pointer with get_Hook() return.
+- no global metadata scan.
+- no extra AddWeapon / EquipWeapon / InitHook call.
