@@ -321,7 +321,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A8 EARLY SHUTDOWN + EVENT CROSSHAIR TEST");
+    LogA("PostalBorkenMenu V2A13 CALL DLC SLOT TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -330,7 +330,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] F1 overlay. Defaults: F2 God, F3 Noclip, F4 NoTarget, F5 NoHud, F6 GiveAll, F7 UnlockAll. Added rows remain unbound by default.");
+    LogA("[READY] F1 overlay. Defaults: F2 God, F3 Noclip, F4 NoTarget, F5 NoHud, F6 GiveAll, F7 UnlockAll. Call DLC Weapon is unbound by default.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
