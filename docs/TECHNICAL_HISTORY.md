@@ -674,3 +674,52 @@ V2A32 implementation:
 - never call GiveAllWeapons from the Hook test.
 - re-run get_Hook() and compare returned pointer to the exact candidate.
 - refuse mutation on ambiguity or failed collected-state inspection.
+
+
+### V2A33
+
+User request:
+- start from V2A32
+- add a Weapon Catalog function to identify all loaded weapons by name rather than only category/slot
+
+Implementation:
+- branch: dev/v2a33-weapon-catalog
+- V2A32 behavior preserved
+- added synthetic menu command __WeaponCatalog / "Weapon Catalog"
+- command lives in the Weapons tab
+- command is read-only
+
+Catalog data source:
+- UnityEngine.Resources.FindObjectsOfTypeAll(Hyperstrange.PBD.WeaponId)
+
+Per WeaponId logging:
+- array index
+- UnityEngine.Object.get_name()
+- WeaponId.ToString() when resolvable
+- WeaponId.get_Category()
+- WeaponId.get_Slot()
+- exact-object membership in PlayerInventoryComponent.get_CollectedWeapons()
+
+Category labels:
+- 0 = BASE / DLCCategory.NONE
+- 1 = PTSD / These Sunny Daze
+- any other value = OTHER
+
+String handling:
+- uses il2cpp_string_chars and il2cpp_string_length when exported
+- both helpers are optional and do not become new startup requirements
+- UTF-16 characters outside printable ASCII are replaced with '?' in the technical log only
+- if Unity names are unavailable, catalog continues and logs <empty>
+
+Safety:
+- no AddWeapon
+- no EquipWeapon
+- no GiveAllWeapons
+- no GiveAllDlcWeapons
+- no InitHook
+- no wheel mutation
+- no global Assembly-CSharp class scan
+
+Goal:
+- identify the real names of the 25 known Base WeaponIds, the loaded PTSD/DLC WeaponIds, and special entries such as category0/slot99
+- distinguish duplicate WeaponIds sharing the same slot
