@@ -1294,7 +1294,6 @@ static BOOL ShowNativeDlcWeaponWheel() {
         return FALSE;
     }
 
-    // Start from the game's own enabled-button state before classifying it.
     Il2CppException* ex=0;
     g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&ex);
     if (ex) {
@@ -1303,30 +1302,12 @@ static BOOL ShowNativeDlcWeaponWheel() {
     }
 
     int enabled=FilterNativeWheelForCategory(wheel,buttonsField,buttonGetWeapon,buttonEnable,getCategory,1,
-                                             "[WHEEL] DLC scan BEFORE native GiveAllWeapons fallback");
-
-    if (enabled<=0) {
-        LogA("[WHEEL] No DLC/PTSD button is currently usable. Running validated PlayerInventoryComponent.GiveAllWeapons().");
-        BOOL giveOk=GiveAllWeaponsOnly();
-        BOOL hookOk=InitOwnedDlcHook();
-        LogA(giveOk ? "[WHEEL] GiveAllWeapons fallback completed." : "[WHEEL] GiveAllWeapons fallback failed.");
-        LogA(hookOk ? "[WHEEL] Native DLC hook is initialized." : "[WHEEL] Native DLC hook init did not confirm an object.");
-
-        ex=0;
-        g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&ex);
-        if (ex) {
-            LogA("[WARN] EnableButtons() refresh threw after GiveAllWeapons:");
-            FormatExceptionToLog(ex);
-        }
-
-        enabled=FilterNativeWheelForCategory(wheel,buttonsField,buttonGetWeapon,buttonEnable,getCategory,1,
-                                             "[WHEEL] DLC scan AFTER native GiveAllWeapons + InitHook refresh");
-    }
+                                             "[WHEEL] Classic DLC wheel scan");
 
     if (enabled<=0) {
         ex=0;
         g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&ex);
-        LogA("[WHEEL] DLC wheel still has no native PTSD buttons after GiveAllWeapons. Collection likely contains base-wheel buttons only.");
+        LogA("[WHEEL] No DLC/PTSD buttons exist in the live native wheel; no fallback action performed.");
         return FALSE;
     }
 
@@ -1498,7 +1479,7 @@ static void ExecuteCommandIndex(int i) {
     else if (StrEqA(g_cmds[i].className,"__InitDlcHook")) InitOwnedDlcHook();
     else if (StrEqA(g_cmds[i].className,"__WeaponKeysMode")) LogA("[KEYMAP] Weapon Keys Mode changed through its Argument field");
     else if (StrEqA(g_cmds[i].className,"__BaseWeaponWheel")) LogA("[WHEEL] Bind Base Weapon Wheel to a key, then HOLD that key to open it.");
-    else if (StrEqA(g_cmds[i].className,"__DlcWeaponWheel")) LogA("[WHEEL] Bind DLC Weapon Wheel to a key, then HOLD that key to open it. Empty-wheel fallback uses native GiveAllWeapons.");
+    else if (StrEqA(g_cmds[i].className,"__DlcWeaponWheel")) LogA("[WHEEL] Bind DLC Weapon Wheel to a key, then HOLD that key to open the classic filtered DLC wheel.");
     else if (StrEqA(g_cmds[i].className,"TimeScale")) ApplyTimeScaleToggle(i);
     else InvokeNativeCommand(i);
 
