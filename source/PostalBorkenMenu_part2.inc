@@ -671,12 +671,134 @@ static BOOL InitOwnedDlcHook() {
     }
 
     if (hookGetterValue || hookFieldValue) {
-        LogA("[HOOK SAFE] Hook WeaponId is now available.");
+        LogA("[HOOK SLOT99] Hook WeaponId is already available after InitHook.");
         return TRUE;
     }
 
-    LogA("[HOOK SAFE] InitHook completed, but both _hookWeapon and get_Hook() remain null.");
-    return FALSE;
+    LogA("[HOOK SLOT99] InitHook left both _hookWeapon and get_Hook() null.");
+    LogA("[HOOK SLOT99] Searching loaded WeaponIds for the V2A31 signature: category 0 / slot 99.");
+
+    Il2CppClass* resourcesClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Resources") : 0;
+    const MethodInfo* findAll=resourcesClass ? FindMethodExact(resourcesClass,"FindObjectsOfTypeAll",1,g_systemTypeClass) : 0;
+    const MethodInfo* addWeapon=FindMethodExact(weaponsInventoryClass,"AddWeapon",1,weaponIdClass);
+    if (!resourcesClass || !findAll || !addWeapon) {
+        LogA("[ERROR] Hook slot99 Resources/AddWeapon bridge unresolved.");
+        return FALSE;
+    }
+
+    const Il2CppType* wt=g_il2cpp.class_get_type(weaponIdClass);
+    Il2CppObject* typeObj=wt ? g_il2cpp.type_get_object(wt) : 0;
+    if (!typeObj) {
+        LogA("[ERROR] Hook slot99 WeaponId System.Type unavailable.");
+        return FALSE;
+    }
+
+    void* findPars[1]; findPars[0]=typeObj;
+    ex=0;
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(findAll,0,findPars,&ex);
+    if (ex) {
+        LogA("[ERROR] Hook slot99 Resources.FindObjectsOfTypeAll(WeaponId) threw:");
+        FormatExceptionToLog(ex);
+        return FALSE;
+    }
+    if (!arrObj) {
+        LogA("[ERROR] Hook slot99 WeaponId scan returned null.");
+        return FALSE;
+    }
+
+    Il2CppArray* arr=(Il2CppArray*)arrObj;
+    SIZE_T n=g_il2cpp.array_length(arr);
+    if (n>1024) {
+        LogA("[ERROR] Hook slot99 WeaponId scan exceeded defensive limit.");
+        return FALSE;
+    }
+
+    unsigned int hdr=g_il2cpp.array_object_header_size();
+    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+    Il2CppObject* candidate=0;
+    int matches=0;
+
+    for (SIZE_T i=0;i<n;i++) {
+        Il2CppObject* weapon=elems[i];
+        if (!weapon) continue;
+
+        ex=0;
+        Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,weapon,0,&ex);
+        if (ex || !catBox || !g_il2cpp.object_unbox(catBox)) continue;
+        int category=*(int*)g_il2cpp.object_unbox(catBox);
+        if (category!=0) continue;
+
+        ex=0;
+        Il2CppObject* slotBox=g_il2cpp.runtime_invoke(getSlot,weapon,0,&ex);
+        if (ex || !slotBox || !g_il2cpp.object_unbox(slotBox)) continue;
+        int slot=*(int*)g_il2cpp.object_unbox(slotBox);
+        if (slot!=99) continue;
+
+        ++matches;
+        if (!candidate) candidate=weapon;
+    }
+
+    LogIntA("[HOOK SLOT99] Loaded category0/slot99 WeaponId matches: ",matches);
+    if (matches!=1 || !candidate) {
+        LogA("[HOOK SLOT99] Refusing mutation because the slot99 candidate is not unique.");
+        return FALSE;
+    }
+
+    int collected=IsWeaponCollected(playerInv,inventoryClass,candidate);
+    if (collected==1) {
+        LogA("[HOOK SLOT99] Candidate is already in CollectedWeapons; AddWeapon skipped.");
+    } else {
+        if (collected<0)
+            LogA("[HOOK SLOT99] CollectedWeapons could not be inspected; refusing AddWeapon.");
+        if (collected<0) return FALSE;
+
+        LogA("[HOOK SLOT99] Candidate is not collected; invoking native AddWeapon ONLY (no EquipWeapon).");
+        void* addPars[1]; addPars[0]=candidate;
+        ex=0;
+        g_il2cpp.runtime_invoke(addWeapon,weaponsInv,addPars,&ex);
+        if (ex) {
+            LogA("[ERROR] Hook slot99 AddWeapon threw:");
+            FormatExceptionToLog(ex);
+            return FALSE;
+        }
+        LogA("[HOOK SLOT99] Native AddWeapon(category0/slot99) completed.");
+    }
+
+    ex=0;
+    hookGetterValue=g_il2cpp.runtime_invoke(getHook,weaponsInv,0,&ex);
+    if (ex) {
+        LogA("[ERROR] get_Hook() after slot99 AddWeapon threw:");
+        FormatExceptionToLog(ex);
+        return FALSE;
+    }
+
+    LogA(hookGetterValue ? "[HOOK SLOT99] get_Hook() AFTER slot99 AddWeapon: NON-NULL"
+                         : "[HOOK SLOT99] get_Hook() AFTER slot99 AddWeapon: NULL");
+
+    hookFieldValue=0;
+    g_il2cpp.field_get_value(weaponsInv,hookWeaponField,&hookFieldValue);
+    LogA(hookFieldValue ? "[HOOK SLOT99] _hookWeapon AFTER slot99 AddWeapon: NON-NULL"
+                        : "[HOOK SLOT99] _hookWeapon AFTER slot99 AddWeapon: NULL");
+
+    if (!hookGetterValue) {
+        LogA("[HOOK SLOT99] AddWeapon(slot99) was insufficient to expose the Hook WeaponId.");
+        return FALSE;
+    }
+
+    LogA(hookGetterValue==candidate ? "[HOOK SLOT99] SUCCESS: get_Hook() returns the exact category0/slot99 candidate."
+                                    : "[HOOK SLOT99] get_Hook() is non-null but returns a different WeaponId pointer.");
+
+    ex=0;
+    Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,hookGetterValue,0,&ex);
+    if (!ex && catBox && g_il2cpp.object_unbox(catBox))
+        LogIntA("[HOOK SLOT99] get_Hook() category: ",*(int*)g_il2cpp.object_unbox(catBox));
+
+    ex=0;
+    Il2CppObject* slotBox=g_il2cpp.runtime_invoke(getSlot,hookGetterValue,0,&ex);
+    if (!ex && slotBox && g_il2cpp.object_unbox(slotBox))
+        LogIntA("[HOOK SLOT99] get_Hook() slot: ",*(int*)g_il2cpp.object_unbox(slotBox));
+
+    return TRUE;
 }
 
 static BOOL EquipOwnedDlcWeaponInSlot(int cmdIndex) {
