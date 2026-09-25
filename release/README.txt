@@ -1,87 +1,72 @@
-PostalBorkenMenu V2A34 TEST
+PostalBorkenMenu V2A36 RECOVERY TEST
 POSTAL: Brain-Damaged
 
 IMPORTANT
-- Remove -debug from the game's launch options.
-- F1 opens/closes the PostalBorkenMenu overlay.
-- PostalBorkenMenu.log is generated automatically at runtime and is not included in this archive.
+- This build is a recovery candidate, built from V2A34.
+- Remove -debug from launch options.
+- PostalBorkenMenu.log is generated automatically at runtime and is not included in the ZIP.
 
-V2A34 PURPOSE
-Fix the V2A33 Weapon Catalog command dispatch bug.
+WHY V2A36 EXISTS
+After the V2A32 Hook isolation test, the exact WeaponId:
+WEAPON_Hook
+category 0 / slot 99
+was added to PlayerInventoryComponent.CollectedWeapons with native AddWeapon().
 
-V2A33 RESULT
-The Weapon Catalog row was present in the Weapons tab, but pressing RUN reached the generic native-command path and logged:
-[ERROR] Requested native command is unresolved
+The following launch tests then crashed after the intro/profile transition even after rolling back from V2A35 to V2A34.
 
-Cause:
-- RunWeaponCatalog() existed.
-- the UI row existed.
-- the Weapons-tab mapping existed.
-- but the active ExecuteCommandIndex() implementation in source/PostalBorkenMenu_part2.inc did not contain the __WeaponCatalog branch.
+V2A36 tests the narrow hypothesis that WEAPON_Hook persisted in the player profile and is now being loaded at an unsafe point.
 
-V2A34 CHANGE
-Adds exactly:
-__WeaponCatalog -> RunWeaponCatalog()
+RECOVERY BEHAVIOR
+V2A36 starts from V2A34 and adds one startup cleanup window.
 
-to the active command dispatcher.
+Before creating the overlay or subclassing the game window, it waits up to 20 seconds for PlayerInventoryComponent to exist.
 
-No Weapon Catalog logic itself is changed.
+Once available it:
+1. resolves the exact Unity WeaponId named WEAPON_Hook
+2. requires exactly one matching object
+3. reads PlayerInventoryComponent.get_CollectedWeapons()
+4. checks whether the exact WEAPON_Hook object is in that collection
+5. if absent, reports that the profile is already clean and changes nothing
+6. if present, resolves the collection's native Remove(one argument) method
+7. calls Remove(WEAPON_Hook) only
+8. verifies the exact Hook object is no longer present
 
-WEAPON CATALOG
-RUN "Weapon Catalog" in F1 -> Weapons.
+V2A36 DOES NOT
+- call GiveAllWeapons
+- call GiveAllDlcWeapons
+- call AddWeapon
+- call EquipWeapon
+- call InitHook
+- modify _hookWeapon
+- modify Weapon Wheels
+- modify save files directly
+- enumerate Assembly-CSharp classes globally
 
-It enumerates loaded Hyperstrange.PBD.WeaponId objects and logs:
-- index
-- UnityEngine.Object.name
-- WeaponId.ToString() when available
-- category
-- category label
-- slot
-- collected YES / NO / UNKNOWN
+EXPECTED LOG
+[RECOVERY] Startup Hook cleanup window armed.
+[RECOVERY] Exact WEAPON_Hook matches: 1
 
-The catalog is read-only.
+Then either:
+[RECOVERY] WEAPON_Hook is not in CollectedWeapons. Profile is already clean.
 
-HOOK RESULT PRESERVED
-The latest user log also validates the V2A32 Hook isolation:
-- category0 / slot99 candidate count = 1
-- candidate not collected initially
-- native AddWeapon(slot99) completed
-- get_Hook() became NON-NULL
-- _hookWeapon remained NULL
-- get_Hook() returned the exact slot99 candidate
-- category 0 / slot 99
+or:
+[RECOVERY] WEAPON_Hook found in CollectedWeapons. Invoking collection Remove(WEAPON_Hook) ONLY.
+[RECOVERY] Collection Remove() returned TRUE.
+[RECOVERY] SUCCESS: WEAPON_Hook removed from CollectedWeapons.
 
-Therefore AddWeapon of the unique category0/slot99 WeaponId is sufficient to expose the native Hook WeaponId without EquipWeapon or GiveAllWeapons.
+TEST
+1. Replace the current ASI/INI with the files in this archive.
+2. Start the game normally.
+3. Do not press F1 and do not use Hook Probe.
+4. Check whether the game gets past the intro/profile transition.
+5. Send PostalBorkenMenu.log.
 
-PRESERVED
-- V2A29 V2A20-style Base Weapon Wheel
-- V2A29 empty DLC wheel shell
-- V2A25 Weapon List / Arguments
-- ALT behavior
-- V2A30 safe Hook probe
-- V2A31 GiveAll Hook snapshots
-- V2A32 slot99 Hook isolation
-- V2A33 non-destructive Weapon Catalog implementation
-- V2A8 clean shutdown
-- No Crosshair
-- TimeScale
-- DLC ownership checks
+If recovery succeeds and the game reaches the menu, exit the game normally once before further testing.
 
 PACKAGE CONTENTS
 PostalBorkenMenu.asi
 PostalBorkenMenu.ini
 README.txt
-
-PostalBorkenMenu.log is runtime-generated and is not included.
-
-TEST
-1. Start the game.
-2. F1 -> Weapons -> Weapon Catalog -> RUN.
-3. Send PostalBorkenMenu.log.
-4. The expected block begins with:
-   [WEAPON CATALOG] ===== BEGIN =====
-and ends with:
-   [WEAPON CATALOG] ===== END =====
 
 PROJECT
 https://github.com/DeadneM/PostalBorkenMenu
