@@ -750,6 +750,8 @@ static void ExecuteCommandIndex(int i) {
     else if (StrEqA(g_cmds[i].className,"__GiveAllWeapons")) GiveAllWeaponsOnly();
     else if (StrEqA(g_cmds[i].className,"__EquipDlcWeapon")) EquipOwnedDlcWeaponInSlot(i);
     else if (StrEqA(g_cmds[i].className,"__EquipBaseWeapon")) EquipBaseWeaponInSlot(i);
+    else if (StrEqA(g_cmds[i].className,"__BaseWeaponShortcut1") || StrEqA(g_cmds[i].className,"__BaseWeaponShortcut2")) EquipBaseWeaponInSlot(i);
+    else if (StrEqA(g_cmds[i].className,"__DlcWeaponShortcut1") || StrEqA(g_cmds[i].className,"__DlcWeaponShortcut2")) EquipOwnedDlcWeaponInSlot(i);
     else if (StrEqA(g_cmds[i].className,"__GiveAllDlcWeapons")) GiveAllOwnedDlcWeapons();
     else if (StrEqA(g_cmds[i].className,"__WeaponKeysMode")) LogA("[KEYMAP] Weapon Keys Mode changed through its Argument field");
     else if (StrEqA(g_cmds[i].className,"TimeScale")) ApplyTimeScaleToggle(i);
