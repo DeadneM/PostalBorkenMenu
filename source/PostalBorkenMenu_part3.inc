@@ -477,7 +477,7 @@ static void PollHotkeys() {
         }
 
         // Both weapon wheels are HOLD interactions. The base wheel keeps the
-        // validated V2A20 path; the DLC wheel uses the V2A22 GiveAllWeapons fallback.
+        // validated V2A20 path; the DLC wheel uses the classic category-filtered path with no GiveAllWeapons fallback.
         if (g_ready && !g_shuttingDown && !g_menuVisible) {
             for(int i=0;i<CMD_COUNT;i++) {
                 if(!g_cmds[i].vk || g_cmds[i].vk!=vk) continue;
@@ -573,7 +573,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A26 HOOK DEEP DISCOVERY TEST");
+    LogA("PostalBorkenMenu V2A27 CLASSIC DUAL WHEEL RESTORE TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -582,7 +582,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Weapon List / Visual. V2A25 weapon list preserved; deep hook discovery active.");
+    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Weapon List / Visual. Classic Base/DLC wheels restored; deep hook discovery preserved.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
