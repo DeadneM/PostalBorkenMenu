@@ -1,9 +1,9 @@
-name: Build V2A25 Weapon List Arguments + Pure Hook Probe
+name: Build V2A26 Hook Deep Discovery
 
 on:
   push:
     branches:
-      - dev/v2a25-weapon-list-args-hook-clean
+      - dev/v2a26-hook-deep-discovery
   workflow_dispatch:
 
 permissions:
@@ -38,7 +38,7 @@ jobs:
         run: |
           Get-FileHash build\PostalBorkenMenu.asi -Algorithm SHA256 | Format-List
 
-      - name: Stage V2A25 package
+      - name: Stage V2A26 package
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path package | Out-Null
@@ -52,14 +52,14 @@ jobs:
           $files = Get-ChildItem package -File | Select-Object -ExpandProperty Name
           $expected = @('PostalBorkenMenu.asi','PostalBorkenMenu.ini','README.txt')
           if (Compare-Object ($files | Sort-Object) ($expected | Sort-Object)) {
-            Write-Error "Unexpected V2A25 package contents"
+            Write-Error "Unexpected V2A26 package contents"
             exit 1
           }
           Get-ChildItem package -File | Format-Table Name,Length
 
-      - name: Upload V2A25 package
+      - name: Upload V2A26 package
         uses: actions/upload-artifact@v4
         with:
-          name: POSTAL_Brain_Damaged_PostalBorkenMenu_V2A25_WEAPON_LIST_ARGS_HOOK_PROBE_TEST
+          name: POSTAL_Brain_Damaged_PostalBorkenMenu_V2A26_HOOK_DEEP_DISCOVERY_TEST
           path: package/*
           if-no-files-found: error
