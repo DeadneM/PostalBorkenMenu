@@ -374,6 +374,169 @@ static void CatalogManagedStringToAscii(Il2CppString* str, char* out, int cap) {
     out[n]=0;
 }
 
+static int TryRemovePersistedHookRecovery() {
+    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    Il2CppClass* inventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerInventoryComponent") : 0;
+    Il2CppClass* resourcesClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Resources") : 0;
+    Il2CppClass* unityObjectClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Object") : 0;
+    if (!weaponIdClass || !inventoryClass || !resourcesClass || !unityObjectClass)
+        return 0;
+
+    if (!g_il2cpp.string_chars || !g_il2cpp.string_length)
+        return 0;
+
+    Il2CppObject* playerInv=FindLiveObject(inventoryClass);
+    if (!playerInv) return 0;
+
+    const MethodInfo* getCollected=g_il2cpp.class_get_method_from_name(inventoryClass,"get_CollectedWeapons",0);
+    const MethodInfo* getName=g_il2cpp.class_get_method_from_name(unityObjectClass,"get_name",0);
+    const MethodInfo* findAll=FindMethodExact(resourcesClass,"FindObjectsOfTypeAll",1,g_systemTypeClass);
+    if (!getCollected || !getName || !findAll) {
+        LogA("[RECOVERY] Hook recovery bridge unresolved.");
+        return -1;
+    }
+
+    Il2CppException* ex=0;
+    Il2CppObject* collection=g_il2cpp.runtime_invoke(getCollected,playerInv,0,&ex);
+    if (ex) {
+        LogA("[RECOVERY] get_CollectedWeapons() threw:");
+        FormatExceptionToLog(ex);
+        return -1;
+    }
+    if (!collection) {
+        LogA("[RECOVERY] CollectedWeapons is null; waiting for inventory initialization.");
+        return 0;
+    }
+
+    const Il2CppType* wt=g_il2cpp.class_get_type(weaponIdClass);
+    Il2CppObject* typeObj=wt ? g_il2cpp.type_get_object(wt) : 0;
+    if (!typeObj) return 0;
+
+    void* findPars[1]; findPars[0]=typeObj;
+    ex=0;
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(findAll,0,findPars,&ex);
+    if (ex) {
+        LogA("[RECOVERY] FindObjectsOfTypeAll(WeaponId) threw:");
+        FormatExceptionToLog(ex);
+        return -1;
+    }
+    if (!arrObj) return 0;
+
+    Il2CppArray* arr=(Il2CppArray*)arrObj;
+    SIZE_T n=g_il2cpp.array_length(arr);
+    if (n>1024) {
+        LogA("[RECOVERY] WeaponId scan exceeded defensive limit.");
+        return -1;
+    }
+
+    unsigned int hdr=g_il2cpp.array_object_header_size();
+    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+    Il2CppObject* hook=0;
+    int matches=0;
+
+    for (SIZE_T i=0;i<n;i++) {
+        Il2CppObject* weapon=elems[i];
+        if (!weapon) continue;
+
+        ex=0;
+        Il2CppObject* nameObj=g_il2cpp.runtime_invoke(getName,weapon,0,&ex);
+        if (ex || !nameObj) continue;
+
+        char unityName[256]; unityName[0]=0;
+        CatalogManagedStringToAscii((Il2CppString*)nameObj,unityName,256);
+        if (!StrEqA(unityName,"WEAPON_Hook")) continue;
+
+        ++matches;
+        if (!hook) hook=weapon;
+    }
+
+    LogIntA("[RECOVERY] Exact WEAPON_Hook matches: ",matches);
+    if (matches!=1 || !hook) {
+        LogA("[RECOVERY] Refusing mutation because WEAPON_Hook is not unique.");
+        return -1;
+    }
+
+    int before=CollectionContainsWeaponId(collection,hook);
+    if (before==0) {
+        LogA("[RECOVERY] WEAPON_Hook is not in CollectedWeapons. Profile is already clean.");
+        return 1;
+    }
+    if (before<0) {
+        LogA("[RECOVERY] Could not inspect Hook membership; refusing mutation.");
+        return -1;
+    }
+
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+    if (!objectGetClass) {
+        LogA("[RECOVERY] il2cpp_object_get_class unavailable.");
+        return -1;
+    }
+
+    Il2CppClass* collectionClass=objectGetClass(collection);
+    if (!collectionClass) return -1;
+
+    const MethodInfo* removeMethod=g_il2cpp.class_get_method_from_name(collectionClass,"Remove",1);
+    if (!removeMethod) {
+        LogA("[RECOVERY] CollectedWeapons collection has no Remove(WeaponId) method.");
+        return -1;
+    }
+
+    LogA("[RECOVERY] WEAPON_Hook found in CollectedWeapons. Invoking collection Remove(WEAPON_Hook) ONLY.");
+    void* removePars[1]; removePars[0]=hook;
+    ex=0;
+    Il2CppObject* removedBox=g_il2cpp.runtime_invoke(removeMethod,collection,removePars,&ex);
+    if (ex) {
+        LogA("[RECOVERY] Remove(WEAPON_Hook) threw:");
+        FormatExceptionToLog(ex);
+        return -1;
+    }
+
+    if (removedBox && g_il2cpp.object_unbox(removedBox)) {
+        BOOL removed=(*(BYTE*)g_il2cpp.object_unbox(removedBox))!=0;
+        LogA(removed ? "[RECOVERY] Collection Remove() returned TRUE."
+                     : "[RECOVERY] Collection Remove() returned FALSE.");
+    }
+
+    int after=CollectionContainsWeaponId(collection,hook);
+    if (after==0) {
+        LogA("[RECOVERY] SUCCESS: WEAPON_Hook removed from CollectedWeapons.");
+        return 1;
+    }
+
+    LogA("[RECOVERY] Hook is still present after Remove(); recovery not confirmed.");
+    return -1;
+}
+
+static BOOL RunStartupHookRecoveryWindow() {
+    LogA("[RECOVERY] Startup Hook cleanup window armed.");
+    LogA("[RECOVERY] Waiting for PlayerInventoryComponent, up to 20 seconds.");
+
+    for (int attempt=0; attempt<400 && !g_shuttingDown; ++attempt) {
+        BOOL attached=FALSE; void* thread=0;
+        if (EnsureIl2CppThread(&attached,&thread)) {
+            int state=TryRemovePersistedHookRecovery();
+            ReleaseIl2CppThread(attached,thread);
+
+            if (state==1) {
+                LogA("[RECOVERY] Startup Hook cleanup finished.");
+                return TRUE;
+            }
+            if (state<0) {
+                LogA("[RECOVERY] Startup Hook cleanup hit a hard failure; no further mutation attempted.");
+                return FALSE;
+            }
+        }
+
+        if (attempt==0 || attempt==99 || attempt==199 || attempt==299)
+            LogA("[RECOVERY] Player inventory not ready yet...");
+        Sleep(50);
+    }
+
+    LogA("[RECOVERY] Timeout: PlayerInventoryComponent never became safely recoverable.");
+    return FALSE;
+}
+
 static BOOL RunWeaponCatalog() {
     Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
     Il2CppClass* inventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerInventoryComponent") : 0;
