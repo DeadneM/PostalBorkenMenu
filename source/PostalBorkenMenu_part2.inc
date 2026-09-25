@@ -208,6 +208,8 @@ static void LogIntA(const char* prefix, int v) {
 }
 
 
+static BOOL IsTheseSunnyDazeOwned();
+
 static int CollectionContainsWeaponId(Il2CppObject* collection, Il2CppObject* weapon) {
     if (!collection || !weapon) return 0;
 
