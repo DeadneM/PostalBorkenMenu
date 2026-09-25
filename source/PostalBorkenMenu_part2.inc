@@ -691,7 +691,7 @@ static BOOL GiveAllOwnedDlcWeapons() {
     return (added+already)>0;
 }
 
-static BOOL EquipMappedWeaponCategorySlot(int category, int wantedSlot) {
+static BOOL EquipMappedWeaponCategorySlot(int category, int wantedSlot, BOOL altNoReswap=FALSE) {
     if (wantedSlot<1 || wantedSlot>9) return FALSE;
     if (category==1 && !IsTheseSunnyDazeOwned()) return FALSE;
 
@@ -757,6 +757,17 @@ static BOOL EquipMappedWeaponCategorySlot(int category, int wantedSlot) {
         return FALSE;
     }
 
+    if (altNoReswap) {
+        int collected=IsWeaponCollected(playerInv,inventoryClass,selected);
+        if (collected==1) {
+            LogA(category==1 ? "[KEYMAP][ALT] DLC WeaponId already collected; leaving native current weapon unchanged."
+                             : "[KEYMAP][ALT] BASE WeaponId already collected; leaving native current weapon unchanged.");
+            return TRUE;
+        }
+        if (collected<0)
+            LogA("[KEYMAP][ALT] CollectedWeapons state unavailable; using validated safe Add/Equip fallback.");
+    }
+
     BOOL ok=SafeAddAndEquipWeaponId(playerInv,weaponsInv,inventoryClass,weaponsInventoryClass,weaponIdClass,selected,
                                         category==1 ? "[KEYMAP] AddWeapon(DLC) completed" : "[KEYMAP] AddWeapon(BASE) completed");
     if (!ok) return FALSE;
@@ -773,17 +784,17 @@ static void ExecuteWeaponKeyMapping(int slot, int mode) {
     if (!EnsureIl2CppThread(&attached,&thread)) return;
 
     if (mode==1) {
-        EquipMappedWeaponCategorySlot(0,slot);
+        EquipMappedWeaponCategorySlot(0,slot,FALSE);
     } else if (mode==2) {
-        EquipMappedWeaponCategorySlot(1,slot);
+        EquipMappedWeaponCategorySlot(1,slot,FALSE);
     } else if (mode==3) {
         // ALT starts with DLC because the game's own number-key handler has
         // already selected its base weapon on key-down. On the next press of
         // that same slot, switch back to base, then DLC, etc.
         int category=(g_altSlotFlip[slot] & 1) ? 0 : 1;
         g_altSlotFlip[slot]^=1;
-        if (!EquipMappedWeaponCategorySlot(category,slot))
-            EquipMappedWeaponCategorySlot(category==1 ? 0 : 1,slot);
+        if (!EquipMappedWeaponCategorySlot(category,slot,TRUE))
+            EquipMappedWeaponCategorySlot(category==1 ? 0 : 1,slot,TRUE);
     }
 
     ReleaseIl2CppThread(attached,thread);
