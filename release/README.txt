@@ -1,112 +1,88 @@
-PostalBorkenMenu V2A23 TEST
+PostalBorkenMenu V2A24 TEST
 POSTAL: Brain-Damaged
 
 IMPORTANT
 - Remove -debug from the game's launch options.
 - F1 opens/closes the PostalBorkenMenu overlay.
-- This package intentionally does NOT contain PostalBorkenMenu.log.
-- PostalBorkenMenu.log is generated automatically at runtime.
+- PostalBorkenMenu.log is generated automatically at runtime and is not shipped in this archive.
 
-CURRENT STABLE FOUNDATION
-V2A8 remains the validated stability foundation:
-- x64 ASI / Unity IL2CPP bridge
-- reliable async hotkeys
-- persistent INI settings
-- Give All Weapons without quest items
-- TimeScale default 0.5x; clicking the same non-1.0 value again returns to 1.0x
-- visual-only No Crosshair via CanvasRenderer alpha
-- early shutdown fencing and clean game exit
-- no permanent IL2CPP worker attachment
-- no permanent command GC handles
-- no EXE, GameAssembly.dll or UnityPlayer.dll patching
+V2A24 CHANGES
 
-WEAPON / DLC DEVELOPMENT LINE
-V2A15+
-- owned These Sunny Daze DLC weapons can be enumerated through WeaponId category PTSD
-- ownership checks remain enforced
-- direct AddWeapon / EquipWeapon experiments were added
+1. CLEAN WEAPONS TAB
+The following legacy rows were removed from the menu:
+- Equip DLC Weapon
+- Equip Base Weapon
+- Base Weapon 1
+- Base Weapon 2
+- DLC Weapon 1
+- DLC Weapon 2
 
-V2A20
-- Gameplay / Weapons / Visual submenus
-- weapon shortcuts and Weapon Keys Mode
-- base native weapon wheel retained
+The WEAPONS tab now keeps the global weapon systems such as:
+- Give All
+- Give All Weapons
+- Give All DLC Weapons
+- Give / Init DLC Hook
+- Weapon Keys Mode
+- Base Weapon Wheel
+- DLC Weapon Wheel
 
-V2A21
-- safe weapon path:
-  * already collected weapon -> skip duplicate AddWeapon
-  * not collected -> AddWeapon
-  * direct selection can still EquipWeapon
-- DLC hook probe through WeaponsInventory.get_Hook() / InitHook()
+2. NEW WEAPON LIST TAB
+A fourth tab named WEAPON LIST was added.
 
-V2A22
-- restored a second independent DLC Weapon Wheel test
-- Base Weapon Wheel and DLC Weapon Wheel can be bound to separate HOLD keys
-- DLC wheel scans PlayerWeaponWheelComponent._weaponWheelButtons
-- WeaponId category 0 = base game
-- WeaponId category 1 = PTSD / These Sunny Daze DLC
-- if no DLC/PTSD wheel button is available, the mod:
-  1. calls the validated native PlayerInventoryComponent.GiveAllWeapons()
-  2. checks/initializes WeaponsInventory.InitHook()
-  3. calls PlayerWeaponWheelComponent.EnableButtons()
-  4. rescans the native wheel collection
-- user result: the DLC wheel appears to give/add the weapons, which is promising
-- regression found: ALT became unreliable because V2A22 incorrectly skipped EquipWeapon when the target WeaponId was already collected
+Rows are fixed in this order:
+1 Base Weapon 1
+1 DLC Weapon 1
+2 Base Weapon 2
+2 DLC Weapon 2
+3 Base Weapon 3
+3 DLC Weapon 3
+4 Base Weapon 4
+4 DLC Weapon 4
+5 Base Weapon 5
+5 DLC Weapon 5
+6 Base Weapon 6
+6 DLC Weapon 6
+7 Base Weapon 7
+7 DLC Weapon 7
+8 Base Weapon 8
+8 DLC Weapon 8
+9 Base Weapon 9
+9 DLC Weapon 9
 
-V2A23
-- based directly on V2A22
-- keeps the dual native wheel experiment unchanged
-- fixes only the ALT regression
+Every row has its own RUN action and its own assignable KEY.
+There is no editable slot argument anymore for these rows.
 
-ALT RULE IN V2A23
-The game's normal number-key handler selects the base-game weapon first.
-ALT then needs the mod's post-vanilla EquipWeapon call to switch to the alternate DLC/base entry.
+Execution uses the same safe native WeaponId path:
+- if the target is not collected: AddWeapon then EquipWeapon
+- if already collected: skip duplicate AddWeapon, but EquipWeapon is still allowed
+- DLC ownership checks remain enforced
 
-Therefore:
-- already collected target -> skip AddWeapon, but still call EquipWeapon
-- missing target -> AddWeapon, then EquipWeapon
-- never suppress EquipWeapon merely because the WeaponId is already owned
+3. DLC HOOK AUDIT
+The previous InitHook-only attempt did not make the DLC hook usable.
 
-This restores the intended BASE / DLC alternation while keeping duplicate AddWeapon protection.
+V2A24 keeps the native attempt but now:
+- runs the validated PlayerInventoryComponent.GiveAllWeapons() path first
+- scans PlayerInventoryComponent methods for names containing Hook or Grap
+- scans WeaponsInventory methods for names containing Hook or Grap
+- logs each matching method and its parameter count
+- calls the known WeaponsInventory.InitHook() path
+- checks get_Hook() again
 
-DUAL WHEEL TEST
-Bind:
-- Base Weapon Wheel = one key
-- DLC Weapon Wheel = another key
+This is intentionally a diagnostic step. If the hook still does not work, run Give / Init DLC Hook once and send the newly generated PostalBorkenMenu.log. The log should expose the actual game-side Hook/Grap API so the next build can target it directly.
 
-Hold the selected key to open its wheel.
-Release it to close/select.
+PRESERVED
+- V2A8 shutdown/lifetime stability model
+- No Crosshair visual-only behavior
+- TimeScale toggle behavior
+- async hotkeys
+- ALT weapon mode from V2A23
+- Base and DLC weapon wheels from V2A22
+- normal These Sunny Daze ownership checks
 
-For the DLC wheel, test preferably before manually running Give All Weapons.
-If it gives the DLC weapons automatically, that is expected in V2A23 when the fallback path is triggered.
-
-DLC OWNERSHIP
-These Sunny Daze ownership checks remain active.
-This mod does not bypass DLC entitlement.
-
-DEFAULT CONTROLS
-F1  Menu
-F2  God Mode
-F3  Noclip
-F4  No Target
-F5  No HUD
-F6  Give All
-F7  Unlock All
-
-PACKAGING
-This archive contains exactly:
-- PostalBorkenMenu.asi
-- PostalBorkenMenu.ini
-- README.txt
-
-PostalBorkenMenu.log is generated by the mod at runtime and is not shipped.
-
-TEST PRIORITY
-1. Test ALT on slots that have both base and DLC variants.
-2. Confirm repeated presses alternate correctly again.
-3. Test Base Weapon Wheel.
-4. Test DLC Weapon Wheel before manually using Give All Weapons.
-5. Confirm whether DLC weapons are added when the DLC wheel fallback runs.
-6. Confirm clean game exit.
+PACKAGE CONTENTS
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
 
 PROJECT
 https://github.com/DeadneM/PostalBorkenMenu
