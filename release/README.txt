@@ -1,4 +1,4 @@
-PostalBorkenMenu V2A33 TEST
+PostalBorkenMenu V2A34 TEST
 POSTAL: Brain-Damaged
 
 IMPORTANT
@@ -6,55 +6,62 @@ IMPORTANT
 - F1 opens/closes the PostalBorkenMenu overlay.
 - PostalBorkenMenu.log is generated automatically at runtime and is not included in this archive.
 
-V2A33 PURPOSE
-Start strictly from V2A32 and add one new read-only function:
-Weapon Catalog
+V2A34 PURPOSE
+Fix the V2A33 Weapon Catalog command dispatch bug.
+
+V2A33 RESULT
+The Weapon Catalog row was present in the Weapons tab, but pressing RUN reached the generic native-command path and logged:
+[ERROR] Requested native command is unresolved
+
+Cause:
+- RunWeaponCatalog() existed.
+- the UI row existed.
+- the Weapons-tab mapping existed.
+- but the active ExecuteCommandIndex() implementation in source/PostalBorkenMenu_part2.inc did not contain the __WeaponCatalog branch.
+
+V2A34 CHANGE
+Adds exactly:
+__WeaponCatalog -> RunWeaponCatalog()
+
+to the active command dispatcher.
+
+No Weapon Catalog logic itself is changed.
 
 WEAPON CATALOG
-The new Weapon Catalog row is in the Weapons tab.
+RUN "Weapon Catalog" in F1 -> Weapons.
 
-When RUN is pressed, it enumerates loaded Hyperstrange.PBD.WeaponId objects with:
-UnityEngine.Resources.FindObjectsOfTypeAll(WeaponId)
-
-For every loaded WeaponId it logs:
-- scan index
+It enumerates loaded Hyperstrange.PBD.WeaponId objects and logs:
+- index
 - UnityEngine.Object.name
 - WeaponId.ToString() when available
-- numeric category
-- category label:
-  0 = BASE
-  1 = PTSD / These Sunny Daze
-  other = OTHER
-- native slot
-- whether that exact WeaponId is already in PlayerInventoryComponent.CollectedWeapons:
-  YES / NO / UNKNOWN
+- category
+- category label
+- slot
+- collected YES / NO / UNKNOWN
 
-Example log shape:
-[WEAPON CATALOG] #12 | name=<Unity name> | toString=<managed text> | category=0(BASE) | slot=5 | collected=YES
+The catalog is read-only.
 
-SAFETY
-Weapon Catalog is observation-only.
+HOOK RESULT PRESERVED
+The latest user log also validates the V2A32 Hook isolation:
+- category0 / slot99 candidate count = 1
+- candidate not collected initially
+- native AddWeapon(slot99) completed
+- get_Hook() became NON-NULL
+- _hookWeapon remained NULL
+- get_Hook() returned the exact slot99 candidate
+- category 0 / slot 99
 
-It does NOT:
-- AddWeapon
-- EquipWeapon
-- GiveAllWeapons
-- GiveAllDlcWeapons
-- InitHook
-- modify _hookWeapon
-- modify the Weapon Wheels
+Therefore AddWeapon of the unique category0/slot99 WeaponId is sufficient to expose the native Hook WeaponId without EquipWeapon or GiveAllWeapons.
 
-The IL2CPP string helper exports used only for catalog text are optional.
-If unavailable, startup behavior remains unchanged and names may appear as <empty>.
-
-PRESERVED FROM V2A32
+PRESERVED
 - V2A29 V2A20-style Base Weapon Wheel
 - V2A29 empty DLC wheel shell
 - V2A25 Weapon List / Arguments
 - ALT behavior
 - V2A30 safe Hook probe
 - V2A31 GiveAll Hook snapshots
-- V2A32 category0 / slot99 Hook isolation test
+- V2A32 slot99 Hook isolation
+- V2A33 non-destructive Weapon Catalog implementation
 - V2A8 clean shutdown
 - No Crosshair
 - TimeScale
@@ -68,13 +75,12 @@ README.txt
 PostalBorkenMenu.log is runtime-generated and is not included.
 
 TEST
-1. Start the game normally.
-2. Open F1 -> Weapons.
-3. RUN "Weapon Catalog".
-4. Send PostalBorkenMenu.log.
-5. Search for:
+1. Start the game.
+2. F1 -> Weapons -> Weapon Catalog -> RUN.
+3. Send PostalBorkenMenu.log.
+4. The expected block begins with:
    [WEAPON CATALOG] ===== BEGIN =====
-   ...
+and ends with:
    [WEAPON CATALOG] ===== END =====
 
 PROJECT
