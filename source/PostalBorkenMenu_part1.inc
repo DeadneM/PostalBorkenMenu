@@ -237,7 +237,7 @@ static int g_overlayX = 32;
 static int g_overlayY = 32;
 static float g_lastAppliedTimeScale = 1.0f;
 static const int OVERLAY_W = 760;
-static const int OVERLAY_H = 650;
+static const int OVERLAY_H = 680;
 static const int ROW_Y = 84;
 static const int ROW_H = 29;
 
@@ -379,6 +379,7 @@ static CommandRec g_cmds[] = {
     {"LogTime", L"Log Time", L"LogTime", 0,0,0,0,0,0,0,{0}},
     {"GiveAll", L"Give All", L"GiveAll", VK_F6,0,0,0,0,0,0,{0}},
     {"__GiveAllWeapons", L"Give All Weapons", L"GiveAllWeapons", 0,0,0,0,0,0,0,{0}},
+    {"__GiveLoadedDlcWeapons", L"Give Owned DLC Weapons", L"GiveDlcWeapons", 0,0,0,0,0,0,0,{0}},
     {"UnlockAll", L"Unlock All", L"UnlockAll", VK_F7,0,0,0,0,0,0,{0}},
     {"NoMenu", L"No Menu", L"NoMenu", 0,0,0,0,0,0,0,{0}},
     {"KillPresident", L"Kill President", L"KillPresident", 0,0,0,0,0,0,0,{0}},
