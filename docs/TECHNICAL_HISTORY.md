@@ -593,3 +593,32 @@ Implementation:
 Goal:
 - reproduce the useful V2A20 visual behavior first.
 - keep DLC wheel visible for further experimentation even before we solve how to populate it with DLC WeaponIds.
+
+
+### V2A30
+
+User result:
+- V2A29 weapon-wheel behavior is validated as correct.
+- Hook Deep Probe crashes the game.
+
+Crash-log diagnosis:
+- the log enters the global Assembly-CSharp hook discovery scan.
+- the scan produces a large number of unrelated matches and ends abruptly mid-class, without the discovery end marker.
+- this places the crash inside the broad metadata enumeration, before the normal get_Hook -> InitHook sequence completes.
+- substring "grap" also catches unrelated names such as Graphic/GatherProperties, making the scan far broader than intended.
+
+Useful evidence recovered before the crash:
+- WeaponsInventory.get_Hook() return type = Hyperstrange.PBD.WeaponId.
+- WeaponsInventory has a field named _hookWeapon.
+- WeaponsInventory also exposes get_HookCooldown and InitHook.
+
+V2A30 correction:
+- preserve V2A29 wheels unchanged.
+- remove LogGlobalHookDiscovery() from the active probe path.
+- no global class/member enumeration is executed.
+- rename UI row to DLC Hook Safe Probe.
+- inspect only the live PlayerInventoryComponent / WeaponsInventory instance.
+- log _hookWeapon before/after InitHook.
+- log get_Hook() before/after InitHook.
+- if a WeaponId exists, log get_Category() and get_Slot().
+- no GiveAllWeapons, AddWeapon or EquipWeapon is called by the probe.
