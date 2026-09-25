@@ -166,6 +166,7 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 #define WM_APP_TOGGLE (WM_APP + 0x32)
 #define WM_APP_CROSSHAIR (WM_APP + 0x33)
 #define WM_APP_SHUTDOWN (WM_APP + 0x34)
+#define WM_APP_WEAPONKEY (WM_APP + 0x35)
 
 #define VK_BACK 0x08
 #define VK_TAB 0x09
@@ -232,6 +233,7 @@ static volatile LONG g_noCrosshair = 0;
 static DWORD g_lastCrosshairTick = 0;
 static volatile LONG g_crosshairReapplyCountdown = 0;
 static int g_scrollRow = 0;
+static BYTE g_altSlotFlip[10] = {};
 static BYTE g_keyPrev[256] = {};
 static int g_bindIndex = -1;
 static int g_overlayX = 32;
@@ -383,6 +385,8 @@ static CommandRec g_cmds[] = {
     {"__GiveAllWeapons", L"Give All Weapons", L"GiveAllWeapons", 0,0,0,0,0,0,0,{0}},
     {"__EquipDlcWeapon", L"Equip DLC Weapon", L"EquipDlcWeapon", 0,0,0,0,0,0,0,{L'1',0}},
     {"__EquipBaseWeapon", L"Equip Base Weapon", L"EquipBaseWeapon", 0,0,0,0,0,0,0,{L'1',0}},
+    {"__GiveAllDlcWeapons", L"Give All DLC Weapons", L"GiveAllDlcWeapons", 0,0,0,0,0,0,0,{0}},
+    {"__WeaponKeysMode", L"Weapon Keys Mode", L"WeaponKeysMode", 0,0,0,0,0,0,0,{L'O',L'F',L'F',0}},
     {"UnlockAll", L"Unlock All", L"UnlockAll", VK_F7,0,0,0,0,0,0,{0}},
     {"NoMenu", L"No Menu", L"NoMenu", 0,0,0,0,0,0,0,{0}},
     {"KillPresident", L"Kill President", L"KillPresident", 0,0,0,0,0,0,0,{0}},
