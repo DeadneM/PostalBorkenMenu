@@ -574,3 +574,32 @@ V2A26 diagnostic expansion:
 - for matching classes, dump methods, parameter counts, return classes and fields
 - keep get_Hook -> InitHook -> get_Hook as the only active hook mutation
 - no weapon grants are performed by the probe
+
+
+### V2A28
+
+User correction:
+- V2A27 was not the requested wheel restore and reportedly crashed.
+- requested target is specifically the V2A18 dual native wheel implementation.
+
+Implementation:
+- branch created from V2A26, not from V2A27
+- transplanted the V2A18 wheel subsystem itself
+- restored WM_APP_WHEELBANK
+- restored g_activeWheelBank and g_activeWheelVk
+- restored GetWheelButtonsCollection / GetWheelButtonFromCollection
+- restored ShowNativeWeaponWheelBank(category)
+- restored HideNativeWeaponWheelBank()
+- restored ExecuteNativeWheelBank(bank, show)
+- restored the V2A18 PollHotkeys wheel HOLD/RELEASE path
+- removed later split Base/DLC wheel state and messages from this branch
+
+Preserved:
+- V2A25 Weapon List / Argument system
+- V2A26 Hook Deep Probe
+- ALT behavior
+- V2A8 shutdown/lifetime model
+
+Crash-log note:
+- the supplied PostalBorkenMenu.log contains a V2A26 session and deep-hook output, but no V2A27 session header.
+- therefore it does not establish an in-log V2A27 crash location; V2A28 avoids that branch by restoring the exact V2A18 wheel subsystem instead.
