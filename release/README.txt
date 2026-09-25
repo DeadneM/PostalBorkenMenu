@@ -1,4 +1,4 @@
-PostalBorkenMenu V2A29 TEST
+PostalBorkenMenu V2A30 TEST
 POSTAL: Brain-Damaged
 
 IMPORTANT
@@ -6,39 +6,58 @@ IMPORTANT
 - F1 opens/closes the PostalBorkenMenu overlay.
 - PostalBorkenMenu.log is generated automatically at runtime and is not included in this archive.
 
-V2A29 PURPOSE
-Use the V2A20 weapon-wheel behavior as the reference.
+V2A30 PURPOSE
+Keep the V2A29 wheel behavior exactly as validated, and fix the crashing Hook probe.
 
-BASE WEAPON WHEEL
-The Base Weapon Wheel block is transplanted directly from V2A20:
-- GetBaseWheelButtonsCollection()
-- GetBaseWheelButtonFromCollection()
-- ShowNativeBaseWeaponWheel()
-- HideNativeBaseWeaponWheel()
-- ExecuteNativeBaseWheel()
+V2A29 WHEELS PRESERVED
+- Base Weapon Wheel uses the V2A20 wheel implementation.
+- DLC Weapon Wheel can show an empty native wheel shell.
+- no GiveAllWeapons fallback
+- no automatic Hook call from either wheel
 
-This is the wheel path that can still display its native wheel structure before the player has collected weapons, because the game's live wheel buttons already exist.
+WHY THE OLD PROBE CRASHED
+The V2A26/V2A29 Hook Deep Probe enumerated classes and members across all of Assembly-CSharp.
+The user log shows that scan starting successfully, then terminating mid-class before the end marker.
+The broad substring search also matched unrelated names such as Graphic / GatherProperties, causing a huge unsafe metadata walk.
 
-DLC WEAPON WHEEL
-The DLC wheel keeps the same split state / HOLD interaction as the later branch, but follows the V2A20 display philosophy.
+V2A30 SAFE HOOK PROBE
+The global Assembly-CSharp scan is completely disabled.
 
-It:
-1. restores the game's native EnableButtons() state
-2. filters live buttons to category 1 / PTSD when possible
-3. calls PlayerWheelView.Show() even when zero DLC buttons are currently present
-4. therefore allows an EMPTY DLC wheel shell to be displayed for testing
-5. restores the native button state on close
+The probe now only touches known objects:
+- PlayerInventoryComponent._weaponsController
+- WeaponsInventory._hookWeapon
+- WeaponsInventory.get_Hook()
+- WeaponsInventory.InitHook()
+- WeaponId.get_Category()
+- WeaponId.get_Slot()
+
+Sequence:
+1. verify DLC ownership
+2. locate the live WeaponsInventory
+3. read _hookWeapon
+4. call get_Hook()
+5. log category/slot if a Hook WeaponId already exists
+6. if no Hook exists, call InitHook() once
+7. read _hookWeapon and get_Hook() again
+8. log category/slot if available
 
 It does NOT:
+- enumerate Assembly-CSharp globally
 - call GiveAllWeapons()
-- call the Hook probe
-- automatically add any weapon
-- treat zero DLC buttons as a fatal error
+- add any weapon
+- equip any weapon
+
+IMPORTANT DISCOVERY FROM THE CRASH LOG
+- WeaponsInventory.get_Hook() returns Hyperstrange.PBD.WeaponId
+- WeaponsInventory contains a field named _hookWeapon
+
+This is now the focus of the investigation.
 
 PRESERVED
+- V2A29 V2A20-style Base Weapon Wheel
+- V2A29 empty DLC wheel shell behavior
 - V2A25 Weapon List with visible Argument slots 1..9
 - ALT behavior
-- V2A26 Hook Deep Probe
 - V2A8 shutdown/lifetime model
 - No Crosshair
 - TimeScale
@@ -49,15 +68,11 @@ PostalBorkenMenu.asi
 PostalBorkenMenu.ini
 README.txt
 
-PostalBorkenMenu.log is runtime-generated and is not included.
-
-TEST PRIORITY
-1. Start with a save / situation where no weapon is collected if possible.
-2. Hold Base Weapon Wheel and confirm it displays.
-3. Hold DLC Weapon Wheel and confirm an empty wheel shell can display instead of failing.
-4. Release each key and confirm the view closes cleanly.
-5. Confirm F1 and normal weapon selection still work.
-6. Confirm clean game exit.
+TEST
+1. Confirm both weapon wheels still behave exactly as in V2A29.
+2. Run DLC Hook Safe Probe once.
+3. Confirm no crash.
+4. Send PostalBorkenMenu.log if _hookWeapon/get_Hook remain null.
 
 PROJECT
 https://github.com/DeadneM/PostalBorkenMenu
