@@ -750,3 +750,81 @@ Important Hook result from same user log:
 - _hookWeapon remained NULL.
 - get_Hook() returned the exact category0/slot99 candidate.
 - this validates the slot99 AddWeapon isolation hypothesis from V2A32.
+
+
+### V2A35
+
+User request:
+- keep V2A34 as the base
+- replace the old generic Weapon List with the exact WeaponIds discovered by Weapon Catalog
+- create one dedicated tab for normal weapons and another for special/internal objects
+
+Weapon Catalog evidence used:
+- 34 loaded WeaponIds
+- 25 category 0 / BASE
+- 9 category 1 / PTSD
+- all 34 expose non-empty UnityEngine.Object.name strings
+
+Named Base arsenal:
+- WEAPON_Shovel
+- WEAPON_Pistol / WEAPON_Pistol_Akimbo
+- WEAPON_Shotgun / WEAPON_Shotgun_Akimbo
+- WEAPON_MachineGun / WEAPON_MachineGun_Akimbo
+- WEAPON_RocketLauncher / WEAPON_RocketLauncher_Akimbo
+- WEAPON_LightningGun / WEAPON_LightningGun_Akimbo
+- WEAPON_GatlingGun / WEAPON_GatlingGun_Akimbo
+- WEAPON_DildoBow / WEAPON_DildoBow_Akimbo
+- WEAPON_CatCanon / WEAPON_CatCanon_Akimbo
+
+Named PTSD arsenal:
+- WEAPON_UmDrill
+- WEAPON_PissGun / WEAPON_PissGun_Akimbo
+- WEAPON_MeatShotgun / WEAPON_MeatShotgun_Akimbo
+- WEAPON_BubbleGumMachineGun / WEAPON_BubbleGumMachineGun_Akimbo
+- WEAPON_NuclearSyringe / WEAPON_NuclearSyringe_Akimbo
+
+Special/internal group:
+- WEAPON_Dong
+- WEAPON_Dong_Confusion
+- WEAPON_Dong_Fire
+- WEAPON_Dong_Ice
+- WEAPON_Hook
+- WEAPON_CutsceneWeapon_DLC
+- WEAPON_NoWeapon
+- WEAPON_NoWeapon_DLC
+
+UI:
+- five tabs: Gameplay / Weapons / Arsenal / Special / Visual
+- old 1..9 Base/DLC rows removed from g_cmds
+- Arsenal contains 26 exact named weapon rows
+- Special contains 8 exact named internal rows
+- all rows keep normal RUN and optional key binding behavior
+
+Exact-name selection:
+- className prefixes encode immutable Unity names:
+  __Arsenal_WEAPON_*
+  __Special_WEAPON_*
+- runtime lookup enumerates loaded WeaponId objects and matches UnityEngine.Object.get_name()
+- exactly one match is required
+- category and slot are logged
+- category 1 entries still require These Sunny Daze ownership
+- normal entries use the existing duplicate-safe AddWeapon + EquipWeapon path
+
+Hook exception:
+- WEAPON_Hook is never sent to EquipWeapon
+- if absent from CollectedWeapons, native AddWeapon(WEAPON_Hook) is called
+- get_Hook() is checked afterwards
+- this preserves the behavior validated by the V2A32/user-log experiment
+
+INI:
+- legacy WeaponListBase1..9 / WeaponListDlc1..9 entries removed
+- named Arsenal_* and Special_* binding entries added
+- WeaponCatalog key/args entries added
+- package still contains exactly ASI + INI + README
+
+Frozen:
+- V2A29 wheel subsystem
+- V2A8 shutdown/lifetime model
+- No Crosshair implementation
+- TimeScale implementation
+- ALT and Weapon Keys Mode behavior
