@@ -470,8 +470,6 @@ static BOOL ResolveIl2CppApi() {
     RESOLVE(object_new)
     RESOLVE(runtime_invoke)
     RESOLVE(string_new)
-    RESOLVE(string_chars)
-    RESOLVE(string_length)
     RESOLVE(get_corlib)
     RESOLVE(class_from_name)
     RESOLVE(array_new)
@@ -492,5 +490,10 @@ static BOOL ResolveIl2CppApi() {
     RESOLVE(object_unbox)
     RESOLVE(format_exception)
 #undef RESOLVE
+
+    // V2A33 catalog-only helpers are optional so startup compatibility is
+    // unchanged if a future IL2CPP build does not export these convenience APIs.
+    g_il2cpp.string_chars=(decltype(g_il2cpp.string_chars))Proc("il2cpp_string_chars");
+    g_il2cpp.string_length=(decltype(g_il2cpp.string_length))Proc("il2cpp_string_length");
     return TRUE;
 }
