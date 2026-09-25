@@ -574,16 +574,22 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A34 WEAPON CATALOG DISPATCH FIX");
+    LogA("PostalBorkenMenu V2A36 HOOK RECOVERY TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
     LoadConfig();
     if (!InitIl2Cpp()) return 0;
+
+    // V2A36 recovery runs before the overlay/window subclass so it can clean
+    // a persisted WEAPON_Hook from CollectedWeapons as soon as the player
+    // inventory comes alive after the intro/profile load transition.
+    RunStartupHookRecoveryWindow();
+
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Weapon List / Visual. V2A32 preserved; Weapon Catalog dispatcher fixed.");
+    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Weapon List / Visual. V2A34 preserved; startup Hook recovery attempted.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
