@@ -94,7 +94,8 @@ static int CommandMenuTab(int i) {
         StrEqA(n,"__GiveAllDlcWeapons") ||
         StrEqA(n,"__InitDlcHook") ||
         StrEqA(n,"__WeaponKeysMode") ||
-        StrEqA(n,"__BaseWeaponWheel")) return 1; // Weapons
+        StrEqA(n,"__BaseWeaponWheel") ||
+        StrEqA(n,"__DlcWeaponWheel")) return 1; // Weapons
 
     if (StrEqA(n,"NoHud") ||
         StrEqA(n,"__NoCrosshair") ||
@@ -360,6 +361,8 @@ static WNDPROC BeginEarlyShutdown(HWND hwnd, const char* reason) {
         g_crosshairReapplyCountdown=0;
         g_baseWheelActive=0;
         g_baseWheelVk=0;
+        g_dlcWheelActive=0;
+        g_dlcWheelVk=0;
         g_bindIndex=-1;
         g_menuVisible=0;
         LogA(reason);
@@ -415,6 +418,10 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         ExecuteNativeBaseWheel(lp ? TRUE : FALSE);
         return 0;
     }
+    if (msg==WM_APP_DLCWHEEL) {
+        ExecuteNativeDlcWheel(lp ? TRUE : FALSE);
+        return 0;
+    }
     if (msg==WM_APP_CROSSHAIR) {
         if (g_ready && !g_shuttingDown) {
             BOOL attached=FALSE; void* thread=0;
@@ -452,6 +459,10 @@ static void PollHotkeys() {
         PostMessageW(g_gameHwnd,WM_APP_BASEWHEEL,0,0);
         g_baseWheelVk=0;
     }
+    if (!active && g_dlcWheelActive && g_gameHwnd) {
+        PostMessageW(g_gameHwnd,WM_APP_DLCWHEEL,0,0);
+        g_dlcWheelVk=0;
+    }
 
     for (int vk=8; vk<256; ++vk) {
         if (g_shuttingDown) return;
@@ -485,22 +496,38 @@ static void PollHotkeys() {
             return;
         }
 
-        // Base Weapon Wheel is a HOLD interaction and is handled separately
-        // from ordinary one-shot command hotkeys.
+        // Both weapon wheels are HOLD interactions. The base wheel keeps the
+        // validated V2A20 path; the DLC wheel uses the V2A22 GiveAllWeapons fallback.
         if (g_ready && !g_shuttingDown && !g_menuVisible) {
             for(int i=0;i<CMD_COUNT;i++) {
-                if(!StrEqA(g_cmds[i].className,"__BaseWeaponWheel")) continue;
                 if(!g_cmds[i].vk || g_cmds[i].vk!=vk) continue;
 
-                if(pressed) {
-                    g_baseWheelVk=vk;
-                    PostMessageW(g_gameHwnd,WM_APP_BASEWHEEL,0,1);
-                    return;
+                if(StrEqA(g_cmds[i].className,"__BaseWeaponWheel")) {
+                    if(pressed) {
+                        if(g_dlcWheelActive) PostMessageW(g_gameHwnd,WM_APP_DLCWHEEL,0,0);
+                        g_baseWheelVk=vk;
+                        PostMessageW(g_gameHwnd,WM_APP_BASEWHEEL,0,1);
+                        return;
+                    }
+                    if(released && g_baseWheelVk==vk) {
+                        PostMessageW(g_gameHwnd,WM_APP_BASEWHEEL,0,0);
+                        g_baseWheelVk=0;
+                        return;
+                    }
                 }
-                if(released && g_baseWheelVk==vk) {
-                    PostMessageW(g_gameHwnd,WM_APP_BASEWHEEL,0,0);
-                    g_baseWheelVk=0;
-                    return;
+
+                if(StrEqA(g_cmds[i].className,"__DlcWeaponWheel")) {
+                    if(pressed) {
+                        if(g_baseWheelActive) PostMessageW(g_gameHwnd,WM_APP_BASEWHEEL,0,0);
+                        g_dlcWheelVk=vk;
+                        PostMessageW(g_gameHwnd,WM_APP_DLCWHEEL,0,1);
+                        return;
+                    }
+                    if(released && g_dlcWheelVk==vk) {
+                        PostMessageW(g_gameHwnd,WM_APP_DLCWHEEL,0,0);
+                        g_dlcWheelVk=0;
+                        return;
+                    }
                 }
             }
         }
@@ -518,10 +545,10 @@ static void PollHotkeys() {
         if (!pressed) continue;
 
         if (vk==VK_F1) {
-            if(g_baseWheelActive) {
-                PostMessageW(g_gameHwnd,WM_APP_BASEWHEEL,0,0);
-                g_baseWheelVk=0;
-            }
+            if(g_baseWheelActive) PostMessageW(g_gameHwnd,WM_APP_BASEWHEEL,0,0);
+            if(g_dlcWheelActive) PostMessageW(g_gameHwnd,WM_APP_DLCWHEEL,0,0);
+            g_baseWheelVk=0;
+            g_dlcWheelVk=0;
             ToggleOverlay();
             return;
         }
@@ -529,7 +556,8 @@ static void PollHotkeys() {
         if (g_ready && !g_shuttingDown) {
             for (int i=0;i<CMD_COUNT;i++) {
                 if (g_cmds[i].vk && g_cmds[i].vk==vk) {
-                    if(StrEqA(g_cmds[i].className,"__BaseWeaponWheel")) continue;
+                    if(StrEqA(g_cmds[i].className,"__BaseWeaponWheel") ||
+                       StrEqA(g_cmds[i].className,"__DlcWeaponWheel")) continue;
                     PostMessageW(g_gameHwnd,WM_APP_EXEC,(WPARAM)i,0);
                     return;
                 }
@@ -565,7 +593,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A21 SAFE EQUIP + DLC HOOK TEST");
+    LogA("PostalBorkenMenu V2A22 DUAL WHEEL + GIVEALL REFRESH TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -574,7 +602,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Visual. Safe equip checks enabled; Give / Init DLC Hook available.");
+    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Visual. Base + DLC wheel bindings available; DLC wheel retries after native GiveAllWeapons + InitHook.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
