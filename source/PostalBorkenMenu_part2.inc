@@ -348,10 +348,10 @@ static BOOL InitOwnedDlcHook() {
     LogHookLikeMethods(inventoryClass,"[HOOK AUDIT] PlayerInventoryComponent Hook/Grap methods:");
     LogHookLikeMethods(weaponsInventoryClass,"[HOOK AUDIT] WeaponsInventory Hook/Grap methods:");
 
-    // V2A24: make this command self-contained. GiveAllWeapons is the one
-    // validated native path that demonstrably initializes the DLC weapon set.
-    LogA("[HOOK] Running native GiveAllWeapons before InitHook probe.");
-    GiveAllWeaponsOnly();
+    // V2A25: hook probe must be side-effect free with respect to weapon grants.
+    // Do NOT call GiveAllWeapons here: user confirmed that doing so only grants
+    // the weapon set and does not make the DLC hook usable.
+    LogA("[HOOK] Pure hook probe: no GiveAllWeapons call will be made.");
 
     const FieldInfo* weaponsControllerField=g_il2cpp.class_get_field_from_name(inventoryClass,"_weaponsController");
     const MethodInfo* getHook=g_il2cpp.class_get_method_from_name(weaponsInventoryClass,"get_Hook",0);
@@ -796,21 +796,41 @@ static BOOL DecodeWeaponListCommand(int cmdIndex, int* category, int* slot) {
     const char* name=g_cmds[cmdIndex].className;
     const char* basePrefix="__WeaponListBase";
     const char* dlcPrefix="__WeaponListDlc";
-    const char* p=0;
+    const char* suffix=0;
 
     if (StrStartsWithA(name,basePrefix)) {
         *category=0;
-        p=name+StrLenA(basePrefix);
+        suffix=name+StrLenA(basePrefix);
     } else if (StrStartsWithA(name,dlcPrefix)) {
         *category=1;
-        p=name+StrLenA(dlcPrefix);
+        suffix=name+StrLenA(dlcPrefix);
     } else {
         return FALSE;
     }
 
-    if (!p || p[0]<'1' || p[0]>'9' || p[1]!=0) return FALSE;
-    *slot=(int)(p[0]-'0');
-    return TRUE;
+    // V2A25: the slot is the visible Argument value, not the row-name suffix.
+    int value=0;
+    int p=0;
+    while (g_cmds[cmdIndex].args[p]==L' ' || g_cmds[cmdIndex].args[p]==L'\t') ++p;
+    while (g_cmds[cmdIndex].args[p]>=L'0' && g_cmds[cmdIndex].args[p]<=L'9') {
+        value=value*10+(int)(g_cmds[cmdIndex].args[p]-L'0');
+        ++p;
+        if (value>99) break;
+    }
+
+    if (value>=1 && value<=9) {
+        *slot=value;
+        return TRUE;
+    }
+
+    // Keep the row in WEAPON LIST even if an old/bad INI contains an invalid
+    // argument. Fall back to the row's original 1..9 identity.
+    if (suffix && suffix[0]>='1' && suffix[0]<='9' && suffix[1]==0) {
+        *slot=(int)(suffix[0]-'0');
+        return TRUE;
+    }
+
+    return FALSE;
 }
 
 static void ExecuteWeaponKeyMapping(int slot, int mode) {
