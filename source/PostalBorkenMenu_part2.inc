@@ -179,6 +179,108 @@ static BOOL GiveAllWeaponsOnly() {
     return TRUE;
 }
 
+static int ParseFirstIntW(const WCHAR* s, int fallback) {
+    if (!s) return fallback;
+    int i=0;
+    while (s[i]==L' ' || s[i]==L'\t') ++i;
+    BOOL neg=FALSE;
+    if (s[i]==L'-') { neg=TRUE; ++i; }
+    int v=0, digits=0;
+    while (s[i]>=L'0' && s[i]<=L'9') {
+        v=v*10+(int)(s[i]-L'0');
+        ++i; ++digits;
+        if (v>999) break;
+    }
+    if (!digits) return fallback;
+    return neg ? -v : v;
+}
+
+static void LogIntA(const char* prefix, int v) {
+    char b[192]; int p=0;
+    if (prefix) while (*prefix && p<170) b[p++]=*prefix++;
+    unsigned int u;
+    if (v<0) { if(p<180)b[p++]='-'; u=(unsigned int)(-v); }
+    else u=(unsigned int)v;
+    char tmp[16]; int n=0;
+    do { tmp[n++]=(char)('0'+(u%10)); u/=10; } while (u && n<15);
+    while (n>0 && p<190) b[p++]=tmp[--n];
+    b[p]=0; LogA(b);
+}
+
+static BOOL CallOwnedDlcWeaponSlot(int cmdIndex) {
+    if (cmdIndex<0 || cmdIndex>=CMD_COUNT) return FALSE;
+
+    // V2A13 is deliberately lazy: all DLC-specific metadata is resolved only
+    // when this command is run. Startup remains the V2A8 path.
+    Il2CppClass* dlcCategoryClass=FindClassBySimpleName("DLCCategory");
+    Il2CppClass* downloadableContentClass=FindClassBySimpleName("DownloadableContent");
+    Il2CppClass* inventoryClass=g_inventoryClass ? g_inventoryClass : FindClassBySimpleName("PlayerInventoryComponent");
+    const Il2CppImage* corlib=g_il2cpp.get_corlib();
+    Il2CppClass* intClass=corlib ? g_il2cpp.class_from_name(corlib,"System","Int32") : 0;
+
+    if (!dlcCategoryClass || !downloadableContentClass || !inventoryClass || !intClass) {
+        LogA("[ERROR] Call DLC Weapon metadata classes unresolved");
+        return FALSE;
+    }
+
+    const MethodInfo* isPurchased=FindMethodExact(downloadableContentClass,"IsDlcPurchased",1,dlcCategoryClass);
+    const MethodInfo* onWeaponDown=FindMethodExact(inventoryClass,"OnWeaponDown",2,intClass,dlcCategoryClass);
+    if (!isPurchased || !onWeaponDown) {
+        LogA("[ERROR] Call DLC Weapon native methods unresolved");
+        return FALSE;
+    }
+
+    int dlc=1; // Hyperstrange.Base.DLCCategory.PTSD / These Sunny Daze
+    void* ownPars[1]; ownPars[0]=&dlc;
+    Il2CppException* ex=0;
+    Il2CppObject* ownBox=g_il2cpp.runtime_invoke(isPurchased,0,ownPars,&ex);
+    if (ex) {
+        LogA("[ERROR] IsDlcPurchased(PTSD) threw:");
+        FormatExceptionToLog(ex);
+        return FALSE;
+    }
+    if (!ownBox) {
+        LogA("[ERROR] IsDlcPurchased(PTSD) returned null");
+        return FALSE;
+    }
+    void* ownRaw=g_il2cpp.object_unbox(ownBox);
+    if (!ownRaw) {
+        LogA("[ERROR] IsDlcPurchased(PTSD) could not be unboxed");
+        return FALSE;
+    }
+    if ((*(BYTE*)ownRaw)==0) {
+        LogA("[DLC] These Sunny Daze ownership: NO");
+        LogA("[DLC] Native DLC weapon call blocked. Ownership check remains enforced.");
+        return FALSE;
+    }
+    LogA("[DLC] These Sunny Daze ownership: YES");
+
+    int slot=ParseFirstIntW(g_cmds[cmdIndex].args,1);
+    if (slot<0 || slot>12) {
+        LogA("[ERROR] Call DLC Weapon slot must be between 0 and 12");
+        return FALSE;
+    }
+    LogIntA("[DLC] Calling native PlayerInventoryComponent.OnWeaponDown slot: ",slot);
+
+    Il2CppObject* inv=FindLiveObject(inventoryClass);
+    if (!inv) {
+        LogA("[ERROR] PlayerInventoryComponent instance not found");
+        return FALSE;
+    }
+
+    void* pars[2]; pars[0]=&slot; pars[1]=&dlc;
+    ex=0;
+    g_il2cpp.runtime_invoke(onWeaponDown,inv,pars,&ex);
+    if (ex) {
+        LogA("[ERROR] OnWeaponDown(slot, PTSD) threw:");
+        FormatExceptionToLog(ex);
+        return FALSE;
+    }
+
+    LogA("[OK] Native OnWeaponDown(slot, PTSD) executed");
+    return TRUE;
+}
+
 static BOOL SetCrosshairVisualAlpha(float alpha) {
     if (!g_crosshairControllerClass || !g_currentCrosshairField || !g_componentGetGameObject ||
         !g_gameObjectGetComponentsInChildren || !g_canvasRendererSetAlpha || !g_canvasRendererTypeObject) {
@@ -278,6 +380,7 @@ static void ExecuteCommandIndex(int i) {
 
     if (StrEqA(g_cmds[i].className,"__NoCrosshair")) ToggleNoCrosshair();
     else if (StrEqA(g_cmds[i].className,"__GiveAllWeapons")) GiveAllWeaponsOnly();
+    else if (StrEqA(g_cmds[i].className,"__CallDlcWeapon")) CallOwnedDlcWeaponSlot(i);
     else if (StrEqA(g_cmds[i].className,"TimeScale")) ApplyTimeScaleToggle(i);
     else InvokeNativeCommand(i);
 
