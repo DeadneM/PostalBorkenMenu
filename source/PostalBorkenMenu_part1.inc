@@ -167,6 +167,7 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 #define WM_APP_CROSSHAIR (WM_APP + 0x33)
 #define WM_APP_SHUTDOWN (WM_APP + 0x34)
 #define WM_APP_WEAPONKEY (WM_APP + 0x35)
+#define WM_APP_BASEWHEEL (WM_APP + 0x36)
 
 #define VK_BACK 0x08
 #define VK_TAB 0x09
@@ -234,6 +235,9 @@ static DWORD g_lastCrosshairTick = 0;
 static volatile LONG g_crosshairReapplyCountdown = 0;
 static int g_scrollRow = 0;
 static BYTE g_altSlotFlip[10] = {};
+static int g_menuTab = 0; // 0 Gameplay, 1 Weapons, 2 Visual
+static volatile LONG g_baseWheelActive = 0;
+static int g_baseWheelVk = 0;
 static BYTE g_keyPrev[256] = {};
 static int g_bindIndex = -1;
 static int g_overlayX = 32;
@@ -241,7 +245,7 @@ static int g_overlayY = 32;
 static float g_lastAppliedTimeScale = 1.0f;
 static const int OVERLAY_W = 760;
 static const int OVERLAY_H = 600;
-static const int ROW_Y = 84;
+static const int ROW_Y = 112;
 static const int ROW_H = 29;
 static const int VISIBLE_ROWS = (OVERLAY_H - ROW_Y - 48) / ROW_H;
 
@@ -391,6 +395,7 @@ static CommandRec g_cmds[] = {
     {"__DlcWeaponShortcut2", L"DLC Weapon 2", L"DlcWeapon2", 0,0,0,0,0,0,0,{L'1',0}},
     {"__GiveAllDlcWeapons", L"Give All DLC Weapons", L"GiveAllDlcWeapons", 0,0,0,0,0,0,0,{0}},
     {"__WeaponKeysMode", L"Weapon Keys Mode", L"WeaponKeysMode", 0,0,0,0,0,0,0,{L'O',L'F',L'F',0}},
+    {"__BaseWeaponWheel", L"Base Weapon Wheel", L"BaseWeaponWheel", 0,0,0,0,0,0,0,{0}},
     {"UnlockAll", L"Unlock All", L"UnlockAll", VK_F7,0,0,0,0,0,0,{0}},
     {"NoMenu", L"No Menu", L"NoMenu", 0,0,0,0,0,0,0,{0}},
     {"KillPresident", L"Kill President", L"KillPresident", 0,0,0,0,0,0,0,{0}},
