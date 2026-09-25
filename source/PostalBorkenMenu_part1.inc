@@ -355,6 +355,8 @@ struct Il2CppApi {
     Il2CppObject* (*object_new)(Il2CppClass*);
     Il2CppObject* (*runtime_invoke)(const MethodInfo*, void*, void**, Il2CppException**);
     Il2CppString* (*string_new)(const char*);
+    const WCHAR* (*string_chars)(Il2CppString*);
+    int (*string_length)(Il2CppString*);
     const Il2CppImage* (*get_corlib)();
     Il2CppClass* (*class_from_name)(const Il2CppImage*, const char*, const char*);
     Il2CppArray* (*array_new)(Il2CppClass*, SIZE_T);
@@ -435,6 +437,7 @@ static CommandRec g_cmds[] = {
     {"__WeaponListBase9", L"9 Base Weapon", L"WeaponListBase9", 0,0,0,0,0,0,0,{L'9',0}},
     {"__WeaponListDlc9", L"9 DLC Weapon", L"WeaponListDlc9", 0,0,0,0,0,0,0,{L'9',0}},
     {"__GiveAllDlcWeapons", L"Give All DLC Weapons", L"GiveAllDlcWeapons", 0,0,0,0,0,0,0,{0}},
+    {"__WeaponCatalog", L"Weapon Catalog", L"WeaponCatalog", 0,0,0,0,0,0,0,{0}},
     {"__InitDlcHook", L"DLC Hook Slot99 Test", L"InitDlcHook", 0,0,0,0,0,0,0,{0}},
     {"__WeaponKeysMode", L"Weapon Keys Mode", L"WeaponKeysMode", 0,0,0,0,0,0,0,{L'O',L'F',L'F',0}},
     {"__BaseWeaponWheel", L"Base Weapon Wheel", L"BaseWeaponWheel", 0,0,0,0,0,0,0,{0}},
@@ -467,6 +470,8 @@ static BOOL ResolveIl2CppApi() {
     RESOLVE(object_new)
     RESOLVE(runtime_invoke)
     RESOLVE(string_new)
+    RESOLVE(string_chars)
+    RESOLVE(string_length)
     RESOLVE(get_corlib)
     RESOLVE(class_from_name)
     RESOLVE(array_new)
