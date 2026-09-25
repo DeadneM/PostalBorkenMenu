@@ -207,6 +207,185 @@ static void LogIntA(const char* prefix, int v) {
     b[p]=0; LogA(b);
 }
 
+
+static int CollectionContainsWeaponId(Il2CppObject* collection, Il2CppObject* weapon) {
+    if (!collection || !weapon) return 0;
+
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+    if (!objectGetClass) return -1;
+
+    Il2CppClass* klass=objectGetClass(collection);
+    if (!klass) return -1;
+    const char* name=g_il2cpp.class_get_name(klass);
+    if (!name) return -1;
+
+    int n=StrLenA(name);
+    if (n>=2 && name[n-2]=='[' && name[n-1]==']') {
+        Il2CppArray* arr=(Il2CppArray*)collection;
+        SIZE_T len=g_il2cpp.array_length(arr);
+        if (len>1024) return -1;
+        unsigned int hdr=g_il2cpp.array_object_header_size();
+        Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+        for (SIZE_T i=0;i<len;i++) if (elems[i]==weapon) return 1;
+        return 0;
+    }
+
+    const MethodInfo* contains=g_il2cpp.class_get_method_from_name(klass,"Contains",1);
+    if (!contains) return -1;
+
+    void* pars[1]; pars[0]=weapon;
+    Il2CppException* ex=0;
+    Il2CppObject* boxed=g_il2cpp.runtime_invoke(contains,collection,pars,&ex);
+    if (ex || !boxed) return -1;
+    void* raw=g_il2cpp.object_unbox(boxed);
+    if (!raw) return -1;
+    return (*(BYTE*)raw)!=0 ? 1 : 0;
+}
+
+static int IsWeaponCollected(Il2CppObject* playerInv, Il2CppClass* inventoryClass, Il2CppObject* weapon) {
+    if (!playerInv || !inventoryClass || !weapon) return -1;
+    const MethodInfo* getCollected=g_il2cpp.class_get_method_from_name(inventoryClass,"get_CollectedWeapons",0);
+    if (!getCollected) return -1;
+
+    Il2CppException* ex=0;
+    Il2CppObject* collection=g_il2cpp.runtime_invoke(getCollected,playerInv,0,&ex);
+    if (ex) return -1;
+    if (!collection) return 0;
+
+    return CollectionContainsWeaponId(collection,weapon);
+}
+
+static BOOL SafeAddAndEquipWeaponId(Il2CppObject* playerInv,
+                                    Il2CppObject* weaponsInv,
+                                    Il2CppClass* inventoryClass,
+                                    Il2CppClass* weaponsInventoryClass,
+                                    Il2CppClass* weaponIdClass,
+                                    Il2CppObject* selected,
+                                    const char* logPrefix) {
+    if (!playerInv || !weaponsInv || !inventoryClass || !weaponsInventoryClass || !weaponIdClass || !selected)
+        return FALSE;
+
+    const MethodInfo* addWeapon=FindMethodExact(weaponsInventoryClass,"AddWeapon",1,weaponIdClass);
+    const MethodInfo* equipWeapon=FindMethodExact(weaponsInventoryClass,"EquipWeapon",1,weaponIdClass);
+    const MethodInfo* getCurrent=g_il2cpp.class_get_method_from_name(weaponsInventoryClass,"get_CurrentWeaponNoAkimbo",0);
+    if (!addWeapon || !equipWeapon) return FALSE;
+
+    Il2CppException* ex=0;
+    if (getCurrent) {
+        Il2CppObject* current=g_il2cpp.runtime_invoke(getCurrent,weaponsInv,0,&ex);
+        if (!ex && current==selected) {
+            LogA("[SAFE] Selected WeaponId is already equipped; skipping AddWeapon and EquipWeapon.");
+            return TRUE;
+        }
+    }
+
+    int collected=IsWeaponCollected(playerInv,inventoryClass,selected);
+    if (collected==1) {
+        LogA("[SAFE] Selected WeaponId is already collected; skipping AddWeapon.");
+    } else {
+        if (collected<0)
+            LogA("[SAFE] CollectedWeapons state could not be inspected; keeping validated AddWeapon fallback.");
+        else
+            LogA("[SAFE] Selected WeaponId is not collected yet; AddWeapon is required.");
+
+        void* wp[1]; wp[0]=selected;
+        ex=0;
+        g_il2cpp.runtime_invoke(addWeapon,weaponsInv,wp,&ex);
+        if (ex) {
+            LogA("[ERROR] Safe direct AddWeapon threw:");
+            FormatExceptionToLog(ex);
+            return FALSE;
+        }
+        LogA(logPrefix ? logPrefix : "[SAFE] Native AddWeapon completed");
+    }
+
+    void* wp[1]; wp[0]=selected;
+    ex=0;
+    g_il2cpp.runtime_invoke(equipWeapon,weaponsInv,wp,&ex);
+    if (ex) {
+        LogA("[ERROR] Safe direct EquipWeapon threw:");
+        FormatExceptionToLog(ex);
+        return FALSE;
+    }
+
+    LogA("[SAFE] Native EquipWeapon completed without duplicate AddWeapon.");
+    return TRUE;
+}
+
+static BOOL InitOwnedDlcHook() {
+    if (!IsTheseSunnyDazeOwned()) {
+        LogA("[HOOK] These Sunny Daze ownership not confirmed; hook init blocked.");
+        return FALSE;
+    }
+
+    Il2CppClass* inventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerInventoryComponent") : 0;
+    Il2CppClass* weaponsInventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.Inventory","WeaponsInventory") : 0;
+    if (!inventoryClass || !weaponsInventoryClass) {
+        LogA("[ERROR] DLC hook metadata classes unresolved");
+        return FALSE;
+    }
+
+    const FieldInfo* weaponsControllerField=g_il2cpp.class_get_field_from_name(inventoryClass,"_weaponsController");
+    const MethodInfo* getHook=g_il2cpp.class_get_method_from_name(weaponsInventoryClass,"get_Hook",0);
+    const MethodInfo* initHook=g_il2cpp.class_get_method_from_name(weaponsInventoryClass,"InitHook",0);
+    if (!weaponsControllerField || !getHook || !initHook) {
+        LogA("[ERROR] WeaponsInventory get_Hook / InitHook bridge unresolved");
+        return FALSE;
+    }
+
+    Il2CppObject* playerInv=FindLiveObject(inventoryClass);
+    if (!playerInv) {
+        LogA("[ERROR] PlayerInventoryComponent instance not found for hook init");
+        return FALSE;
+    }
+
+    Il2CppObject* weaponsInv=0;
+    g_il2cpp.field_get_value(playerInv,weaponsControllerField,&weaponsInv);
+    if (!weaponsInv) {
+        LogA("[ERROR] PlayerInventoryComponent._weaponsController is null for hook init");
+        return FALSE;
+    }
+
+    Il2CppException* ex=0;
+    Il2CppObject* hook=g_il2cpp.runtime_invoke(getHook,weaponsInv,0,&ex);
+    if (ex) {
+        LogA("[ERROR] WeaponsInventory.get_Hook() threw:");
+        FormatExceptionToLog(ex);
+        return FALSE;
+    }
+
+    if (hook) {
+        LogA("[HOOK] Hook object already exists; InitHook skipped.");
+        return TRUE;
+    }
+
+    LogA("[HOOK] Hook object missing; calling native WeaponsInventory.InitHook().");
+    ex=0;
+    g_il2cpp.runtime_invoke(initHook,weaponsInv,0,&ex);
+    if (ex) {
+        LogA("[ERROR] WeaponsInventory.InitHook() threw:");
+        FormatExceptionToLog(ex);
+        return FALSE;
+    }
+
+    ex=0;
+    hook=g_il2cpp.runtime_invoke(getHook,weaponsInv,0,&ex);
+    if (ex) {
+        LogA("[ERROR] WeaponsInventory.get_Hook() after InitHook threw:");
+        FormatExceptionToLog(ex);
+        return FALSE;
+    }
+
+    if (hook) {
+        LogA("[OK] DLC hook object initialized without Give All Weapons.");
+        return TRUE;
+    }
+
+    LogA("[WARN] InitHook completed but get_Hook() is still null.");
+    return FALSE;
+}
+
 static BOOL EquipOwnedDlcWeaponInSlot(int cmdIndex) {
     if (cmdIndex<0 || cmdIndex>=CMD_COUNT) return FALSE;
 
@@ -313,29 +492,8 @@ static BOOL EquipOwnedDlcWeaponInSlot(int cmdIndex) {
         return FALSE;
     }
 
-    // First register the exact native WeaponId, then immediately ask the native
-    // WeaponsInventory to equip that exact object. No catalog rewrite is done.
-    void* weaponPars[1]; weaponPars[0]=selected;
-
-    ex=0;
-    g_il2cpp.runtime_invoke(addWeapon,weaponsInv,weaponPars,&ex);
-    if (ex) {
-        LogA("[ERROR] WeaponsInventory.AddWeapon(selected PTSD WeaponId) threw:");
-        FormatExceptionToLog(ex);
-        return FALSE;
-    }
-    LogA("[DLC] Native AddWeapon(selected PTSD WeaponId) completed");
-
-    ex=0;
-    g_il2cpp.runtime_invoke(equipWeapon,weaponsInv,weaponPars,&ex);
-    if (ex) {
-        LogA("[ERROR] WeaponsInventory.EquipWeapon(selected PTSD WeaponId) threw:");
-        FormatExceptionToLog(ex);
-        return FALSE;
-    }
-
-    LogA("[OK] Native EquipWeapon(selected PTSD WeaponId) completed");
-    return TRUE;
+    return SafeAddAndEquipWeaponId(playerInv,weaponsInv,inventoryClass,weaponsInventoryClass,weaponIdClass,selected,
+                                   "[DLC] Native AddWeapon(selected PTSD WeaponId) completed");
 }
 
 
@@ -429,27 +587,8 @@ static BOOL EquipBaseWeaponInSlot(int cmdIndex) {
         return FALSE;
     }
 
-    void* weaponPars[1]; weaponPars[0]=selected;
-
-    ex=0;
-    g_il2cpp.runtime_invoke(addWeapon,weaponsInv,weaponPars,&ex);
-    if (ex) {
-        LogA("[ERROR] WeaponsInventory.AddWeapon(selected base WeaponId) threw:");
-        FormatExceptionToLog(ex);
-        return FALSE;
-    }
-    LogA("[BASE] Native AddWeapon(selected base WeaponId) completed");
-
-    ex=0;
-    g_il2cpp.runtime_invoke(equipWeapon,weaponsInv,weaponPars,&ex);
-    if (ex) {
-        LogA("[ERROR] WeaponsInventory.EquipWeapon(selected base WeaponId) threw:");
-        FormatExceptionToLog(ex);
-        return FALSE;
-    }
-
-    LogA("[OK] Native EquipWeapon(selected base WeaponId) completed");
-    return TRUE;
+    return SafeAddAndEquipWeaponId(playerInv,weaponsInv,inventoryClass,weaponsInventoryClass,weaponIdClass,selected,
+                                   "[BASE] Native AddWeapon(selected base WeaponId) completed");
 }
 
 
@@ -521,7 +660,7 @@ static BOOL GiveAllOwnedDlcWeapons() {
     unsigned int hdr=g_il2cpp.array_object_header_size();
     Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
 
-    unsigned int found=0, added=0, errors=0;
+    unsigned int found=0, added=0, already=0, errors=0;
     for (SIZE_T i=0;i<n;i++) {
         Il2CppObject* weapon=elems[i];
         if (!weapon) continue;
@@ -532,6 +671,9 @@ static BOOL GiveAllOwnedDlcWeapons() {
         if (!catRaw || *(int*)catRaw!=1) continue;
         ++found;
 
+        int collected=IsWeaponCollected(playerInv,inventoryClass,weapon);
+        if (collected==1) { ++already; continue; }
+
         void* wp[1]; wp[0]=weapon;
         ex=0;
         g_il2cpp.runtime_invoke(addWeapon,weaponsInv,wp,&ex);
@@ -540,10 +682,11 @@ static BOOL GiveAllOwnedDlcWeapons() {
     }
 
     LogIntA("[DLC] Give All DLC Weapons found PTSD WeaponIds: ",(int)found);
+    LogIntA("[DLC] Give All DLC Weapons already collected / skipped: ",(int)already);
     LogIntA("[DLC] Give All DLC Weapons AddWeapon completed: ",(int)added);
     if (errors) LogIntA("[DLC] Give All DLC Weapons errors: ",(int)errors);
-    if (added) LogA("[OK] Give All DLC Weapons completed with native AddWeapon on every loaded PTSD WeaponId");
-    return added>0;
+    if (added || already) LogA("[OK] Give All DLC Weapons completed without duplicate AddWeapon on known collected weapons.");
+    return (added+already)>0;
 }
 
 static BOOL EquipMappedWeaponCategorySlot(int category, int wantedSlot) {
@@ -612,14 +755,9 @@ static BOOL EquipMappedWeaponCategorySlot(int category, int wantedSlot) {
         return FALSE;
     }
 
-    void* wp[1]; wp[0]=selected;
-    ex=0;
-    g_il2cpp.runtime_invoke(addWeapon,weaponsInv,wp,&ex);
-    if (ex) { LogA("[ERROR] KEYMAP AddWeapon threw:"); FormatExceptionToLog(ex); return FALSE; }
-
-    ex=0;
-    g_il2cpp.runtime_invoke(equipWeapon,weaponsInv,wp,&ex);
-    if (ex) { LogA("[ERROR] KEYMAP EquipWeapon threw:"); FormatExceptionToLog(ex); return FALSE; }
+    BOOL ok=SafeAddAndEquipWeaponId(playerInv,weaponsInv,inventoryClass,weaponsInventoryClass,weaponIdClass,selected,
+                                        category==1 ? "[KEYMAP] AddWeapon(DLC) completed" : "[KEYMAP] AddWeapon(BASE) completed");
+    if (!ok) return FALSE;
 
     if (category==1) LogIntA("[KEYMAP] Equipped DLC weapon in slot ",wantedSlot);
     else LogIntA("[KEYMAP] Equipped base weapon in slot ",wantedSlot);
@@ -947,6 +1085,7 @@ static void ExecuteCommandIndex(int i) {
     else if (StrEqA(g_cmds[i].className,"__BaseWeaponShortcut1") || StrEqA(g_cmds[i].className,"__BaseWeaponShortcut2")) EquipBaseWeaponInSlot(i);
     else if (StrEqA(g_cmds[i].className,"__DlcWeaponShortcut1") || StrEqA(g_cmds[i].className,"__DlcWeaponShortcut2")) EquipOwnedDlcWeaponInSlot(i);
     else if (StrEqA(g_cmds[i].className,"__GiveAllDlcWeapons")) GiveAllOwnedDlcWeapons();
+    else if (StrEqA(g_cmds[i].className,"__InitDlcHook")) InitOwnedDlcHook();
     else if (StrEqA(g_cmds[i].className,"__WeaponKeysMode")) LogA("[KEYMAP] Weapon Keys Mode changed through its Argument field");
     else if (StrEqA(g_cmds[i].className,"__BaseWeaponWheel")) LogA("[WHEEL] Bind Base Weapon Wheel to a key, then HOLD that key to open it.");
     else if (StrEqA(g_cmds[i].className,"TimeScale")) ApplyTimeScaleToggle(i);
