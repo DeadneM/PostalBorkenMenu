@@ -96,6 +96,8 @@ static void PaintOverlay(HWND hwnd) {
         Fill(dc,14,y,746,y+ROW_H-2,(i&1)?C(23,24,29):C(27,28,34));
         if (g_bindIndex==i) Fill(dc,598,y+3,738,y+ROW_H-5,C(85,54,34));
         Text(dc,g_cmds[i].displayName,25,y,326,y+ROW_H-2,C(232,233,236),DT_LEFT);
+        BOOL clickableArg = StrEqA(g_cmds[i].className,"TimeScale") || StrEqA(g_cmds[i].className,"__CallDlcWeapon");
+        if (clickableArg) Fill(dc,334,y+4,474,y+ROW_H-6,C(38,41,49));
         if (g_cmds[i].args[0]) Text(dc,g_cmds[i].args,342,y,462,y+ROW_H-2,C(198,202,210),DT_LEFT);
         Fill(dc,493,y+4,585,y+ROW_H-6,C(54,58,68));
         Text(dc,L"RUN",493,y+4,585,y+ROW_H-6,C(246,246,246),DT_CENTER);
@@ -158,6 +160,28 @@ static void CycleTimeScaleArg(int i) {
     SaveArgs(i); if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
 }
 
+static void CycleDlcSlotArg(int i) {
+    if(i<0 || i>=CMD_COUNT || !StrEqA(g_cmds[i].className,"__CallDlcWeapon")) return;
+    int slot=0;
+    int p=0;
+    while(g_cmds[i].args[p]==L' ' || g_cmds[i].args[p]==L'\t') ++p;
+    BOOL any=FALSE;
+    while(g_cmds[i].args[p]>=L'0' && g_cmds[i].args[p]<=L'9') {
+        any=TRUE;
+        slot=slot*10+(int)(g_cmds[i].args[p]-L'0');
+        ++p;
+        if(slot>99) break;
+    }
+    if(!any || slot<0 || slot>12) slot=0;
+    else { ++slot; if(slot>12) slot=0; }
+
+    WCHAR n[16];
+    UIntToW((unsigned int)slot,n,16);
+    CopyW(g_cmds[i].args,128,n);
+    SaveArgs(i);
+    if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
+}
+
 static BOOL HandleOverlayClick(int x,int y) {
     int px=x-g_overlayX, py=y-g_overlayY;
     if(px<0 || py<0 || px>=OVERLAY_W || py>=OVERLAY_H) return FALSE;
@@ -167,6 +191,7 @@ static BOOL HandleOverlayClick(int x,int y) {
             if(px>=493 && px<590){ ExecuteCommandIndex(i); if(g_menuHwnd)InvalidateRect(g_menuHwnd,0,TRUE); return TRUE; }
             if(px>=600 && px<744){ g_bindIndex=i; if(g_menuHwnd)InvalidateRect(g_menuHwnd,0,TRUE); return TRUE; }
             if(px>=330 && px<480 && StrEqA(g_cmds[i].className,"TimeScale")){ CycleTimeScaleArg(i); return TRUE; }
+            if(px>=330 && px<480 && StrEqA(g_cmds[i].className,"__CallDlcWeapon")){ CycleDlcSlotArg(i); return TRUE; }
         }
     }
     return TRUE; // consume clicks inside panel so the game does not fire weapons through it
@@ -321,7 +346,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A13 CALL DLC SLOT TEST");
+    LogA("PostalBorkenMenu V2A13A CALL DLC SLOT UI FIX TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
