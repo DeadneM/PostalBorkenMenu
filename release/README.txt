@@ -1,56 +1,50 @@
-PostalBorkenMenu V2A26 TEST
+PostalBorkenMenu V2A28 TEST
 POSTAL: Brain-Damaged
 
 IMPORTANT
 - Remove -debug from the game's launch options.
 - F1 opens/closes the PostalBorkenMenu overlay.
-- PostalBorkenMenu.log is generated automatically at runtime and is not shipped in this archive.
+- PostalBorkenMenu.log is generated automatically at runtime and is not included in this archive.
 
-V2A26 PURPOSE
-V2A25 proved that:
-- the pure Hook probe no longer grants weapons
-- WeaponsInventory.get_Hook() is null before the probe
-- WeaponsInventory.InitHook() completes without exception
-- get_Hook() is still null afterwards
+V2A28 PURPOSE
+Restore the exact V2A18 dual native weapon-wheel subsystem.
 
-Earlier V2A24 evidence also showed that after native GiveAllWeapons(), get_Hook() was already non-null.
-Therefore InitHook() alone is not the creator of the usable hook. Some state prepared by the native GiveAllWeapons path is missing.
+THIS IS NOT THE V2A27 REIMPLEMENTATION.
 
-V2A26 DEEP HOOK DISCOVERY
-The DLC Hook Deep Probe remains side-effect free with respect to weapon grants.
+V2A18 WHEEL CODE RESTORED
+The following pieces are transplanted from dev/v2a18-dual-native-wheel:
 
-It now logs:
-- exact return-type metadata for WeaponsInventory.get_Hook()
-- every field name on PlayerInventoryComponent
-- every field name on WeaponsInventory
-- all Assembly-CSharp classes whose class/namespace contains:
-  Hook / Grap / Rope / Cable / Tether
-- all methods and fields on those matching classes
-- methods/fields with those terms on other classes
-- parameter counts
-- method return types
+- one shared WM_APP_WHEELBANK message
+- one shared g_activeWheelBank state
+- one shared g_activeWheelVk state
+- ShowNativeWeaponWheelBank(category)
+- HideNativeWeaponWheelBank()
+- ExecuteNativeWheelBank(bank, show)
+- exact V2A18 HOLD / RELEASE hotkey handling
 
-Then it performs the same pure:
-get_Hook() -> InitHook() -> get_Hook()
-sequence.
+Base Weapon Wheel:
+- bank 1
+- filters native _weaponWheelButtons to category 0
 
-It still does NOT call GiveAllWeapons.
+DLC Weapon Wheel:
+- bank 2
+- filters the same native _weaponWheelButtons collection to category 1 / PTSD
 
-TEST
-1. Launch the game normally.
-2. Open F1 -> WEAPONS.
-3. Run DLC Hook Deep Probe once.
-4. Do not run Give All Weapons first.
-5. Send the generated PostalBorkenMenu.log.
+On close:
+- PlayerWeaponWheelComponent.EnableButtons() restores native button state
 
-The useful section will begin with:
-[HOOK DEEP] ===== Assembly-CSharp Hook/Grap discovery begin =====
+NO V2A22/V2A27 WHEEL FALLBACKS
+The restored V2A18 wheel subsystem does not:
+- call GiveAllWeapons automatically
+- call the Hook probe automatically
+- keep separate base/dlc wheel active-state variables
+- use the later split WM_APP_BASEWHEEL / WM_APP_DLCWHEEL handlers
 
-PRESERVED
-- V2A25 Weapon List labels and Argument-based slots
+PRESERVED FROM CURRENT LINE
+- V2A25 WEAPON LIST with visible Argument slots 1..9
 - ALT behavior
-- Base/DLC wheel experiment
-- V2A8 shutdown/lifetime model
+- V2A26 Hook Deep Probe
+- V2A8 shutdown/lifetime stability
 - No Crosshair
 - TimeScale
 - DLC ownership checks
@@ -60,7 +54,13 @@ PostalBorkenMenu.asi
 PostalBorkenMenu.ini
 README.txt
 
-PostalBorkenMenu.log is runtime-generated and is not included.
+TEST PRIORITY
+1. Bind Base Weapon Wheel and DLC Weapon Wheel to two different keys.
+2. Hold Base key, release.
+3. Hold DLC key, release.
+4. Confirm no crash.
+5. Confirm F1/menu still works.
+6. Confirm clean game exit.
 
 PROJECT
 https://github.com/DeadneM/PostalBorkenMenu
