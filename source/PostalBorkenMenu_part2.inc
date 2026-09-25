@@ -210,23 +210,23 @@ static void LogIntA(const char* prefix, int v) {
 static BOOL CallOwnedDlcWeaponSlot(int cmdIndex) {
     if (cmdIndex<0 || cmdIndex>=CMD_COUNT) return FALSE;
 
-    // V2A13 is deliberately lazy: all DLC-specific metadata is resolved only
-    // when this command is run. Startup remains the V2A8 path.
+    // V2A14 deliberately starts one level above PlayerInventoryComponent.
+    // InputManager owns the real OnWeaponDown multicast event used by the
+    // Rewired DLC actions. Invoking that event reproduces the native fan-out
+    // to every active subscriber instead of calling only the inventory listener.
     Il2CppClass* dlcCategoryClass=FindClassBySimpleName("DLCCategory");
     Il2CppClass* downloadableContentClass=FindClassBySimpleName("DownloadableContent");
-    Il2CppClass* inventoryClass=g_inventoryClass ? g_inventoryClass : FindClassBySimpleName("PlayerInventoryComponent");
-    const Il2CppImage* corlib=g_il2cpp.get_corlib();
-    Il2CppClass* intClass=corlib ? g_il2cpp.class_from_name(corlib,"System","Int32") : 0;
+    Il2CppClass* inputManagerClass=FindClassBySimpleName("InputManager");
 
-    if (!dlcCategoryClass || !downloadableContentClass || !inventoryClass || !intClass) {
-        LogA("[ERROR] Call DLC Weapon metadata classes unresolved");
+    if (!dlcCategoryClass || !downloadableContentClass || !inputManagerClass) {
+        LogA("[ERROR] Call DLC Weapon Event metadata classes unresolved");
         return FALSE;
     }
 
     const MethodInfo* isPurchased=FindMethodExact(downloadableContentClass,"IsDlcPurchased",1,dlcCategoryClass);
-    const MethodInfo* onWeaponDown=FindMethodExact(inventoryClass,"OnWeaponDown",2,intClass,dlcCategoryClass);
-    if (!isPurchased || !onWeaponDown) {
-        LogA("[ERROR] Call DLC Weapon native methods unresolved");
+    const FieldInfo* onWeaponDownField=g_il2cpp.class_get_field_from_name(inputManagerClass,"OnWeaponDown");
+    if (!isPurchased || !onWeaponDownField) {
+        LogA("[ERROR] InputManager.OnWeaponDown event bridge unresolved");
         return FALSE;
     }
 
@@ -250,34 +250,68 @@ static BOOL CallOwnedDlcWeaponSlot(int cmdIndex) {
     }
     if ((*(BYTE*)ownRaw)==0) {
         LogA("[DLC] These Sunny Daze ownership: NO");
-        LogA("[DLC] Native DLC weapon call blocked. Ownership check remains enforced.");
+        LogA("[DLC] InputManager DLC weapon event blocked. Ownership check remains enforced.");
         return FALSE;
     }
     LogA("[DLC] These Sunny Daze ownership: YES");
 
     int slot=ParseFirstIntW(g_cmds[cmdIndex].args,1);
-    if (slot<0 || slot>12) {
-        LogA("[ERROR] Call DLC Weapon slot must be between 0 and 12");
-        return FALSE;
-    }
-    LogIntA("[DLC] Calling native PlayerInventoryComponent.OnWeaponDown slot: ",slot);
-
-    Il2CppObject* inv=FindLiveObject(inventoryClass);
-    if (!inv) {
-        LogA("[ERROR] PlayerInventoryComponent instance not found");
+    if (slot<0 || slot>9) {
+        LogA("[ERROR] Call DLC Weapon slot must be between 0 and 9");
         return FALSE;
     }
 
+    Il2CppObject* inputManager=FindLiveObject(inputManagerClass);
+    if (!inputManager) {
+        LogA("[ERROR] live InputManager instance not found");
+        return FALSE;
+    }
+
+    Il2CppObject* weaponDownDelegate=0;
+    g_il2cpp.field_get_value(inputManager,onWeaponDownField,&weaponDownDelegate);
+    if (!weaponDownDelegate) {
+        LogA("[ERROR] InputManager.OnWeaponDown multicast delegate is null");
+        return FALSE;
+    }
+
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+    if (!objectGetClass) {
+        LogA("[ERROR] il2cpp_object_get_class unavailable");
+        return FALSE;
+    }
+
+    Il2CppClass* delegateClass=objectGetClass(weaponDownDelegate);
+    if (!delegateClass) {
+        LogA("[ERROR] InputManager.OnWeaponDown delegate class unavailable");
+        return FALSE;
+    }
+
+    const char* delegateName=g_il2cpp.class_get_name(delegateClass);
+    if (delegateName) {
+        char b[192]; int p=0; const char* h="[DLC] InputManager.OnWeaponDown delegate type: ";
+        while(*h && p<170) b[p++]=*h++;
+        while(*delegateName && p<190) b[p++]=*delegateName++;
+        b[p]=0; LogA(b);
+    }
+
+    const MethodInfo* invoke=g_il2cpp.class_get_method_from_name(delegateClass,"Invoke",2);
+    if (!invoke) {
+        LogA("[ERROR] InputManager.OnWeaponDown delegate Invoke(int, DLCCategory) unresolved");
+        return FALSE;
+    }
+
+    LogIntA("[DLC] Invoking native InputManager.OnWeaponDown event, slot: ",slot);
     void* pars[2]; pars[0]=&slot; pars[1]=&dlc;
     ex=0;
-    g_il2cpp.runtime_invoke(onWeaponDown,inv,pars,&ex);
+    g_il2cpp.runtime_invoke(invoke,weaponDownDelegate,pars,&ex);
     if (ex) {
-        LogA("[ERROR] OnWeaponDown(slot, PTSD) threw:");
+        LogA("[ERROR] InputManager.OnWeaponDown event Invoke threw:");
         FormatExceptionToLog(ex);
         return FALSE;
     }
 
-    LogA("[OK] Native OnWeaponDown(slot, PTSD) executed");
+    LogA("[OK] Native InputManager.OnWeaponDown(slot, PTSD) event invoked");
     return TRUE;
 }
 
