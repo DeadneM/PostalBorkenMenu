@@ -333,6 +333,163 @@ static int IsWeaponCollected(Il2CppObject* playerInv, Il2CppClass* inventoryClas
     return CollectionContainsWeaponId(collection,weapon);
 }
 
+static void CatalogAppendA(char* dst, int cap, const char* src) {
+    if (!dst || cap<=0) return;
+    int d=StrLenA(dst);
+    if (d>=cap-1 || !src) return;
+    int i=0;
+    while (src[i] && d+i<cap-1) {
+        dst[d+i]=src[i];
+        ++i;
+    }
+    dst[d+i]=0;
+}
+
+static void CatalogAppendInt(char* dst, int cap, int v) {
+    char tmp[32]; int p=0;
+    unsigned int u;
+    if (v<0) { tmp[p++]='-'; u=(unsigned int)(-v); }
+    else u=(unsigned int)v;
+    char rev[16]; int n=0;
+    do { rev[n++]=(char)('0'+(u%10)); u/=10; } while (u && n<15);
+    while (n>0 && p<(int)sizeof(tmp)-1) tmp[p++]=rev[--n];
+    tmp[p]=0;
+    CatalogAppendA(dst,cap,tmp);
+}
+
+static void CatalogManagedStringToAscii(Il2CppString* str, char* out, int cap) {
+    if (!out || cap<=0) return;
+    out[0]=0;
+    if (!str || !g_il2cpp.string_chars || !g_il2cpp.string_length) return;
+    const WCHAR* chars=g_il2cpp.string_chars(str);
+    int len=g_il2cpp.string_length(str);
+    if (!chars || len<=0) return;
+    int n=0;
+    for (int i=0;i<len && n<cap-1;i++) {
+        WCHAR w=chars[i];
+        if (w>=32 && w<=126) out[n++]=(char)w;
+        else if (w==L'\t') out[n++]=' ';
+        else out[n++]='?';
+    }
+    out[n]=0;
+}
+
+static BOOL RunWeaponCatalog() {
+    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    Il2CppClass* inventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerInventoryComponent") : 0;
+    Il2CppClass* resourcesClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Resources") : 0;
+    Il2CppClass* unityObjectClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Object") : 0;
+    if (!weaponIdClass || !resourcesClass || !unityObjectClass) {
+        LogA("[WEAPON CATALOG] Required metadata classes unresolved.");
+        return FALSE;
+    }
+
+    const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Category",0);
+    const MethodInfo* getSlot=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Slot",0);
+    const MethodInfo* toString=g_il2cpp.class_get_method_from_name(weaponIdClass,"ToString",0);
+    const MethodInfo* getName=g_il2cpp.class_get_method_from_name(unityObjectClass,"get_name",0);
+    const MethodInfo* findAll=FindMethodExact(resourcesClass,"FindObjectsOfTypeAll",1,g_systemTypeClass);
+    if (!getCategory || !getSlot || !getName || !findAll) {
+        LogA("[WEAPON CATALOG] WeaponId/Object/Resources bridge unresolved.");
+        return FALSE;
+    }
+
+    const Il2CppType* wt=g_il2cpp.class_get_type(weaponIdClass);
+    Il2CppObject* typeObj=wt ? g_il2cpp.type_get_object(wt) : 0;
+    if (!typeObj) {
+        LogA("[WEAPON CATALOG] WeaponId System.Type unavailable.");
+        return FALSE;
+    }
+
+    void* findPars[1]; findPars[0]=typeObj;
+    Il2CppException* ex=0;
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(findAll,0,findPars,&ex);
+    if (ex) {
+        LogA("[WEAPON CATALOG] Resources.FindObjectsOfTypeAll(WeaponId) threw:");
+        FormatExceptionToLog(ex);
+        return FALSE;
+    }
+    if (!arrObj) {
+        LogA("[WEAPON CATALOG] WeaponId scan returned null.");
+        return FALSE;
+    }
+
+    Il2CppArray* arr=(Il2CppArray*)arrObj;
+    SIZE_T n=g_il2cpp.array_length(arr);
+    if (n>1024) {
+        LogA("[WEAPON CATALOG] WeaponId scan exceeded defensive limit.");
+        return FALSE;
+    }
+
+    Il2CppObject* playerInv=inventoryClass ? FindLiveObject(inventoryClass) : 0;
+    unsigned int hdr=g_il2cpp.array_object_header_size();
+    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+
+    int baseCount=0, dlcCount=0, otherCount=0, namedCount=0;
+    LogA("[WEAPON CATALOG] ===== BEGIN =====");
+    LogIntA("[WEAPON CATALOG] Loaded WeaponId objects: ",(int)n);
+
+    for (SIZE_T i=0;i<n;i++) {
+        Il2CppObject* weapon=elems[i];
+        if (!weapon) continue;
+
+        int category=-999, slot=-999;
+        ex=0;
+        Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,weapon,0,&ex);
+        if (!ex && catBox && g_il2cpp.object_unbox(catBox))
+            category=*(int*)g_il2cpp.object_unbox(catBox);
+
+        ex=0;
+        Il2CppObject* slotBox=g_il2cpp.runtime_invoke(getSlot,weapon,0,&ex);
+        if (!ex && slotBox && g_il2cpp.object_unbox(slotBox))
+            slot=*(int*)g_il2cpp.object_unbox(slotBox);
+
+        char unityName[256]; unityName[0]=0;
+        ex=0;
+        Il2CppObject* nameObj=g_il2cpp.runtime_invoke(getName,weapon,0,&ex);
+        if (!ex && nameObj)
+            CatalogManagedStringToAscii((Il2CppString*)nameObj,unityName,256);
+
+        char toStringText[256]; toStringText[0]=0;
+        if (toString) {
+            ex=0;
+            Il2CppObject* strObj=g_il2cpp.runtime_invoke(toString,weapon,0,&ex);
+            if (!ex && strObj)
+                CatalogManagedStringToAscii((Il2CppString*)strObj,toStringText,256);
+        }
+
+        int collected=playerInv ? IsWeaponCollected(playerInv,inventoryClass,weapon) : -1;
+
+        if (category==0) ++baseCount;
+        else if (category==1) ++dlcCount;
+        else ++otherCount;
+        if (unityName[0]) ++namedCount;
+
+        char line[1024]; line[0]=0;
+        CatalogAppendA(line,1024,"[WEAPON CATALOG] #");
+        CatalogAppendInt(line,1024,(int)i);
+        CatalogAppendA(line,1024," | name=");
+        CatalogAppendA(line,1024,unityName[0] ? unityName : "<empty>");
+        CatalogAppendA(line,1024," | toString=");
+        CatalogAppendA(line,1024,toStringText[0] ? toStringText : "<empty>");
+        CatalogAppendA(line,1024," | category=");
+        CatalogAppendInt(line,1024,category);
+        CatalogAppendA(line,1024,category==0 ? "(BASE)" : category==1 ? "(PTSD)" : "(OTHER)");
+        CatalogAppendA(line,1024," | slot=");
+        CatalogAppendInt(line,1024,slot);
+        CatalogAppendA(line,1024," | collected=");
+        CatalogAppendA(line,1024,collected==1 ? "YES" : collected==0 ? "NO" : "UNKNOWN");
+        LogA(line);
+    }
+
+    LogIntA("[WEAPON CATALOG] Base count: ",baseCount);
+    LogIntA("[WEAPON CATALOG] PTSD/DLC count: ",dlcCount);
+    LogIntA("[WEAPON CATALOG] Other category count: ",otherCount);
+    LogIntA("[WEAPON CATALOG] Non-empty Unity names: ",namedCount);
+    LogA("[WEAPON CATALOG] ===== END =====");
+    return TRUE;
+}
+
 static BOOL SafeAddAndEquipWeaponId(Il2CppObject* playerInv,
                                     Il2CppObject* weaponsInv,
                                     Il2CppClass* inventoryClass,
