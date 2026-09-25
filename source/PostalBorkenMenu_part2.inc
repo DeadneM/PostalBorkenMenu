@@ -69,6 +69,8 @@ static const FieldInfo* g_weaponsControllerField = 0;
 static const MethodInfo* g_weaponGetCategory = 0;
 static const MethodInfo* g_isDlcPurchased = 0;
 static const MethodInfo* g_addWeapon = 0;
+static const FieldInfo* g_allWeaponsField = 0;
+static const MethodInfo* g_initWeaponSlots = 0;
 static const MethodInfo* g_findObjectsOfTypeAll = 0;
 static Il2CppObject* g_weaponIdTypeObject = 0;
 
@@ -202,115 +204,139 @@ static void LogUIntA(const char* prefix, unsigned int v) {
 static BOOL GiveLoadedOwnedDlcWeapons() {
     if (!g_isDlcPurchased || !g_findObjectsOfTypeAll || !g_weaponIdTypeObject ||
         !g_weaponGetCategory || !g_inventoryClass || !g_weaponsControllerField ||
-        !g_addWeapon) {
-        LogA("[ERROR] Loaded DLC Weapons probe bridge unresolved");
+        !g_addWeapon || !g_allWeaponsField || !g_initWeaponSlots ||
+        !g_il2cpp.object_get_class || !g_il2cpp.field_set_value) {
+        LogA("[ERROR] DLC catalog expansion bridge unresolved");
         return FALSE;
     }
 
-    int dlc=1; // Hyperstrange.Base.DLCCategory.PTSD / These Sunny Daze
+    int dlc=1;
     void* ownPars[1]; ownPars[0]=&dlc;
     Il2CppException* ex=0;
     Il2CppObject* ownBox=g_il2cpp.runtime_invoke(g_isDlcPurchased,0,ownPars,&ex);
-    if (ex) {
-        LogA("[ERROR] IsDlcPurchased(PTSD) threw:");
-        FormatExceptionToLog(ex);
-        return FALSE;
-    }
-    if (!ownBox) {
-        LogA("[ERROR] IsDlcPurchased(PTSD) returned null");
-        return FALSE;
-    }
+    if (ex) { LogA("[ERROR] IsDlcPurchased(PTSD) threw:"); FormatExceptionToLog(ex); return FALSE; }
+    if (!ownBox) { LogA("[ERROR] IsDlcPurchased(PTSD) returned null"); return FALSE; }
     void* ownRaw=g_il2cpp.object_unbox(ownBox);
-    if (!ownRaw) {
-        LogA("[ERROR] IsDlcPurchased(PTSD) could not be unboxed");
-        return FALSE;
-    }
+    if (!ownRaw) { LogA("[ERROR] IsDlcPurchased(PTSD) could not be unboxed"); return FALSE; }
     BOOL owned=(*(BYTE*)ownRaw)!=0;
     LogA(owned ? "[DLC] These Sunny Daze ownership: YES" : "[DLC] These Sunny Daze ownership: NO");
-    if (!owned) {
-        LogA("[DLC] No weapons were granted. Ownership check remains enforced.");
-        return FALSE;
-    }
+    if (!owned) { LogA("[DLC] No weapons were granted. Ownership check remains enforced."); return FALSE; }
 
     Il2CppObject* playerInv=FindLiveObject(g_inventoryClass);
-    if (!playerInv) {
-        LogA("[ERROR] PlayerInventoryComponent instance not found");
-        return FALSE;
-    }
+    if (!playerInv) { LogA("[ERROR] PlayerInventoryComponent instance not found"); return FALSE; }
+
     Il2CppObject* weaponsInv=0;
     g_il2cpp.field_get_value(playerInv,g_weaponsControllerField,&weaponsInv);
-    if (!weaponsInv) {
-        LogA("[ERROR] PlayerInventoryComponent._weaponsController is null");
-        return FALSE;
-    }
+    if (!weaponsInv) { LogA("[ERROR] PlayerInventoryComponent._weaponsController is null"); return FALSE; }
 
     void* findPars[1]; findPars[0]=g_weaponIdTypeObject;
     ex=0;
     Il2CppObject* arrObj=g_il2cpp.runtime_invoke(g_findObjectsOfTypeAll,0,findPars,&ex);
-    if (ex) {
-        LogA("[ERROR] Resources.FindObjectsOfTypeAll(WeaponId) threw:");
-        FormatExceptionToLog(ex);
-        return FALSE;
-    }
-    if (!arrObj) {
-        LogA("[ERROR] Resources.FindObjectsOfTypeAll(WeaponId) returned null");
-        return FALSE;
-    }
+    if (ex) { LogA("[ERROR] Resources.FindObjectsOfTypeAll(WeaponId) threw:"); FormatExceptionToLog(ex); return FALSE; }
+    if (!arrObj) { LogA("[ERROR] Resources.FindObjectsOfTypeAll(WeaponId) returned null"); return FALSE; }
 
-    Il2CppArray* arr=(Il2CppArray*)arrObj;
-    SIZE_T n=g_il2cpp.array_length(arr);
-    LogUIntA("[DLC] Loaded WeaponId objects visible to Resources: ",(unsigned int)n);
-    if (n>1024) {
-        LogA("[WARN] Loaded WeaponId count exceeds defensive limit 1024; aborting probe.");
-        return FALSE;
-    }
-
+    Il2CppArray* loaded=(Il2CppArray*)arrObj;
+    SIZE_T loadedCount=g_il2cpp.array_length(loaded);
+    if (loadedCount>1024) { LogA("[WARN] Loaded WeaponId count exceeds defensive limit 1024; aborting."); return FALSE; }
     unsigned int hdr=g_il2cpp.array_object_header_size();
-    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
-    unsigned int noneCount=0, ptsdCount=0, otherCount=0, added=0, errors=0;
+    Il2CppObject** loadedElems=(Il2CppObject**)(((BYTE*)loaded)+hdr);
 
-    for (SIZE_T i=0;i<n;i++) {
-        Il2CppObject* weapon=elems[i];
+    Il2CppObject* ptsd[128]; unsigned int ptsdCount=0, noneCount=0, otherCount=0, errors=0;
+    for (SIZE_T i=0;i<loadedCount;i++) {
+        Il2CppObject* weapon=loadedElems[i];
         if (!weapon) continue;
-
         ex=0;
         Il2CppObject* catBox=g_il2cpp.runtime_invoke(g_weaponGetCategory,weapon,0,&ex);
-        if (ex) { ++errors; continue; }
-        if (!catBox) { ++errors; continue; }
+        if (ex || !catBox) { ++errors; continue; }
         void* catRaw=g_il2cpp.object_unbox(catBox);
         if (!catRaw) { ++errors; continue; }
         int category=*(int*)catRaw;
-
         if (category==0) ++noneCount;
-        else if (category==1) {
-            ++ptsdCount;
-            void* addPars[1]; addPars[0]=weapon;
-            ex=0;
-            g_il2cpp.runtime_invoke(g_addWeapon,weaponsInv,addPars,&ex);
-            if (ex) {
-                ++errors;
-                LogA("[WARN] WeaponsInventory.AddWeapon(PTSD WeaponId) threw:");
-                FormatExceptionToLog(ex);
-            } else {
-                ++added;
-            }
-        } else ++otherCount;
+        else if (category==1) { if(ptsdCount<128) ptsd[ptsdCount++]=weapon; }
+        else ++otherCount;
     }
 
+    LogUIntA("[DLC] Loaded WeaponId objects visible to Resources: ",(unsigned int)loadedCount);
     LogUIntA("[DLC] Loaded category NONE WeaponIds: ",noneCount);
     LogUIntA("[DLC] Loaded category PTSD WeaponIds: ",ptsdCount);
-    LogUIntA("[DLC] Loaded other-category WeaponIds: ",otherCount);
-    LogUIntA("[DLC] AddWeapon calls completed: ",added);
-    if (errors) LogUIntA("[DLC] Probe errors: ",errors);
+    if (otherCount) LogUIntA("[DLC] Loaded other-category WeaponIds: ",otherCount);
+    if (errors) LogUIntA("[DLC] Category probe errors: ",errors);
+    if (!ptsdCount) { LogA("[DLC] No loaded PTSD WeaponId found; nothing changed."); return FALSE; }
 
-    if (!ptsdCount) {
-        LogA("[DLC] No loaded PTSD WeaponId exists in this base-campaign level.");
-        LogA("[DLC] This confirms the DLC weapon assets/catalog are not loaded yet; no global game state was modified.");
-        return FALSE;
+    Il2CppObject* allWeaponsObj=0;
+    g_il2cpp.field_get_value(weaponsInv,g_allWeaponsField,&allWeaponsObj);
+    if (!allWeaponsObj) { LogA("[ERROR] WeaponsInventory._allWeapons is null"); return FALSE; }
+
+    Il2CppClass* allClass=g_il2cpp.object_get_class(allWeaponsObj);
+    const char* allName=allClass ? g_il2cpp.class_get_name(allClass) : 0;
+    if (allName) {
+        char b[160]; int p=0; const char* h="[DLC] _allWeapons runtime type: ";
+        while(*h && p<140)b[p++]=*h++; while(*allName && p<158)b[p++]=*allName++; b[p]=0; LogA(b);
     }
 
-    LogA("[OK] Loaded owned PTSD WeaponIds were passed to native WeaponsInventory.AddWeapon.");
-    return added>0;
+    unsigned int appended=0;
+    BOOL handled=FALSE;
+
+    if (allName && allName[0]=='L' && allName[1]=='i' && allName[2]=='s' && allName[3]=='t') {
+        const MethodInfo* contains=g_il2cpp.class_get_method_from_name(allClass,"Contains",1);
+        const MethodInfo* add=g_il2cpp.class_get_method_from_name(allClass,"Add",1);
+        const MethodInfo* getCount=g_il2cpp.class_get_method_from_name(allClass,"get_Count",0);
+        if (!contains || !add) { LogA("[ERROR] _allWeapons List methods unresolved"); return FALSE; }
+        if (getCount) {
+            ex=0; Il2CppObject* cb=g_il2cpp.runtime_invoke(getCount,allWeaponsObj,0,&ex);
+            if (!ex && cb && g_il2cpp.object_unbox(cb)) LogUIntA("[DLC] _allWeapons count before expansion: ",*(int*)g_il2cpp.object_unbox(cb));
+        }
+        for (unsigned int i=0;i<ptsdCount;i++) {
+            void* pars[1]; pars[0]=ptsd[i];
+            ex=0; Il2CppObject* hasBox=g_il2cpp.runtime_invoke(contains,allWeaponsObj,pars,&ex);
+            if (ex) { ++errors; continue; }
+            BOOL has=FALSE; if(hasBox && g_il2cpp.object_unbox(hasBox)) has=(*(BYTE*)g_il2cpp.object_unbox(hasBox))!=0;
+            if (!has) {
+                ex=0; g_il2cpp.runtime_invoke(add,allWeaponsObj,pars,&ex);
+                if (ex) { ++errors; FormatExceptionToLog(ex); } else ++appended;
+            }
+        }
+        handled=TRUE;
+    } else if (allName && allName[0] && allName[StrLenA(allName)-1]==']') {
+        Il2CppArray* oldArr=(Il2CppArray*)allWeaponsObj;
+        SIZE_T oldN=g_il2cpp.array_length(oldArr);
+        if (oldN>1024) { LogA("[WARN] _allWeapons array exceeds defensive limit"); return FALSE; }
+        Il2CppObject** oldElems=(Il2CppObject**)(((BYTE*)oldArr)+hdr);
+        Il2CppObject* missing[128]; unsigned int missingN=0;
+        for(unsigned int p=0;p<ptsdCount;p++){
+            BOOL found=FALSE;
+            for(SIZE_T j=0;j<oldN;j++) if(oldElems[j]==ptsd[p]) { found=TRUE; break; }
+            if(!found && missingN<128) missing[missingN++]=ptsd[p];
+        }
+        LogUIntA("[DLC] _allWeapons count before expansion: ",(unsigned int)oldN);
+        if (missingN) {
+            Il2CppArray* newArr=g_il2cpp.array_new(g_weaponIdClass,oldN+missingN);
+            if(!newArr){ LogA("[ERROR] Failed to allocate expanded WeaponId array"); return FALSE; }
+            Il2CppObject** newElems=(Il2CppObject**)(((BYTE*)newArr)+hdr);
+            for(SIZE_T j=0;j<oldN;j++) g_il2cpp.gc_wbarrier_set_field((Il2CppObject*)newArr,(void**)&newElems[j],oldElems[j]);
+            for(unsigned int j=0;j<missingN;j++) g_il2cpp.gc_wbarrier_set_field((Il2CppObject*)newArr,(void**)&newElems[oldN+j],missing[j]);
+            Il2CppObject* replacement=(Il2CppObject*)newArr;
+            g_il2cpp.field_set_value(weaponsInv,g_allWeaponsField,&replacement);
+            appended=missingN;
+        }
+        handled=TRUE;
+    }
+
+    if (!handled) { LogA("[ERROR] Unsupported _allWeapons runtime collection type; no mutation performed."); return FALSE; }
+
+    LogUIntA("[DLC] PTSD WeaponIds appended to _allWeapons: ",appended);
+
+    ex=0;
+    g_il2cpp.runtime_invoke(g_initWeaponSlots,weaponsInv,0,&ex);
+    if (ex) { LogA("[ERROR] WeaponsInventory.InitWeaponSlots() threw:"); FormatExceptionToLog(ex); return FALSE; }
+    LogA("[DLC] Weapon slots rebuilt from expanded native _allWeapons catalog.");
+
+    ex=0;
+    g_il2cpp.runtime_invoke(g_giveAllWeapons,playerInv,0,&ex);
+    if (ex) { LogA("[ERROR] Native GiveAllWeapons() after catalog expansion threw:"); FormatExceptionToLog(ex); return FALSE; }
+
+    LogA("[OK] Native GiveAllWeapons executed after owned PTSD catalog expansion.");
+    return TRUE;
 }
 
 static BOOL SetCrosshairVisualAlpha(float alpha) {
@@ -493,6 +519,8 @@ static BOOL InitIl2Cpp() {
     g_weaponGetCategory=g_weaponIdClass ? g_il2cpp.class_get_method_from_name(g_weaponIdClass,"get_Category",0) : 0;
     g_isDlcPurchased=(g_downloadableContentClass && g_dlcCategoryClass) ? FindMethodExact(g_downloadableContentClass,"IsDlcPurchased",1,g_dlcCategoryClass) : 0;
     g_addWeapon=(g_weaponsInventoryClass && g_weaponIdClass) ? FindMethodExact(g_weaponsInventoryClass,"AddWeapon",1,g_weaponIdClass) : 0;
+    g_allWeaponsField=g_weaponsInventoryClass ? g_il2cpp.class_get_field_from_name(g_weaponsInventoryClass,"_allWeapons") : 0;
+    g_initWeaponSlots=g_weaponsInventoryClass ? g_il2cpp.class_get_method_from_name(g_weaponsInventoryClass,"InitWeaponSlots",0) : 0;
 
     Il2CppClass* resourcesClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Resources") : 0;
     g_findObjectsOfTypeAll=resourcesClass ? FindMethodExact(resourcesClass,"FindObjectsOfTypeAll",1,g_systemTypeClass) : 0;
@@ -511,7 +539,7 @@ static BOOL InitIl2Cpp() {
     if (g_findObjectOfType2 && g_giveAllWeapons) LogA("[OK] Give All Weapons bridge resolved");
     else LogA("[WARN] Give All Weapons bridge incomplete");
     if (g_isDlcPurchased && g_findObjectsOfTypeAll && g_weaponIdTypeObject && g_weaponGetCategory &&
-        g_weaponsControllerField && g_addWeapon)
+        g_weaponsControllerField && g_addWeapon && g_allWeaponsField && g_initWeaponSlots)
         LogA("[OK] Loaded DLC Weapons probe bridge resolved (ownership + Resources scan + native AddWeapon)");
     else
         LogA("[WARN] Loaded DLC Weapons probe bridge incomplete");
