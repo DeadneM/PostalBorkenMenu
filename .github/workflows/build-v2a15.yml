@@ -1,9 +1,9 @@
-name: Build V2A23 ALT Restore + Dual Wheel
+name: Build V2A24 Weapon List + Hook Audit
 
 on:
   push:
     branches:
-      - dev/v2a23-alt-restore-dual-wheel
+      - dev/v2a24-weapon-list-hook
   workflow_dispatch:
 
 permissions:
@@ -38,7 +38,7 @@ jobs:
         run: |
           Get-FileHash build\PostalBorkenMenu.asi -Algorithm SHA256 | Format-List
 
-      - name: Stage V2A23 package
+      - name: Stage V2A24 package
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path package | Out-Null
@@ -52,14 +52,14 @@ jobs:
           $files = Get-ChildItem package -File | Select-Object -ExpandProperty Name
           $expected = @('PostalBorkenMenu.asi','PostalBorkenMenu.ini','README.txt')
           if (Compare-Object ($files | Sort-Object) ($expected | Sort-Object)) {
-            Write-Error "Unexpected V2A23 package contents"
+            Write-Error "Unexpected V2A24 package contents"
             exit 1
           }
           Get-ChildItem package -File | Format-Table Name,Length
 
-      - name: Upload V2A23 package
+      - name: Upload V2A24 package
         uses: actions/upload-artifact@v4
         with:
-          name: POSTAL_Brain_Damaged_PostalBorkenMenu_V2A23_ALT_RESTORE_DUAL_WHEEL_TEST
+          name: POSTAL_Brain_Damaged_PostalBorkenMenu_V2A24_WEAPON_LIST_HOOK_AUDIT_TEST
           path: package/*
           if-no-files-found: error
