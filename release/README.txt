@@ -1,55 +1,44 @@
-PostalBorkenMenu V2A26 TEST
+PostalBorkenMenu V2A29 TEST
 POSTAL: Brain-Damaged
 
 IMPORTANT
 - Remove -debug from the game's launch options.
 - F1 opens/closes the PostalBorkenMenu overlay.
-- PostalBorkenMenu.log is generated automatically at runtime and is not shipped in this archive.
+- PostalBorkenMenu.log is generated automatically at runtime and is not included in this archive.
 
-V2A26 PURPOSE
-V2A25 proved that:
-- the pure Hook probe no longer grants weapons
-- WeaponsInventory.get_Hook() is null before the probe
-- WeaponsInventory.InitHook() completes without exception
-- get_Hook() is still null afterwards
+V2A29 PURPOSE
+Use the V2A20 weapon-wheel behavior as the reference.
 
-Earlier V2A24 evidence also showed that after native GiveAllWeapons(), get_Hook() was already non-null.
-Therefore InitHook() alone is not the creator of the usable hook. Some state prepared by the native GiveAllWeapons path is missing.
+BASE WEAPON WHEEL
+The Base Weapon Wheel block is transplanted directly from V2A20:
+- GetBaseWheelButtonsCollection()
+- GetBaseWheelButtonFromCollection()
+- ShowNativeBaseWeaponWheel()
+- HideNativeBaseWeaponWheel()
+- ExecuteNativeBaseWheel()
 
-V2A26 DEEP HOOK DISCOVERY
-The DLC Hook Deep Probe remains side-effect free with respect to weapon grants.
+This is the wheel path that can still display its native wheel structure before the player has collected weapons, because the game's live wheel buttons already exist.
 
-It now logs:
-- exact return-type metadata for WeaponsInventory.get_Hook()
-- every field name on PlayerInventoryComponent
-- every field name on WeaponsInventory
-- all Assembly-CSharp classes whose class/namespace contains:
-  Hook / Grap / Rope / Cable / Tether
-- all methods and fields on those matching classes
-- methods/fields with those terms on other classes
-- parameter counts
-- method return types
+DLC WEAPON WHEEL
+The DLC wheel keeps the same split state / HOLD interaction as the later branch, but follows the V2A20 display philosophy.
 
-Then it performs the same pure:
-get_Hook() -> InitHook() -> get_Hook()
-sequence.
+It:
+1. restores the game's native EnableButtons() state
+2. filters live buttons to category 1 / PTSD when possible
+3. calls PlayerWheelView.Show() even when zero DLC buttons are currently present
+4. therefore allows an EMPTY DLC wheel shell to be displayed for testing
+5. restores the native button state on close
 
-It still does NOT call GiveAllWeapons.
-
-TEST
-1. Launch the game normally.
-2. Open F1 -> WEAPONS.
-3. Run DLC Hook Deep Probe once.
-4. Do not run Give All Weapons first.
-5. Send the generated PostalBorkenMenu.log.
-
-The useful section will begin with:
-[HOOK DEEP] ===== Assembly-CSharp Hook/Grap discovery begin =====
+It does NOT:
+- call GiveAllWeapons()
+- call the Hook probe
+- automatically add any weapon
+- treat zero DLC buttons as a fatal error
 
 PRESERVED
-- V2A25 Weapon List labels and Argument-based slots
+- V2A25 Weapon List with visible Argument slots 1..9
 - ALT behavior
-- Base/DLC wheel experiment
+- V2A26 Hook Deep Probe
 - V2A8 shutdown/lifetime model
 - No Crosshair
 - TimeScale
@@ -61,6 +50,14 @@ PostalBorkenMenu.ini
 README.txt
 
 PostalBorkenMenu.log is runtime-generated and is not included.
+
+TEST PRIORITY
+1. Start with a save / situation where no weapon is collected if possible.
+2. Hold Base Weapon Wheel and confirm it displays.
+3. Hold DLC Weapon Wheel and confirm an empty wheel shell can display instead of failing.
+4. Release each key and confirm the view closes cleanly.
+5. Confirm F1 and normal weapon selection still work.
+6. Confirm clean game exit.
 
 PROJECT
 https://github.com/DeadneM/PostalBorkenMenu
