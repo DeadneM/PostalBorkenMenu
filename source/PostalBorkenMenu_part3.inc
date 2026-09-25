@@ -389,7 +389,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A14 INPUTMANAGER DLC EVENT TEST");
+    LogA("PostalBorkenMenu V2A14A EXACT INPUTMANAGER DLC EVENT TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
