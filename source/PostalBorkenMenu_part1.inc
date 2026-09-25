@@ -316,6 +316,7 @@ struct Il2CppApi {
     unsigned int (*method_get_param_count)(const MethodInfo*);
     BOOL (*method_is_instance)(const MethodInfo*);
     Il2CppObject* (*object_new)(Il2CppClass*);
+    Il2CppClass* (*object_get_class)(Il2CppObject*);
     Il2CppObject* (*runtime_invoke)(const MethodInfo*, void*, void**, Il2CppException**);
     Il2CppString* (*string_new)(const char*);
     const Il2CppImage* (*get_corlib)();
@@ -332,6 +333,7 @@ struct Il2CppApi {
     void (*thread_detach)(void*);
     const FieldInfo* (*class_get_field_from_name)(Il2CppClass*, const char*);
     void (*field_get_value)(Il2CppObject*, const FieldInfo*, void*);
+    void (*field_set_value)(Il2CppObject*, const FieldInfo*, void*);
     const Il2CppType* (*class_get_type)(Il2CppClass*);
     Il2CppClass* (*class_from_type)(const Il2CppType*);
     Il2CppObject* (*type_get_object)(const Il2CppType*);
@@ -403,6 +405,7 @@ static BOOL ResolveIl2CppApi() {
     RESOLVE(method_get_param_count)
     RESOLVE(method_is_instance)
     RESOLVE(object_new)
+    RESOLVE(object_get_class)
     RESOLVE(runtime_invoke)
     RESOLVE(string_new)
     RESOLVE(get_corlib)
@@ -419,6 +422,7 @@ static BOOL ResolveIl2CppApi() {
     RESOLVE(thread_detach)
     RESOLVE(class_get_field_from_name)
     RESOLVE(field_get_value)
+    RESOLVE(field_set_value)
     RESOLVE(class_get_type)
     RESOLVE(class_from_type)
     RESOLVE(type_get_object)
