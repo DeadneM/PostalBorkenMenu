@@ -231,15 +231,17 @@ static volatile LONG g_shuttingDown = 0;
 static volatile LONG g_noCrosshair = 0;
 static DWORD g_lastCrosshairTick = 0;
 static volatile LONG g_crosshairReapplyCountdown = 0;
+static int g_scrollRow = 0;
 static BYTE g_keyPrev[256] = {};
 static int g_bindIndex = -1;
 static int g_overlayX = 32;
 static int g_overlayY = 32;
 static float g_lastAppliedTimeScale = 1.0f;
 static const int OVERLAY_W = 760;
-static const int OVERLAY_H = 650;
+static const int OVERLAY_H = 600;
 static const int ROW_Y = 84;
 static const int ROW_H = 29;
+static const int VISIBLE_ROWS = (OVERLAY_H - ROW_Y - 48) / ROW_H;
 
 static int StrLenA(const char* s) { int n=0; if (!s) return 0; while (s[n]) ++n; return n; }
 static int StrLenW(const WCHAR* s) { int n=0; if (!s) return 0; while (s[n]) ++n; return n; }
@@ -379,6 +381,7 @@ static CommandRec g_cmds[] = {
     {"LogTime", L"Log Time", L"LogTime", 0,0,0,0,0,0,0,{0}},
     {"GiveAll", L"Give All", L"GiveAll", VK_F6,0,0,0,0,0,0,{0}},
     {"__GiveAllWeapons", L"Give All Weapons", L"GiveAllWeapons", 0,0,0,0,0,0,0,{0}},
+    {"__EquipDlcWeapon", L"Equip DLC Weapon", L"EquipDlcWeapon", 0,0,0,0,0,0,0,{L'1',0}},
     {"UnlockAll", L"Unlock All", L"UnlockAll", VK_F7,0,0,0,0,0,0,{0}},
     {"NoMenu", L"No Menu", L"NoMenu", 0,0,0,0,0,0,0,{0}},
     {"KillPresident", L"Kill President", L"KillPresident", 0,0,0,0,0,0,0,{0}},
