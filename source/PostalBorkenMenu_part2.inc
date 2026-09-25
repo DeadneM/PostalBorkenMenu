@@ -1876,6 +1876,7 @@ static void ExecuteCommandIndex(int i) {
     else if (StrEqA(g_cmds[i].className,"__NoCrosshair")) ToggleNoCrosshair();
     else if (StrEqA(g_cmds[i].className,"__GiveAllWeapons")) GiveAllWeaponsOnly();
     else if (StrEqA(g_cmds[i].className,"__GiveAllDlcWeapons")) GiveAllOwnedDlcWeapons();
+    else if (StrEqA(g_cmds[i].className,"__WeaponCatalog")) RunWeaponCatalog();
     else if (StrEqA(g_cmds[i].className,"__InitDlcHook")) InitOwnedDlcHook();
     else if (StrEqA(g_cmds[i].className,"__WeaponKeysMode")) LogA("[KEYMAP] Weapon Keys Mode changed through its Argument field");
     else if (StrEqA(g_cmds[i].className,"__BaseWeaponWheel")) LogA("[WHEEL] Bind Base Weapon Wheel to a key, then HOLD that key to open it.");
