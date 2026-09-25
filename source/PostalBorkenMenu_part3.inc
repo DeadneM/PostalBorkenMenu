@@ -116,7 +116,7 @@ static void PaintOverlay(HWND hwnd) {
         Fill(dc,14,y,746,y+ROW_H-2,(i&1)?C(23,24,29):C(27,28,34));
         if (g_bindIndex==i) Fill(dc,598,y+3,738,y+ROW_H-5,C(85,54,34));
         Text(dc,g_cmds[i].displayName,25,y,326,y+ROW_H-2,C(232,233,236),DT_LEFT);
-        BOOL clickableArg = StrEqA(g_cmds[i].className,"TimeScale") || StrEqA(g_cmds[i].className,"__EquipDlcWeapon") || StrEqA(g_cmds[i].className,"__EquipBaseWeapon");
+        BOOL clickableArg = StrEqA(g_cmds[i].className,"TimeScale") || StrEqA(g_cmds[i].className,"__EquipDlcWeapon") || StrEqA(g_cmds[i].className,"__EquipBaseWeapon") || StrEqA(g_cmds[i].className,"__WeaponKeysMode");
         if (clickableArg) Fill(dc,334,y+4,474,y+ROW_H-6,C(38,41,49));
         if (g_cmds[i].args[0]) Text(dc,g_cmds[i].args,342,y,462,y+ROW_H-2,C(198,202,210),DT_LEFT);
         Fill(dc,493,y+4,585,y+ROW_H-6,C(54,58,68));
@@ -217,6 +217,34 @@ static void CycleWeaponSlotArg(int i) {
     if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
 }
 
+static int GetWeaponKeysMode() {
+    for(int i=0;i<CMD_COUNT;i++) {
+        if(!StrEqA(g_cmds[i].className,"__WeaponKeysMode")) continue;
+        WCHAR* a=g_cmds[i].args;
+        if(a[0]==L'B' && a[1]==L'A') return 1;   // BASE
+        if(a[0]==L'D' && a[1]==L'L') return 2;   // DLC
+        if(a[0]==L'A' && a[1]==L'L') return 3;   // ALT
+        return 0;                                 // OFF / unknown
+    }
+    return 0;
+}
+
+static void CycleWeaponKeysMode(int i) {
+    if(i<0 || i>=CMD_COUNT || !StrEqA(g_cmds[i].className,"__WeaponKeysMode")) return;
+    int mode=GetWeaponKeysMode();
+    if(mode==0) CopyW(g_cmds[i].args,128,L"BASE");
+    else if(mode==1) CopyW(g_cmds[i].args,128,L"DLC");
+    else if(mode==2) CopyW(g_cmds[i].args,128,L"ALT");
+    else CopyW(g_cmds[i].args,128,L"OFF");
+    for(int s=0;s<10;s++) g_altSlotFlip[s]=0;
+    SaveArgs(i);
+    LogA(mode==0 ? "[KEYMAP] Weapon Keys Mode -> BASE" :
+         mode==1 ? "[KEYMAP] Weapon Keys Mode -> DLC" :
+         mode==2 ? "[KEYMAP] Weapon Keys Mode -> ALT" :
+                   "[KEYMAP] Weapon Keys Mode -> OFF");
+    if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
+}
+
 static BOOL HandleOverlayClick(int x,int y) {
     int px=x-g_overlayX, py=y-g_overlayY;
     if(px<0 || py<0 || px>=OVERLAY_W || py>=OVERLAY_H) return FALSE;
@@ -229,6 +257,7 @@ static BOOL HandleOverlayClick(int x,int y) {
             if(px>=600 && px<744){ g_bindIndex=i; if(g_menuHwnd)InvalidateRect(g_menuHwnd,0,TRUE); return TRUE; }
             if(px>=330 && px<480 && StrEqA(g_cmds[i].className,"TimeScale")){ CycleTimeScaleArg(i); return TRUE; }
             if(px>=330 && px<480 && (StrEqA(g_cmds[i].className,"__EquipDlcWeapon") || StrEqA(g_cmds[i].className,"__EquipBaseWeapon"))){ CycleWeaponSlotArg(i); return TRUE; }
+            if(px>=330 && px<480 && StrEqA(g_cmds[i].className,"__WeaponKeysMode")){ CycleWeaponKeysMode(i); return TRUE; }
         }
     }
     return TRUE; // consume clicks inside panel so the game does not fire weapons through it
@@ -286,6 +315,12 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
     }
 
     if (msg==WM_APP_EXEC) { ExecuteCommandIndex((int)wp); return 0; }
+    if (msg==WM_APP_WEAPONKEY) {
+        int slot=(int)(wp & 0xFF);
+        int mode=(int)((wp >> 8) & 0xFF);
+        ExecuteWeaponKeyMapping(slot,mode);
+        return 0;
+    }
     if (msg==WM_APP_CROSSHAIR) {
         if (g_ready && !g_shuttingDown) {
             BOOL attached=FALSE; void* thread=0;
@@ -321,12 +356,18 @@ static void PollHotkeys() {
 
     for (int vk=8; vk<256; ++vk) {
         if (g_shuttingDown) return;
-        BYTE down=(GetAsyncKeyState(vk) & 0x8000) ? 1 : 0;
-        BYTE pressed=(down && !g_keyPrev[vk]) ? 1 : 0;
-        g_keyPrev[vk]=down;
-        if (!active || !pressed) continue;
 
+        BYTE was=g_keyPrev[vk];
+        BYTE down=(GetAsyncKeyState(vk) & 0x8000) ? 1 : 0;
+        BYTE pressed=(down && !was) ? 1 : 0;
+        BYTE released=(!down && was) ? 1 : 0;
+        g_keyPrev[vk]=down;
+
+        if (!active || (!pressed && !released)) continue;
+
+        // Key-binding capture remains press-only.
         if (g_bindIndex>=0) {
+            if (!pressed) continue;
             if (vk==VK_ESCAPE) {
                 g_bindIndex=-1;
                 if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
@@ -345,6 +386,21 @@ static void PollHotkeys() {
             if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
             return;
         }
+
+        // Weapon-bank remap intentionally fires on KEY RELEASE. Rewired/the
+        // vanilla game has already processed its normal number-key selection
+        // on key-down, so PostalBorkenMenu's direct EquipWeapon call wins last.
+        if (released && g_ready && !g_shuttingDown && vk>=0x31 && vk<=0x39) {
+            int mode=GetWeaponKeysMode();
+            if (mode>0) {
+                int slot=vk-0x30;
+                WPARAM packed=(WPARAM)(slot | (mode<<8));
+                PostMessageW(g_gameHwnd,WM_APP_WEAPONKEY,packed,0);
+                return;
+            }
+        }
+
+        if (!pressed) continue;
 
         if (vk==VK_F1) {
             ToggleOverlay();
@@ -390,7 +446,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A16 BASE + DLC DIRECT EQUIP TEST");
+    LogA("PostalBorkenMenu V2A17 WEAPON KEY BANK TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -399,7 +455,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] F1 overlay. Defaults: F2 God, F3 Noclip, F4 NoTarget, F5 NoHud, F6 GiveAll, F7 UnlockAll. Equip DLC Weapon and Equip Base Weapon are unbound by default.");
+    LogA("[READY] F1 overlay. Give All DLC Weapons restored. Weapon Keys Mode: OFF / BASE / DLC / ALT. Number-key remap fires on key release.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
