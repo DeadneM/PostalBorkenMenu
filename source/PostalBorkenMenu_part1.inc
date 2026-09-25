@@ -237,7 +237,7 @@ static int g_overlayX = 32;
 static int g_overlayY = 32;
 static float g_lastAppliedTimeScale = 1.0f;
 static const int OVERLAY_W = 760;
-static const int OVERLAY_H = 650;
+static const int OVERLAY_H = 690;
 static const int ROW_Y = 84;
 static const int ROW_H = 29;
 
