@@ -1,4 +1,4 @@
-PostalBorkenMenu V2A31 TEST
+PostalBorkenMenu V2A32 TEST
 POSTAL: Brain-Damaged
 
 IMPORTANT
@@ -6,66 +6,69 @@ IMPORTANT
 - F1 opens/closes the PostalBorkenMenu overlay.
 - PostalBorkenMenu.log is generated automatically at runtime and is not included in this archive.
 
-V2A31 PURPOSE
-Preserve the validated V2A29 wheel behavior and the crash-safe V2A30 hook probe, then observe exactly what native GiveAllWeapons() does to the hook state.
+V2A32 PURPOSE
+Use the V2A31 discovery to isolate the Hook without GiveAllWeapons.
 
-RESULT FROM V2A30
-- Base Weapon Wheel still opens/closes correctly.
-- DLC Weapon Wheel still opens as an empty native shell when no DLC/PTSD wheel button exists.
-- DLC Hook Safe Probe no longer crashes.
-- _hookWeapon = null before InitHook().
-- get_Hook() = null before InitHook().
-- after InitHook(), both values remain null.
-- therefore InitHook() alone does not create or assign the Hook WeaponId.
+V2A31 DISCOVERY
+Immediately before native GiveAllWeapons():
+- WeaponsInventory._hookWeapon = NULL
+- WeaponsInventory.get_Hook() = NULL
 
-V2A31 CHANGE
-Give All Weapons remains the same validated native PlayerInventoryComponent.GiveAllWeapons() command.
+Immediately after native GiveAllWeapons():
+- WeaponsInventory._hookWeapon still = NULL
+- WeaponsInventory.get_Hook() = NON-NULL
+- returned WeaponId category = 0
+- returned WeaponId slot = 99
 
-The only addition is targeted logging immediately before and immediately after that native call.
+This strongly indicates that get_Hook() resolves a special collected WeaponId rather than simply returning _hookWeapon.
 
-Each snapshot logs:
-- WeaponsInventory._hookWeapon null / non-null
-- WeaponsInventory.get_Hook() null / non-null
-- whether both references are identical
-- Hook WeaponId category if present
-- Hook WeaponId slot if present
+V2A32 TEST
+The menu row is now:
+DLC Hook Slot99 Test
 
-This is observation only.
+Sequence:
+1. enforce These Sunny Daze ownership
+2. run the safe get_Hook / InitHook observation from V2A30
+3. if Hook remains null, scan loaded WeaponId objects
+4. require exactly ONE candidate with:
+   category = 0
+   slot = 99
+5. check whether that exact candidate is already collected
+6. if not collected, invoke native WeaponsInventory.AddWeapon(candidate)
+7. DO NOT call EquipWeapon
+8. DO NOT call GiveAllWeapons
+9. re-check get_Hook()
+10. compare get_Hook() pointer against the exact slot99 candidate
 
-NO NEW MUTATION
-V2A31 does not:
-- globally scan Assembly-CSharp
-- add an extra weapon
-- equip an extra weapon
-- call InitHook automatically from Give All Weapons
-- alter either Weapon Wheel
-
-TEST
-1. Start a session where Hook is not already initialized if possible.
-2. Run DLC Hook Safe Probe once.
-3. Run Give All Weapons once.
-4. Send PostalBorkenMenu.log.
-Look for:
-[GIVEALL HOOK] BEFORE GiveAllWeapons
-[GIVEALL HOOK] AFTER GiveAllWeapons
+SAFETY
+- if zero or multiple category0/slot99 candidates are found, no mutation occurs
+- if CollectedWeapons state cannot be inspected, no mutation occurs
+- DLC ownership remains enforced
+- no global Assembly-CSharp scan
+- no automatic weapon equip
+- no GiveAllWeapons
+- no Weapon Wheel changes
 
 PRESERVED
 - V2A29 V2A20-style Base Weapon Wheel
 - V2A29 empty DLC wheel shell
 - V2A25 Weapon List / Arguments
 - ALT behavior
-- V2A30 safe Hook probe
+- V2A31 GiveAll snapshot logging
 - V2A8 clean shutdown
 - No Crosshair
 - TimeScale
-- DLC ownership checks
 
 PACKAGE CONTENTS
 PostalBorkenMenu.asi
 PostalBorkenMenu.ini
 README.txt
 
-PostalBorkenMenu.log is runtime-generated and is not included.
+TEST
+1. Prefer a fresh session before using Give All Weapons.
+2. Run DLC Hook Slot99 Test once.
+3. If the command reports SUCCESS, test the actual hook in gameplay.
+4. Send PostalBorkenMenu.log.
 
 PROJECT
 https://github.com/DeadneM/PostalBorkenMenu
