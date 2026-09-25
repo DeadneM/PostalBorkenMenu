@@ -79,6 +79,23 @@ static void Fill(HDC dc,int x1,int y1,int x2,int y2,COLORREF color) {
     RECT r={x1,y1,x2,y2}; HBRUSH b=pCreateSolidBrush(color); if(b){ FillRect(dc,&r,b); pDeleteObject((HGDIOBJ)b); }
 }
 
+static int MaxScrollRow() {
+    int maxRow=CMD_COUNT-VISIBLE_ROWS;
+    return maxRow>0 ? maxRow : 0;
+}
+
+static void ClampScrollRow() {
+    int maxRow=MaxScrollRow();
+    if(g_scrollRow<0) g_scrollRow=0;
+    if(g_scrollRow>maxRow) g_scrollRow=maxRow;
+}
+
+static void ScrollOverlayRows(int deltaRows) {
+    g_scrollRow += deltaRows;
+    ClampScrollRow();
+    if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
+}
+
 static void PaintOverlay(HWND hwnd) {
     PAINTSTRUCT ps={}; HDC dc=BeginPaint(hwnd,&ps); if(!dc) return;
     Fill(dc,0,0,OVERLAY_W,OVERLAY_H,C(16,17,20));
@@ -91,8 +108,11 @@ static void PaintOverlay(HWND hwnd) {
     Text(dc,L"Argument",340,58,460,80,C(145,148,156),DT_LEFT);
     Text(dc,L"Action",493,58,585,80,C(145,148,156),DT_CENTER);
     Text(dc,L"Key",610,58,735,80,C(145,148,156),DT_CENTER);
-    for(int i=0;i<CMD_COUNT;i++) {
-        int y=ROW_Y+i*ROW_H;
+    ClampScrollRow();
+    for(int vr=0; vr<VISIBLE_ROWS; ++vr) {
+        int i=g_scrollRow+vr;
+        if(i>=CMD_COUNT) break;
+        int y=ROW_Y+vr*ROW_H;
         Fill(dc,14,y,746,y+ROW_H-2,(i&1)?C(23,24,29):C(27,28,34));
         if (g_bindIndex==i) Fill(dc,598,y+3,738,y+ROW_H-5,C(85,54,34));
         Text(dc,g_cmds[i].displayName,25,y,326,y+ROW_H-2,C(232,233,236),DT_LEFT);
@@ -105,8 +125,22 @@ static void PaintOverlay(HWND hwnd) {
         Fill(dc,600,y+4,738,y+ROW_H-6,(g_bindIndex==i)?C(112,69,38):C(43,46,54));
         Text(dc,key,600,y+4,738,y+ROW_H-6,C(238,238,240),DT_CENTER);
     }
-    int fy=ROW_Y+CMD_COUNT*ROW_H+3;
-    Text(dc,L"F1 close  •  Click RUN to execute the native DebugCommand  •  Click a key box to rebind",22,fy,738,fy+28,C(145,148,156),DT_LEFT);
+
+    // Thin visual scrollbar on the far right.
+    int trackTop=ROW_Y, trackBottom=ROW_Y+VISIBLE_ROWS*ROW_H-2;
+    Fill(dc,750,trackTop,754,trackBottom,C(37,40,47));
+    if(CMD_COUNT>VISIBLE_ROWS) {
+        int trackH=trackBottom-trackTop;
+        int thumbH=(trackH*VISIBLE_ROWS)/CMD_COUNT;
+        if(thumbH<28) thumbH=28;
+        int maxRow=MaxScrollRow();
+        int thumbY=trackTop;
+        if(maxRow>0) thumbY += ((trackH-thumbH)*g_scrollRow)/maxRow;
+        Fill(dc,750,thumbY,754,thumbY+thumbH,C(116,121,134));
+    }
+
+    int fy=ROW_Y+VISIBLE_ROWS*ROW_H+4;
+    Text(dc,L"Mouse wheel: scroll  •  F1 close  •  RUN execute  •  Click key box to rebind",22,fy,738,fy+28,C(145,148,156),DT_LEFT);
     EndPaint(hwnd,&ps);
 }
 
@@ -148,7 +182,7 @@ static BOOL CreateOverlayWindow() {
 static void ToggleOverlay() {
     if(!g_menuHwnd) return;
     if(g_menuVisible){ ShowWindow(g_menuHwnd,SW_HIDE); g_menuVisible=0; g_bindIndex=-1; }
-    else { UpdateOverlayPosition(); ShowWindow(g_menuHwnd,SW_SHOWNOACTIVATE); g_menuVisible=1; InvalidateRect(g_menuHwnd,0,TRUE); }
+    else { ClampScrollRow(); UpdateOverlayPosition(); ShowWindow(g_menuHwnd,SW_SHOWNOACTIVATE); g_menuVisible=1; InvalidateRect(g_menuHwnd,0,TRUE); }
 }
 
 static void CycleTimeScaleArg(int i) {
@@ -185,8 +219,10 @@ static void CycleDlcSlotArg(int i) {
 static BOOL HandleOverlayClick(int x,int y) {
     int px=x-g_overlayX, py=y-g_overlayY;
     if(px<0 || py<0 || px>=OVERLAY_W || py>=OVERLAY_H) return FALSE;
-    if(py>=ROW_Y && py<ROW_Y+CMD_COUNT*ROW_H) {
-        int i=(py-ROW_Y)/ROW_H; int ry=(py-ROW_Y)%ROW_H;
+    if(py>=ROW_Y && py<ROW_Y+VISIBLE_ROWS*ROW_H) {
+        int visibleIndex=(py-ROW_Y)/ROW_H;
+        int i=g_scrollRow+visibleIndex;
+        int ry=(py-ROW_Y)%ROW_H;
         if(i>=0 && i<CMD_COUNT && ry<ROW_H-1) {
             if(px>=493 && px<590){ ExecuteCommandIndex(i); if(g_menuHwnd)InvalidateRect(g_menuHwnd,0,TRUE); return TRUE; }
             if(px>=600 && px<744){ g_bindIndex=i; if(g_menuHwnd)InvalidateRect(g_menuHwnd,0,TRUE); return TRUE; }
@@ -239,6 +275,13 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
 
     if (g_shuttingDown) {
         return g_oldGameWndProc ? CallWindowProcW(g_oldGameWndProc,hwnd,msg,wp,lp) : DefWindowProcW(hwnd,msg,wp,lp);
+    }
+
+    if (msg==WM_MOUSEWHEEL && g_menuVisible) {
+        short delta=(short)((wp>>16)&0xFFFF);
+        if(delta>0) ScrollOverlayRows(-3);
+        else if(delta<0) ScrollOverlayRows(3);
+        return 0;
     }
 
     if (msg==WM_APP_EXEC) { ExecuteCommandIndex((int)wp); return 0; }
@@ -346,7 +389,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A13A CALL DLC SLOT UI FIX TEST");
+    LogA("PostalBorkenMenu V2A13B SCROLLABLE MENU TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
