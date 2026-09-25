@@ -574,3 +574,22 @@ V2A26 diagnostic expansion:
 - for matching classes, dump methods, parameter counts, return classes and fields
 - keep get_Hook -> InitHook -> get_Hook as the only active hook mutation
 - no weapon grants are performed by the probe
+
+
+### V2A29
+
+User correction:
+- V2A18 was not the desired wheel reference.
+- desired reference is V2A20 because its weapon wheel remains displayable even when the player has no collected weapon.
+
+Implementation:
+- branch starts from V2A26 to preserve Weapon List, ALT and Hook Deep Probe.
+- exact V2A20 Base Weapon Wheel block transplanted.
+- DLC wheel keeps split V2A26 state/hotkey plumbing but removes all GiveAllWeapons and Hook fallbacks.
+- DLC Show path restores native buttons, filters category 1 where available, and still calls PlayerWheelView.Show() when enabled DLC count is zero.
+- zero DLC buttons is now a valid empty-shell state, not an error.
+- close path still calls Hide() and EnableButtons() to restore the game's native wheel state.
+
+Goal:
+- reproduce the useful V2A20 visual behavior first.
+- keep DLC wheel visible for further experimentation even before we solve how to populate it with DLC WeaponIds.
