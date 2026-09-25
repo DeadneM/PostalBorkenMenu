@@ -206,8 +206,8 @@ static void CycleDlcSlotArg(int i) {
         ++p;
         if(slot>99) break;
     }
-    if(!any || slot<0 || slot>12) slot=0;
-    else { ++slot; if(slot>12) slot=0; }
+    if(!any || slot<0 || slot>9) slot=0;
+    else { ++slot; if(slot>9) slot=0; }
 
     WCHAR n[16];
     UIntToW((unsigned int)slot,n,16);
@@ -389,7 +389,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A13B SCROLLABLE MENU TEST");
+    LogA("PostalBorkenMenu V2A14 INPUTMANAGER DLC EVENT TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
