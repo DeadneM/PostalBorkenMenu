@@ -1,4 +1,4 @@
-PostalBorkenMenu V2A24 TEST
+PostalBorkenMenu V2A25 TEST
 POSTAL: Brain-Damaged
 
 IMPORTANT
@@ -6,83 +6,62 @@ IMPORTANT
 - F1 opens/closes the PostalBorkenMenu overlay.
 - PostalBorkenMenu.log is generated automatically at runtime and is not shipped in this archive.
 
-V2A24 CHANGES
+V2A25 CHANGES
 
-1. CLEAN WEAPONS TAB
-The following legacy rows were removed from the menu:
-- Equip DLC Weapon
-- Equip Base Weapon
-- Base Weapon 1
-- Base Weapon 2
-- DLC Weapon 1
-- DLC Weapon 2
+1. WEAPON LIST ARGUMENTS
+The WEAPON LIST tab keeps the paired order:
+1 Base Weapon | Argument 1
+1 DLC Weapon  | Argument 1
+2 Base Weapon | Argument 2
+2 DLC Weapon  | Argument 2
+...
+9 Base Weapon | Argument 9
+9 DLC Weapon  | Argument 9
 
-The WEAPONS tab now keeps the global weapon systems such as:
-- Give All
-- Give All Weapons
-- Give All DLC Weapons
-- Give / Init DLC Hook
-- Weapon Keys Mode
-- Base Weapon Wheel
-- DLC Weapon Wheel
+The last number is now the actual Argument value shown in the Argument column.
+It is no longer part of the command name.
 
-2. NEW WEAPON LIST TAB
-A fourth tab named WEAPON LIST was added.
+Each row still has:
+- RUN
+- independent KEY binding
 
-Rows are fixed in this order:
-1 Base Weapon 1
-1 DLC Weapon 1
-2 Base Weapon 2
-2 DLC Weapon 2
-3 Base Weapon 3
-3 DLC Weapon 3
-4 Base Weapon 4
-4 DLC Weapon 4
-5 Base Weapon 5
-5 DLC Weapon 5
-6 Base Weapon 6
-6 DLC Weapon 6
-7 Base Weapon 7
-7 DLC Weapon 7
-8 Base Weapon 8
-8 DLC Weapon 8
-9 Base Weapon 9
-9 DLC Weapon 9
+The Argument value is the slot actually sent to the weapon lookup.
+Click the Argument cell to cycle slots 1 through 9.
 
-Every row has its own RUN action and its own assignable KEY.
-There is no editable slot argument anymore for these rows.
+2. DLC HOOK PROBE
+User result from V2A24:
+- the Hook command did not make the hook usable
+- its GiveAllWeapons fallback only gave the weapon set
 
-Execution uses the same safe native WeaponId path:
-- if the target is not collected: AddWeapon then EquipWeapon
-- if already collected: skip duplicate AddWeapon, but EquipWeapon is still allowed
-- DLC ownership checks remain enforced
+V2A25 removes GiveAllWeapons from the Hook path completely.
 
-3. DLC HOOK AUDIT
-The previous InitHook-only attempt did not make the DLC hook usable.
-
-V2A24 keeps the native attempt but now:
-- runs the validated PlayerInventoryComponent.GiveAllWeapons() path first
-- scans PlayerInventoryComponent methods for names containing Hook or Grap
-- scans WeaponsInventory methods for names containing Hook or Grap
-- logs each matching method and its parameter count
-- calls the known WeaponsInventory.InitHook() path
+DLC Hook Probe now only:
+- checks These Sunny Daze ownership
+- audits PlayerInventoryComponent for Hook/Grap methods
+- audits WeaponsInventory for Hook/Grap methods
+- checks WeaponsInventory.get_Hook()
+- if null, calls WeaponsInventory.InitHook()
 - checks get_Hook() again
 
-This is intentionally a diagnostic step. If the hook still does not work, run Give / Init DLC Hook once and send the newly generated PostalBorkenMenu.log. The log should expose the actual game-side Hook/Grap API so the next build can target it directly.
+It does NOT call GiveAllWeapons and should not grant the normal weapon set.
+
+If the hook is still unusable, run DLC Hook Probe once and send the generated PostalBorkenMenu.log. The new audit lines will be used to identify the actual native hook activation path.
 
 PRESERVED
 - V2A8 shutdown/lifetime stability model
-- No Crosshair visual-only behavior
-- TimeScale toggle behavior
+- ALT behavior from V2A23
+- Base and DLC weapon wheels
+- DLC ownership checks
+- No Crosshair
+- TimeScale
 - async hotkeys
-- ALT weapon mode from V2A23
-- Base and DLC weapon wheels from V2A22
-- normal These Sunny Daze ownership checks
 
 PACKAGE CONTENTS
 PostalBorkenMenu.asi
 PostalBorkenMenu.ini
 README.txt
+
+PostalBorkenMenu.log is runtime-generated and is not included.
 
 PROJECT
 https://github.com/DeadneM/PostalBorkenMenu
