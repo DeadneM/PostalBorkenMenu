@@ -83,8 +83,13 @@ static int CommandMenuTab(int i) {
     if(i<0 || i>=CMD_COUNT) return 0;
     const char* n=g_cmds[i].className;
 
+    const char* exactName=0;
+    BOOL special=FALSE;
+    if (DecodeNamedWeaponCommand(i,&exactName,&special))
+        return special ? 3 : 2; // Arsenal / Special
+
     int listCategory=0, listSlot=0;
-    if (DecodeWeaponListCommand(i,&listCategory,&listSlot)) return 2; // Weapon List
+    if (DecodeWeaponListCommand(i,&listCategory,&listSlot)) return 2; // legacy compatibility only
 
     if (StrEqA(n,"GiveAll") ||
         StrEqA(n,"__GiveAllWeapons") ||
@@ -93,13 +98,13 @@ static int CommandMenuTab(int i) {
         StrEqA(n,"__InitDlcHook") ||
         StrEqA(n,"__WeaponKeysMode") ||
         StrEqA(n,"__BaseWeaponWheel") ||
-        StrEqA(n,"__DlcWeaponWheel")) return 1; // Weapons
+        StrEqA(n,"__DlcWeaponWheel")) return 1; // Weapons tools
 
     if (StrEqA(n,"NoHud") ||
         StrEqA(n,"__NoCrosshair") ||
         StrEqA(n,"NoHudWithCrossHair") ||
         StrEqA(n,"NoModel") ||
-        StrEqA(n,"NoMenu")) return 3; // Visual
+        StrEqA(n,"NoMenu")) return 4; // Visual
 
     return 0; // Gameplay
 }
@@ -139,7 +144,7 @@ static void ScrollOverlayRows(int deltaRows) {
 }
 
 static void SelectMenuTab(int tab) {
-    if(tab<0 || tab>3) return;
+    if(tab<0 || tab>4) return;
     if(g_menuTab==tab) return;
     g_menuTab=tab;
     g_scrollRow=0;
@@ -158,14 +163,16 @@ static void PaintOverlay(HWND hwnd) {
 
     // Top-level submenus. They only filter what is displayed; command state,
     // bindings and INI persistence remain shared and unchanged.
-    Fill(dc,18,59,158,84,g_menuTab==0?C(70,74,86):C(38,40,47));
-    Fill(dc,166,59,306,84,g_menuTab==1?C(70,74,86):C(38,40,47));
-    Fill(dc,314,59,486,84,g_menuTab==2?C(70,74,86):C(38,40,47));
-    Fill(dc,494,59,634,84,g_menuTab==3?C(70,74,86):C(38,40,47));
-    Text(dc,L"GAMEPLAY",18,59,158,84,C(238,238,240),DT_CENTER);
-    Text(dc,L"WEAPONS",166,59,306,84,C(238,238,240),DT_CENTER);
-    Text(dc,L"WEAPON LIST",314,59,486,84,C(238,238,240),DT_CENTER);
-    Text(dc,L"VISUAL",494,59,634,84,C(238,238,240),DT_CENTER);
+    Fill(dc,12,59,152,84,g_menuTab==0?C(70,74,86):C(38,40,47));
+    Fill(dc,158,59,298,84,g_menuTab==1?C(70,74,86):C(38,40,47));
+    Fill(dc,304,59,444,84,g_menuTab==2?C(70,74,86):C(38,40,47));
+    Fill(dc,450,59,590,84,g_menuTab==3?C(70,74,86):C(38,40,47));
+    Fill(dc,596,59,736,84,g_menuTab==4?C(70,74,86):C(38,40,47));
+    Text(dc,L"GAMEPLAY",12,59,152,84,C(238,238,240),DT_CENTER);
+    Text(dc,L"WEAPONS",158,59,298,84,C(238,238,240),DT_CENTER);
+    Text(dc,L"ARSENAL",304,59,444,84,C(238,238,240),DT_CENTER);
+    Text(dc,L"SPECIAL",450,59,590,84,C(238,238,240),DT_CENTER);
+    Text(dc,L"VISUAL",596,59,736,84,C(238,238,240),DT_CENTER);
 
     Text(dc,L"Command",24,87,310,109,C(145,148,156),DT_LEFT);
     Text(dc,L"Argument",340,87,460,109,C(145,148,156),DT_LEFT);
@@ -208,7 +215,7 @@ static void PaintOverlay(HWND hwnd) {
     }
 
     int fy=ROW_Y+VISIBLE_ROWS*ROW_H+4;
-    Text(dc,L"Tabs: Gameplay / Weapons / Weapon List / Visual  •  Mouse wheel scroll  •  F1 close",22,fy,738,fy+28,C(145,148,156),DT_LEFT);
+    Text(dc,L"Tabs: Gameplay / Weapons / Arsenal / Special / Visual  •  Mouse wheel scroll  •  F1 close",22,fy,738,fy+28,C(145,148,156),DT_LEFT);
     EndPaint(hwnd,&ps);
 }
 
@@ -310,10 +317,11 @@ static BOOL HandleOverlayClick(int x,int y) {
     if(px<0 || py<0 || px>=OVERLAY_W || py>=OVERLAY_H) return FALSE;
 
     if(py>=59 && py<84) {
-        if(px>=18 && px<158) SelectMenuTab(0);
-        else if(px>=166 && px<306) SelectMenuTab(1);
-        else if(px>=314 && px<486) SelectMenuTab(2);
-        else if(px>=494 && px<634) SelectMenuTab(3);
+        if(px>=12 && px<152) SelectMenuTab(0);
+        else if(px>=158 && px<298) SelectMenuTab(1);
+        else if(px>=304 && px<444) SelectMenuTab(2);
+        else if(px>=450 && px<590) SelectMenuTab(3);
+        else if(px>=596 && px<736) SelectMenuTab(4);
         return TRUE;
     }
 
@@ -574,7 +582,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A34 WEAPON CATALOG DISPATCH FIX");
+    LogA("PostalBorkenMenu V2A35 NAMED ARSENAL + SPECIAL TABS TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -583,7 +591,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Weapon List / Visual. V2A32 preserved; Weapon Catalog dispatcher fixed.");
+    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Arsenal / Special / Visual. Exact-name WeaponId selection active; V2A34 preserved.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
