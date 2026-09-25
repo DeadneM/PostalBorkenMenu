@@ -1,9 +1,9 @@
-name: Build V2A31 GiveAll Hook Snapshot
+name: Build V2A32 Hook Slot99 AddWeapon Test
 
 on:
   push:
     branches:
-      - dev/v2a31-giveall-hook-snapshot
+      - dev/v2a32-hook-slot99-addweapon
   workflow_dispatch:
 
 permissions:
@@ -38,7 +38,7 @@ jobs:
         run: |
           Get-FileHash build\PostalBorkenMenu.asi -Algorithm SHA256 | Format-List
 
-      - name: Stage V2A31 package
+      - name: Stage V2A32 package
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path package | Out-Null
@@ -52,14 +52,14 @@ jobs:
           $files = Get-ChildItem package -File | Select-Object -ExpandProperty Name
           $expected = @('PostalBorkenMenu.asi','PostalBorkenMenu.ini','README.txt')
           if (Compare-Object ($files | Sort-Object) ($expected | Sort-Object)) {
-            Write-Error "Unexpected V2A31 package contents"
+            Write-Error "Unexpected V2A32 package contents"
             exit 1
           }
           Get-ChildItem package -File | Format-Table Name,Length
 
-      - name: Upload V2A31 package
+      - name: Upload V2A32 package
         uses: actions/upload-artifact@v4
         with:
-          name: POSTAL_Brain_Damaged_PostalBorkenMenu_V2A31_GIVEALL_HOOK_SNAPSHOT_TEST
+          name: POSTAL_Brain_Damaged_PostalBorkenMenu_V2A32_HOOK_SLOT99_ADDWEAPON_TEST
           path: package/*
           if-no-files-found: error
