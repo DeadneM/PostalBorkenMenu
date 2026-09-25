@@ -648,3 +648,29 @@ V2A31 instrumentation:
 - compare _hookWeapon pointer with get_Hook() return.
 - no global metadata scan.
 - no extra AddWeapon / EquipWeapon / InitHook call.
+
+
+### V2A32
+
+V2A31 result from user log:
+- before GiveAllWeapons: _hookWeapon=NULL, get_Hook()=NULL
+- after GiveAllWeapons: _hookWeapon remains NULL
+- after GiveAllWeapons: get_Hook() becomes NON-NULL
+- returned Hook WeaponId is category 0, slot 99
+- therefore get_Hook() is not simply mirroring _hookWeapon
+
+V2A32 hypothesis:
+- the Hook is exposed when the special category0/slot99 WeaponId enters the collected inventory.
+- native GiveAllWeapons likely adds that special WeaponId among its broader work.
+- if true, adding only that one WeaponId should make get_Hook() non-null without granting the normal weapon set.
+
+V2A32 implementation:
+- preserve V2A29 wheels and V2A30 safe probe behavior.
+- after InitHook still leaves Hook null, scan loaded WeaponIds.
+- accept only a unique category0/slot99 candidate.
+- inspect CollectedWeapons before mutation.
+- call WeaponsInventory.AddWeapon(candidate) only if not already collected.
+- never call EquipWeapon for the hook candidate.
+- never call GiveAllWeapons from the Hook test.
+- re-run get_Hook() and compare returned pointer to the exact candidate.
+- refuse mutation on ambiguity or failed collected-state inspection.
