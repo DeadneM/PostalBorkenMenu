@@ -315,6 +315,56 @@ static BOOL SafeAddAndEquipWeaponId(Il2CppObject* playerInv,
     return TRUE;
 }
 
+static BOOL IsHookDiscoveryName(const char* name) {
+    if (!name) return FALSE;
+    return StrContainsNoCaseA(name,"hook") ||
+           StrContainsNoCaseA(name,"grap") ||
+           StrContainsNoCaseA(name,"rope") ||
+           StrContainsNoCaseA(name,"cable") ||
+           StrContainsNoCaseA(name,"tether");
+}
+
+static void LogClassIdentity(Il2CppClass* klass, const char* prefix) {
+    if (!klass) return;
+    const char* ns=g_il2cpp.class_get_namespace(klass);
+    const char* name=g_il2cpp.class_get_name(klass);
+    LogA(prefix ? prefix : "[HOOK DEEP] class");
+    if (ns && ns[0]) { LogA("[HOOK DEEP] namespace:"); LogA(ns); }
+    if (name) { LogA("[HOOK DEEP] class name:"); LogA(name); }
+}
+
+static void LogMethodReturnType(const MethodInfo* m) {
+    if (!m || !g_il2cpp.method_get_return_type) return;
+    const Il2CppType* rt=g_il2cpp.method_get_return_type(m);
+    Il2CppClass* rc=rt ? g_il2cpp.class_from_type(rt) : 0;
+    if (!rc) {
+        LogA("[HOOK DEEP] return type: <unresolved>");
+        return;
+    }
+    const char* ns=g_il2cpp.class_get_namespace(rc);
+    const char* name=g_il2cpp.class_get_name(rc);
+    LogA("[HOOK DEEP] return type:");
+    if (ns && ns[0]) LogA(ns);
+    if (name) LogA(name);
+}
+
+static void LogAllFieldsForClass(Il2CppClass* klass, const char* header) {
+    if (!klass || !g_il2cpp.class_get_fields || !g_il2cpp.field_get_name) return;
+    LogA(header);
+    void* iter=0;
+    const FieldInfo* field=0;
+    int count=0;
+    while ((field=g_il2cpp.class_get_fields(klass,&iter))!=0 && count<128) {
+        const char* name=g_il2cpp.field_get_name(field);
+        if (name) {
+            LogA("[HOOK FIELD]");
+            LogA(name);
+            ++count;
+        }
+    }
+    LogIntA("[HOOK DEEP] fields logged: ",count);
+}
+
 static void LogHookLikeMethods(Il2CppClass* klass, const char* header) {
     if (!klass) return;
     LogA(header);
@@ -323,13 +373,106 @@ static void LogHookLikeMethods(Il2CppClass* klass, const char* header) {
     int found=0;
     while ((m=g_il2cpp.class_get_methods(klass,&iter))!=0) {
         const char* name=g_il2cpp.method_get_name(m);
-        if (!name) continue;
-        if (!StrContainsNoCaseA(name,"hook") && !StrContainsNoCaseA(name,"grap")) continue;
+        if (!name || !IsHookDiscoveryName(name)) continue;
         ++found;
+        LogA("[HOOK METHOD]");
         LogA(name);
-        LogIntA("[HOOK AUDIT] parameter count: ",(int)g_il2cpp.method_get_param_count(m));
+        LogIntA("[HOOK DEEP] parameter count: ",(int)g_il2cpp.method_get_param_count(m));
+        LogMethodReturnType(m);
     }
-    if (!found) LogA("[HOOK AUDIT] no Hook/Grap method names found on this class.");
+    if (!found) LogA("[HOOK DEEP] no Hook/Grap/Rope/Cable/Tether method names found on this class.");
+}
+
+static void LogAllMembersForDiscoveryClass(Il2CppClass* klass) {
+    if (!klass) return;
+    LogClassIdentity(klass,"[HOOK DEEP] matching class");
+
+    void* mi=0;
+    const MethodInfo* m=0;
+    int methodCount=0;
+    while ((m=g_il2cpp.class_get_methods(klass,&mi))!=0 && methodCount<128) {
+        const char* mn=g_il2cpp.method_get_name(m);
+        if (!mn) continue;
+        LogA("[HOOK CLASS METHOD]");
+        LogA(mn);
+        LogIntA("[HOOK DEEP] parameter count: ",(int)g_il2cpp.method_get_param_count(m));
+        LogMethodReturnType(m);
+        ++methodCount;
+    }
+
+    if (g_il2cpp.class_get_fields && g_il2cpp.field_get_name) {
+        void* fi=0;
+        const FieldInfo* fld=0;
+        int fieldCount=0;
+        while ((fld=g_il2cpp.class_get_fields(klass,&fi))!=0 && fieldCount<128) {
+            const char* fn=g_il2cpp.field_get_name(fld);
+            if (!fn) continue;
+            LogA("[HOOK CLASS FIELD]");
+            LogA(fn);
+            ++fieldCount;
+        }
+    }
+}
+
+static void LogGlobalHookDiscovery() {
+    if (!g_assemblyCSharp) return;
+    LogA("[HOOK DEEP] ===== Assembly-CSharp Hook/Grap discovery begin =====");
+
+    SIZE_T classCount=g_il2cpp.image_get_class_count(g_assemblyCSharp);
+    int matchingClasses=0;
+    int matchingMembers=0;
+
+    for (SIZE_T i=0;i<classCount;i++) {
+        Il2CppClass* klass=g_il2cpp.image_get_class(g_assemblyCSharp,i);
+        if (!klass) continue;
+
+        const char* cn=g_il2cpp.class_get_name(klass);
+        const char* ns=g_il2cpp.class_get_namespace(klass);
+        BOOL classMatch=IsHookDiscoveryName(cn) || IsHookDiscoveryName(ns);
+
+        if (classMatch && matchingClasses<64) {
+            LogAllMembersForDiscoveryClass(klass);
+            ++matchingClasses;
+            continue;
+        }
+
+        BOOL headerLogged=FALSE;
+        void* mi=0;
+        const MethodInfo* m=0;
+        while ((m=g_il2cpp.class_get_methods(klass,&mi))!=0 && matchingMembers<256) {
+            const char* mn=g_il2cpp.method_get_name(m);
+            if (!mn || !IsHookDiscoveryName(mn)) continue;
+            if (!headerLogged) {
+                LogClassIdentity(klass,"[HOOK DEEP] class with matching member");
+                headerLogged=TRUE;
+            }
+            LogA("[HOOK MEMBER METHOD]");
+            LogA(mn);
+            LogIntA("[HOOK DEEP] parameter count: ",(int)g_il2cpp.method_get_param_count(m));
+            LogMethodReturnType(m);
+            ++matchingMembers;
+        }
+
+        if (g_il2cpp.class_get_fields && g_il2cpp.field_get_name && matchingMembers<256) {
+            void* fi=0;
+            const FieldInfo* fld=0;
+            while ((fld=g_il2cpp.class_get_fields(klass,&fi))!=0 && matchingMembers<256) {
+                const char* fn=g_il2cpp.field_get_name(fld);
+                if (!fn || !IsHookDiscoveryName(fn)) continue;
+                if (!headerLogged) {
+                    LogClassIdentity(klass,"[HOOK DEEP] class with matching member");
+                    headerLogged=TRUE;
+                }
+                LogA("[HOOK MEMBER FIELD]");
+                LogA(fn);
+                ++matchingMembers;
+            }
+        }
+    }
+
+    LogIntA("[HOOK DEEP] matching class count: ",matchingClasses);
+    LogIntA("[HOOK DEEP] matching member count: ",matchingMembers);
+    LogA("[HOOK DEEP] ===== Assembly-CSharp Hook/Grap discovery end =====");
 }
 
 static BOOL InitOwnedDlcHook() {
@@ -347,6 +490,9 @@ static BOOL InitOwnedDlcHook() {
 
     LogHookLikeMethods(inventoryClass,"[HOOK AUDIT] PlayerInventoryComponent Hook/Grap methods:");
     LogHookLikeMethods(weaponsInventoryClass,"[HOOK AUDIT] WeaponsInventory Hook/Grap methods:");
+    LogAllFieldsForClass(inventoryClass,"[HOOK DEEP] PlayerInventoryComponent fields:");
+    LogAllFieldsForClass(weaponsInventoryClass,"[HOOK DEEP] WeaponsInventory fields:");
+    LogGlobalHookDiscovery();
 
     // V2A25: hook probe must be side-effect free with respect to weapon grants.
     // Do NOT call GiveAllWeapons here: user confirmed that doing so only grants
@@ -356,6 +502,10 @@ static BOOL InitOwnedDlcHook() {
     const FieldInfo* weaponsControllerField=g_il2cpp.class_get_field_from_name(inventoryClass,"_weaponsController");
     const MethodInfo* getHook=g_il2cpp.class_get_method_from_name(weaponsInventoryClass,"get_Hook",0);
     const MethodInfo* initHook=g_il2cpp.class_get_method_from_name(weaponsInventoryClass,"InitHook",0);
+    if (getHook) {
+        LogA("[HOOK DEEP] WeaponsInventory.get_Hook return metadata:");
+        LogMethodReturnType(getHook);
+    }
     if (!weaponsControllerField || !getHook || !initHook) {
         LogA("[ERROR] WeaponsInventory get_Hook / InitHook bridge unresolved");
         return FALSE;
