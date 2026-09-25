@@ -214,21 +214,27 @@ static BOOL CallOwnedDlcWeaponSlot(int cmdIndex) {
     // InputManager owns the real OnWeaponDown multicast event used by the
     // Rewired DLC actions. Invoking that event reproduces the native fan-out
     // to every active subscriber instead of calling only the inventory listener.
-    Il2CppClass* dlcCategoryClass=FindClassBySimpleName("DLCCategory");
-    Il2CppClass* downloadableContentClass=FindClassBySimpleName("DownloadableContent");
-    Il2CppClass* inputManagerClass=FindClassBySimpleName("InputManager");
+    Il2CppClass* dlcCategoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.Base","DLCCategory") : 0;
+    Il2CppClass* downloadableContentClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.Base","DownloadableContent") : 0;
+    Il2CppClass* inputManagerClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","InputManager") : 0;
 
     if (!dlcCategoryClass || !downloadableContentClass || !inputManagerClass) {
-        LogA("[ERROR] Call DLC Weapon Event metadata classes unresolved");
+        LogA("[ERROR] Exact Hyperstrange InputManager/DLC metadata classes unresolved");
         return FALSE;
     }
+    LogA("[DLC] Exact class resolved: Hyperstrange.PBD.InputManager");
 
     const MethodInfo* isPurchased=FindMethodExact(downloadableContentClass,"IsDlcPurchased",1,dlcCategoryClass);
     const FieldInfo* onWeaponDownField=g_il2cpp.class_get_field_from_name(inputManagerClass,"OnWeaponDown");
-    if (!isPurchased || !onWeaponDownField) {
-        LogA("[ERROR] InputManager.OnWeaponDown event bridge unresolved");
+    if (!isPurchased) {
+        LogA("[ERROR] Hyperstrange.Base.DownloadableContent.IsDlcPurchased unresolved");
         return FALSE;
     }
+    if (!onWeaponDownField) {
+        LogA("[ERROR] Hyperstrange.PBD.InputManager.OnWeaponDown field unresolved");
+        return FALSE;
+    }
+    LogA("[DLC] Exact InputManager.OnWeaponDown field resolved");
 
     int dlc=1; // Hyperstrange.Base.DLCCategory.PTSD / These Sunny Daze
     void* ownPars[1]; ownPars[0]=&dlc;
