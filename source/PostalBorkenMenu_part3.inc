@@ -79,8 +79,50 @@ static void Fill(HDC dc,int x1,int y1,int x2,int y2,COLORREF color) {
     RECT r={x1,y1,x2,y2}; HBRUSH b=pCreateSolidBrush(color); if(b){ FillRect(dc,&r,b); pDeleteObject((HGDIOBJ)b); }
 }
 
+static int CommandMenuTab(int i) {
+    if(i<0 || i>=CMD_COUNT) return 0;
+    const char* n=g_cmds[i].className;
+
+    if (StrEqA(n,"GiveAll") ||
+        StrEqA(n,"__GiveAllWeapons") ||
+        StrEqA(n,"__EquipDlcWeapon") ||
+        StrEqA(n,"__EquipBaseWeapon") ||
+        StrEqA(n,"__BaseWeaponShortcut1") ||
+        StrEqA(n,"__BaseWeaponShortcut2") ||
+        StrEqA(n,"__DlcWeaponShortcut1") ||
+        StrEqA(n,"__DlcWeaponShortcut2") ||
+        StrEqA(n,"__GiveAllDlcWeapons") ||
+        StrEqA(n,"__WeaponKeysMode") ||
+        StrEqA(n,"__BaseWeaponWheel")) return 1; // Weapons
+
+    if (StrEqA(n,"NoHud") ||
+        StrEqA(n,"__NoCrosshair") ||
+        StrEqA(n,"NoHudWithCrossHair") ||
+        StrEqA(n,"NoModel") ||
+        StrEqA(n,"NoMenu")) return 2; // Visual
+
+    return 0; // Gameplay
+}
+
+static int TabCommandCount() {
+    int count=0;
+    for(int i=0;i<CMD_COUNT;i++) if(CommandMenuTab(i)==g_menuTab) ++count;
+    return count;
+}
+
+static int TabCommandIndex(int rank) {
+    if(rank<0) return -1;
+    int seen=0;
+    for(int i=0;i<CMD_COUNT;i++) {
+        if(CommandMenuTab(i)!=g_menuTab) continue;
+        if(seen==rank) return i;
+        ++seen;
+    }
+    return -1;
+}
+
 static int MaxScrollRow() {
-    int maxRow=CMD_COUNT-VISIBLE_ROWS;
+    int maxRow=TabCommandCount()-VISIBLE_ROWS;
     return maxRow>0 ? maxRow : 0;
 }
 
@@ -96,6 +138,15 @@ static void ScrollOverlayRows(int deltaRows) {
     if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
 }
 
+static void SelectMenuTab(int tab) {
+    if(tab<0 || tab>2) return;
+    if(g_menuTab==tab) return;
+    g_menuTab=tab;
+    g_scrollRow=0;
+    g_bindIndex=-1;
+    if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
+}
+
 static void PaintOverlay(HWND hwnd) {
     PAINTSTRUCT ps={}; HDC dc=BeginPaint(hwnd,&ps); if(!dc) return;
     Fill(dc,0,0,OVERLAY_W,OVERLAY_H,C(16,17,20));
@@ -104,19 +155,38 @@ static void PaintOverlay(HWND hwnd) {
     Text(dc,L"POSTAL: BRAIN-DAMAGED",22,6,440,30,C(245,245,245),DT_LEFT);
     Text(dc,L"PostalBorkenMenu  •  ASI Overlay",22,27,500,50,C(165,168,176),DT_LEFT);
     Text(dc,g_ready?L"IL2CPP READY":L"IL2CPP INITIALIZING...",560,10,738,32,g_ready?C(115,220,145):C(230,190,90),DT_CENTER);
-    Text(dc,L"Command",24,58,310,80,C(145,148,156),DT_LEFT);
-    Text(dc,L"Argument",340,58,460,80,C(145,148,156),DT_LEFT);
-    Text(dc,L"Action",493,58,585,80,C(145,148,156),DT_CENTER);
-    Text(dc,L"Key",610,58,735,80,C(145,148,156),DT_CENTER);
+
+    // Top-level submenus. They only filter what is displayed; command state,
+    // bindings and INI persistence remain shared and unchanged.
+    Fill(dc,18,59,174,84,g_menuTab==0?C(70,74,86):C(38,40,47));
+    Fill(dc,182,59,338,84,g_menuTab==1?C(70,74,86):C(38,40,47));
+    Fill(dc,346,59,502,84,g_menuTab==2?C(70,74,86):C(38,40,47));
+    Text(dc,L"GAMEPLAY",18,59,174,84,C(238,238,240),DT_CENTER);
+    Text(dc,L"WEAPONS",182,59,338,84,C(238,238,240),DT_CENTER);
+    Text(dc,L"VISUAL",346,59,502,84,C(238,238,240),DT_CENTER);
+
+    Text(dc,L"Command",24,87,310,109,C(145,148,156),DT_LEFT);
+    Text(dc,L"Argument",340,87,460,109,C(145,148,156),DT_LEFT);
+    Text(dc,L"Action",493,87,585,109,C(145,148,156),DT_CENTER);
+    Text(dc,L"Key",610,87,735,109,C(145,148,156),DT_CENTER);
+
     ClampScrollRow();
+    int tabCount=TabCommandCount();
     for(int vr=0; vr<VISIBLE_ROWS; ++vr) {
-        int i=g_scrollRow+vr;
-        if(i>=CMD_COUNT) break;
+        int i=TabCommandIndex(g_scrollRow+vr);
+        if(i<0) break;
         int y=ROW_Y+vr*ROW_H;
-        Fill(dc,14,y,746,y+ROW_H-2,(i&1)?C(23,24,29):C(27,28,34));
+        Fill(dc,14,y,746,y+ROW_H-2,(vr&1)?C(23,24,29):C(27,28,34));
         if (g_bindIndex==i) Fill(dc,598,y+3,738,y+ROW_H-5,C(85,54,34));
         Text(dc,g_cmds[i].displayName,25,y,326,y+ROW_H-2,C(232,233,236),DT_LEFT);
-        BOOL clickableArg = StrEqA(g_cmds[i].className,"TimeScale") || StrEqA(g_cmds[i].className,"__EquipDlcWeapon") || StrEqA(g_cmds[i].className,"__EquipBaseWeapon") || StrEqA(g_cmds[i].className,"__BaseWeaponShortcut1") || StrEqA(g_cmds[i].className,"__BaseWeaponShortcut2") || StrEqA(g_cmds[i].className,"__DlcWeaponShortcut1") || StrEqA(g_cmds[i].className,"__DlcWeaponShortcut2") || StrEqA(g_cmds[i].className,"__WeaponKeysMode");
+        BOOL clickableArg = StrEqA(g_cmds[i].className,"TimeScale") ||
+                            StrEqA(g_cmds[i].className,"__EquipDlcWeapon") ||
+                            StrEqA(g_cmds[i].className,"__EquipBaseWeapon") ||
+                            StrEqA(g_cmds[i].className,"__BaseWeaponShortcut1") ||
+                            StrEqA(g_cmds[i].className,"__BaseWeaponShortcut2") ||
+                            StrEqA(g_cmds[i].className,"__DlcWeaponShortcut1") ||
+                            StrEqA(g_cmds[i].className,"__DlcWeaponShortcut2") ||
+                            StrEqA(g_cmds[i].className,"__WeaponKeysMode");
         if (clickableArg) Fill(dc,334,y+4,474,y+ROW_H-6,C(38,41,49));
         if (g_cmds[i].args[0]) Text(dc,g_cmds[i].args,342,y,462,y+ROW_H-2,C(198,202,210),DT_LEFT);
         Fill(dc,493,y+4,585,y+ROW_H-6,C(54,58,68));
@@ -126,12 +196,11 @@ static void PaintOverlay(HWND hwnd) {
         Text(dc,key,600,y+4,738,y+ROW_H-6,C(238,238,240),DT_CENTER);
     }
 
-    // Thin visual scrollbar on the far right.
     int trackTop=ROW_Y, trackBottom=ROW_Y+VISIBLE_ROWS*ROW_H-2;
     Fill(dc,750,trackTop,754,trackBottom,C(37,40,47));
-    if(CMD_COUNT>VISIBLE_ROWS) {
+    if(tabCount>VISIBLE_ROWS) {
         int trackH=trackBottom-trackTop;
-        int thumbH=(trackH*VISIBLE_ROWS)/CMD_COUNT;
+        int thumbH=(trackH*VISIBLE_ROWS)/tabCount;
         if(thumbH<28) thumbH=28;
         int maxRow=MaxScrollRow();
         int thumbY=trackTop;
@@ -140,7 +209,7 @@ static void PaintOverlay(HWND hwnd) {
     }
 
     int fy=ROW_Y+VISIBLE_ROWS*ROW_H+4;
-    Text(dc,L"Mouse wheel: scroll  •  F1 close  •  RUN execute  •  Click key box to rebind",22,fy,738,fy+28,C(145,148,156),DT_LEFT);
+    Text(dc,L"Tabs: Gameplay / Weapons / Visual  •  Mouse wheel scroll  •  F1 close",22,fy,738,fy+28,C(145,148,156),DT_LEFT);
     EndPaint(hwnd,&ps);
 }
 
@@ -253,9 +322,17 @@ static void CycleWeaponKeysMode(int i) {
 static BOOL HandleOverlayClick(int x,int y) {
     int px=x-g_overlayX, py=y-g_overlayY;
     if(px<0 || py<0 || px>=OVERLAY_W || py>=OVERLAY_H) return FALSE;
+
+    if(py>=59 && py<84) {
+        if(px>=18 && px<174) SelectMenuTab(0);
+        else if(px>=182 && px<338) SelectMenuTab(1);
+        else if(px>=346 && px<502) SelectMenuTab(2);
+        return TRUE;
+    }
+
     if(py>=ROW_Y && py<ROW_Y+VISIBLE_ROWS*ROW_H) {
         int visibleIndex=(py-ROW_Y)/ROW_H;
-        int i=g_scrollRow+visibleIndex;
+        int i=TabCommandIndex(g_scrollRow+visibleIndex);
         int ry=(py-ROW_Y)%ROW_H;
         if(i>=0 && i<CMD_COUNT && ry<ROW_H-1) {
             if(px>=493 && px<590){ ExecuteCommandIndex(i); if(g_menuHwnd)InvalidateRect(g_menuHwnd,0,TRUE); return TRUE; }
@@ -270,7 +347,7 @@ static BOOL HandleOverlayClick(int x,int y) {
             if(px>=330 && px<480 && StrEqA(g_cmds[i].className,"__WeaponKeysMode")){ CycleWeaponKeysMode(i); return TRUE; }
         }
     }
-    return TRUE; // consume clicks inside panel so the game does not fire weapons through it
+    return TRUE;
 }
 
 static WNDPROC BeginEarlyShutdown(HWND hwnd, const char* reason) {
@@ -280,6 +357,8 @@ static WNDPROC BeginEarlyShutdown(HWND hwnd, const char* reason) {
         g_shuttingDown=1;
         g_ready=0;
         g_crosshairReapplyCountdown=0;
+        g_baseWheelActive=0;
+        g_baseWheelVk=0;
         g_bindIndex=-1;
         g_menuVisible=0;
         LogA(reason);
@@ -331,6 +410,10 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         ExecuteWeaponKeyMapping(slot,mode);
         return 0;
     }
+    if (msg==WM_APP_BASEWHEEL) {
+        ExecuteNativeBaseWheel(lp ? TRUE : FALSE);
+        return 0;
+    }
     if (msg==WM_APP_CROSSHAIR) {
         if (g_ready && !g_shuttingDown) {
             BOOL attached=FALSE; void* thread=0;
@@ -364,6 +447,11 @@ static void PollHotkeys() {
     HWND fg=GetForegroundWindow();
     BOOL active=(fg && fg==g_gameHwnd);
 
+    if (!active && g_baseWheelActive && g_gameHwnd) {
+        PostMessageW(g_gameHwnd,WM_APP_BASEWHEEL,0,0);
+        g_baseWheelVk=0;
+    }
+
     for (int vk=8; vk<256; ++vk) {
         if (g_shuttingDown) return;
 
@@ -375,7 +463,6 @@ static void PollHotkeys() {
 
         if (!active || (!pressed && !released)) continue;
 
-        // Key-binding capture remains press-only.
         if (g_bindIndex>=0) {
             if (!pressed) continue;
             if (vk==VK_ESCAPE) {
@@ -397,9 +484,26 @@ static void PollHotkeys() {
             return;
         }
 
-        // Weapon-bank remap intentionally fires on KEY RELEASE. Rewired/the
-        // vanilla game has already processed its normal number-key selection
-        // on key-down, so PostalBorkenMenu's direct EquipWeapon call wins last.
+        // Base Weapon Wheel is a HOLD interaction and is handled separately
+        // from ordinary one-shot command hotkeys.
+        if (g_ready && !g_shuttingDown && !g_menuVisible) {
+            for(int i=0;i<CMD_COUNT;i++) {
+                if(!StrEqA(g_cmds[i].className,"__BaseWeaponWheel")) continue;
+                if(!g_cmds[i].vk || g_cmds[i].vk!=vk) continue;
+
+                if(pressed) {
+                    g_baseWheelVk=vk;
+                    PostMessageW(g_gameHwnd,WM_APP_BASEWHEEL,0,1);
+                    return;
+                }
+                if(released && g_baseWheelVk==vk) {
+                    PostMessageW(g_gameHwnd,WM_APP_BASEWHEEL,0,0);
+                    g_baseWheelVk=0;
+                    return;
+                }
+            }
+        }
+
         if (released && g_ready && !g_shuttingDown && vk>=0x31 && vk<=0x39) {
             int mode=GetWeaponKeysMode();
             if (mode>0) {
@@ -413,6 +517,10 @@ static void PollHotkeys() {
         if (!pressed) continue;
 
         if (vk==VK_F1) {
+            if(g_baseWheelActive) {
+                PostMessageW(g_gameHwnd,WM_APP_BASEWHEEL,0,0);
+                g_baseWheelVk=0;
+            }
             ToggleOverlay();
             return;
         }
@@ -420,6 +528,7 @@ static void PollHotkeys() {
         if (g_ready && !g_shuttingDown) {
             for (int i=0;i<CMD_COUNT;i++) {
                 if (g_cmds[i].vk && g_cmds[i].vk==vk) {
+                    if(StrEqA(g_cmds[i].className,"__BaseWeaponWheel")) continue;
                     PostMessageW(g_gameHwnd,WM_APP_EXEC,(WPARAM)i,0);
                     return;
                 }
@@ -427,7 +536,6 @@ static void PollHotkeys() {
         }
     }
 
-    // Event-driven crosshair refresh. No permanent 250 ms IL2CPP polling.
     if (g_crosshairReapplyCountdown>0) {
         LONG next=g_crosshairReapplyCountdown-1;
         g_crosshairReapplyCountdown=next;
@@ -456,7 +564,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A19 WEAPON SHORTCUTS TEST");
+    LogA("PostalBorkenMenu V2A20 SUBMENUS + WEAPON SHORTCUTS TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -465,7 +573,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] F1 overlay. Four independent weapon shortcuts available: Base Weapon 1/2 and DLC Weapon 1/2.");
+    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Visual. Base Weapon Wheel retained; four independent weapon shortcuts available.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
