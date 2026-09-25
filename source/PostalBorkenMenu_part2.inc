@@ -315,6 +315,23 @@ static BOOL SafeAddAndEquipWeaponId(Il2CppObject* playerInv,
     return TRUE;
 }
 
+static void LogHookLikeMethods(Il2CppClass* klass, const char* header) {
+    if (!klass) return;
+    LogA(header);
+    void* iter=0;
+    const MethodInfo* m=0;
+    int found=0;
+    while ((m=g_il2cpp.class_get_methods(klass,&iter))!=0) {
+        const char* name=g_il2cpp.method_get_name(m);
+        if (!name) continue;
+        if (!StrContainsNoCaseA(name,"hook") && !StrContainsNoCaseA(name,"grap")) continue;
+        ++found;
+        LogA(name);
+        LogIntA("[HOOK AUDIT] parameter count: ",(int)g_il2cpp.method_get_param_count(m));
+    }
+    if (!found) LogA("[HOOK AUDIT] no Hook/Grap method names found on this class.");
+}
+
 static BOOL InitOwnedDlcHook() {
     if (!IsTheseSunnyDazeOwned()) {
         LogA("[HOOK] These Sunny Daze ownership not confirmed; hook init blocked.");
@@ -327,6 +344,14 @@ static BOOL InitOwnedDlcHook() {
         LogA("[ERROR] DLC hook metadata classes unresolved");
         return FALSE;
     }
+
+    LogHookLikeMethods(inventoryClass,"[HOOK AUDIT] PlayerInventoryComponent Hook/Grap methods:");
+    LogHookLikeMethods(weaponsInventoryClass,"[HOOK AUDIT] WeaponsInventory Hook/Grap methods:");
+
+    // V2A24: make this command self-contained. GiveAllWeapons is the one
+    // validated native path that demonstrably initializes the DLC weapon set.
+    LogA("[HOOK] Running native GiveAllWeapons before InitHook probe.");
+    GiveAllWeaponsOnly();
 
     const FieldInfo* weaponsControllerField=g_il2cpp.class_get_field_from_name(inventoryClass,"_weaponsController");
     const MethodInfo* getHook=g_il2cpp.class_get_method_from_name(weaponsInventoryClass,"get_Hook",0);
@@ -763,6 +788,28 @@ static BOOL EquipMappedWeaponCategorySlot(int category, int wantedSlot) {
 
     if (category==1) LogIntA("[KEYMAP] Equipped DLC weapon in slot ",wantedSlot);
     else LogIntA("[KEYMAP] Equipped base weapon in slot ",wantedSlot);
+    return TRUE;
+}
+
+static BOOL DecodeWeaponListCommand(int cmdIndex, int* category, int* slot) {
+    if (cmdIndex<0 || cmdIndex>=CMD_COUNT || !category || !slot) return FALSE;
+    const char* name=g_cmds[cmdIndex].className;
+    const char* basePrefix="__WeaponListBase";
+    const char* dlcPrefix="__WeaponListDlc";
+    const char* p=0;
+
+    if (StrStartsWithA(name,basePrefix)) {
+        *category=0;
+        p=name+StrLenA(basePrefix);
+    } else if (StrStartsWithA(name,dlcPrefix)) {
+        *category=1;
+        p=name+StrLenA(dlcPrefix);
+    } else {
+        return FALSE;
+    }
+
+    if (!p || p[0]<'1' || p[0]>'9' || p[1]!=0) return FALSE;
+    *slot=(int)(p[0]-'0');
     return TRUE;
 }
 
@@ -1273,12 +1320,10 @@ static void ExecuteCommandIndex(int i) {
     BOOL attached=FALSE; void* thread=0;
     if (!EnsureIl2CppThread(&attached,&thread)) return;
 
-    if (StrEqA(g_cmds[i].className,"__NoCrosshair")) ToggleNoCrosshair();
+    int listCategory=0, listSlot=0;
+    if (DecodeWeaponListCommand(i,&listCategory,&listSlot)) EquipMappedWeaponCategorySlot(listCategory,listSlot);
+    else if (StrEqA(g_cmds[i].className,"__NoCrosshair")) ToggleNoCrosshair();
     else if (StrEqA(g_cmds[i].className,"__GiveAllWeapons")) GiveAllWeaponsOnly();
-    else if (StrEqA(g_cmds[i].className,"__EquipDlcWeapon")) EquipOwnedDlcWeaponInSlot(i);
-    else if (StrEqA(g_cmds[i].className,"__EquipBaseWeapon")) EquipBaseWeaponInSlot(i);
-    else if (StrEqA(g_cmds[i].className,"__BaseWeaponShortcut1") || StrEqA(g_cmds[i].className,"__BaseWeaponShortcut2")) EquipBaseWeaponInSlot(i);
-    else if (StrEqA(g_cmds[i].className,"__DlcWeaponShortcut1") || StrEqA(g_cmds[i].className,"__DlcWeaponShortcut2")) EquipOwnedDlcWeaponInSlot(i);
     else if (StrEqA(g_cmds[i].className,"__GiveAllDlcWeapons")) GiveAllOwnedDlcWeapons();
     else if (StrEqA(g_cmds[i].className,"__InitDlcHook")) InitOwnedDlcHook();
     else if (StrEqA(g_cmds[i].className,"__WeaponKeysMode")) LogA("[KEYMAP] Weapon Keys Mode changed through its Argument field");
