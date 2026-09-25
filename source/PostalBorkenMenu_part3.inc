@@ -116,7 +116,7 @@ static void PaintOverlay(HWND hwnd) {
         Fill(dc,14,y,746,y+ROW_H-2,(i&1)?C(23,24,29):C(27,28,34));
         if (g_bindIndex==i) Fill(dc,598,y+3,738,y+ROW_H-5,C(85,54,34));
         Text(dc,g_cmds[i].displayName,25,y,326,y+ROW_H-2,C(232,233,236),DT_LEFT);
-        BOOL clickableArg = StrEqA(g_cmds[i].className,"TimeScale") || StrEqA(g_cmds[i].className,"__EquipDlcWeapon");
+        BOOL clickableArg = StrEqA(g_cmds[i].className,"TimeScale") || StrEqA(g_cmds[i].className,"__EquipDlcWeapon") || StrEqA(g_cmds[i].className,"__EquipBaseWeapon");
         if (clickableArg) Fill(dc,334,y+4,474,y+ROW_H-6,C(38,41,49));
         if (g_cmds[i].args[0]) Text(dc,g_cmds[i].args,342,y,462,y+ROW_H-2,C(198,202,210),DT_LEFT);
         Fill(dc,493,y+4,585,y+ROW_H-6,C(54,58,68));
@@ -194,8 +194,9 @@ static void CycleTimeScaleArg(int i) {
     SaveArgs(i); if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
 }
 
-static void CycleDlcSlotArg(int i) {
-    if(i<0 || i>=CMD_COUNT || !StrEqA(g_cmds[i].className,"__EquipDlcWeapon")) return;
+static void CycleWeaponSlotArg(int i) {
+    if(i<0 || i>=CMD_COUNT) return;
+    if(!StrEqA(g_cmds[i].className,"__EquipDlcWeapon") && !StrEqA(g_cmds[i].className,"__EquipBaseWeapon")) return;
     int slot=0;
     int p=0;
     while(g_cmds[i].args[p]==L' ' || g_cmds[i].args[p]==L'\t') ++p;
@@ -227,7 +228,7 @@ static BOOL HandleOverlayClick(int x,int y) {
             if(px>=493 && px<590){ ExecuteCommandIndex(i); if(g_menuHwnd)InvalidateRect(g_menuHwnd,0,TRUE); return TRUE; }
             if(px>=600 && px<744){ g_bindIndex=i; if(g_menuHwnd)InvalidateRect(g_menuHwnd,0,TRUE); return TRUE; }
             if(px>=330 && px<480 && StrEqA(g_cmds[i].className,"TimeScale")){ CycleTimeScaleArg(i); return TRUE; }
-            if(px>=330 && px<480 && StrEqA(g_cmds[i].className,"__EquipDlcWeapon")){ CycleDlcSlotArg(i); return TRUE; }
+            if(px>=330 && px<480 && (StrEqA(g_cmds[i].className,"__EquipDlcWeapon") || StrEqA(g_cmds[i].className,"__EquipBaseWeapon"))){ CycleWeaponSlotArg(i); return TRUE; }
         }
     }
     return TRUE; // consume clicks inside panel so the game does not fire weapons through it
@@ -389,7 +390,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A15 DIRECT DLC EQUIP TEST");
+    LogA("PostalBorkenMenu V2A16 BASE + DLC DIRECT EQUIP TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -398,7 +399,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] F1 overlay. Defaults: F2 God, F3 Noclip, F4 NoTarget, F5 NoHud, F6 GiveAll, F7 UnlockAll. Equip DLC Weapon is unbound by default.");
+    LogA("[READY] F1 overlay. Defaults: F2 God, F3 Noclip, F4 NoTarget, F5 NoHud, F6 GiveAll, F7 UnlockAll. Equip DLC Weapon and Equip Base Weapon are unbound by default.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
