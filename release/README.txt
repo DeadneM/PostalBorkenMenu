@@ -1,4 +1,4 @@
-PostalBorkenMenu V2A34 TEST
+PostalBorkenMenu V2A35 TEST
 POSTAL: Brain-Damaged
 
 IMPORTANT
@@ -6,62 +6,103 @@ IMPORTANT
 - F1 opens/closes the PostalBorkenMenu overlay.
 - PostalBorkenMenu.log is generated automatically at runtime and is not included in this archive.
 
-V2A34 PURPOSE
-Fix the V2A33 Weapon Catalog command dispatch bug.
+V2A35 PURPOSE
+Replace the old ambiguous slot-only Weapon List with exact named WeaponId entries and split them into two dedicated tabs.
 
-V2A33 RESULT
-The Weapon Catalog row was present in the Weapons tab, but pressing RUN reached the generic native-command path and logged:
-[ERROR] Requested native command is unresolved
+NEW OVERLAY TABS
+Gameplay
+Weapons
+Arsenal
+Special
+Visual
 
-Cause:
-- RunWeaponCatalog() existed.
-- the UI row existed.
-- the Weapons-tab mapping existed.
-- but the active ExecuteCommandIndex() implementation in source/PostalBorkenMenu_part2.inc did not contain the __WeaponCatalog branch.
+ARSENAL
+The old generic rows:
+1 Base Weapon / 1 DLC Weapon ... 9 Base Weapon / 9 DLC Weapon
 
-V2A34 CHANGE
-Adds exactly:
-__WeaponCatalog -> RunWeaponCatalog()
+are removed from the UI.
 
-to the active command dispatcher.
+The Arsenal tab now exposes exact Unity WeaponId names:
 
-No Weapon Catalog logic itself is changed.
+BASE
+- Shovel
+- Pistol
+- Pistol Akimbo
+- Shotgun
+- Shotgun Akimbo
+- Machine Gun
+- Machine Gun Akimbo
+- Rocket Launcher
+- Rocket Launcher Akimbo
+- Lightning Gun
+- Lightning Gun Akimbo
+- Gatling Gun
+- Gatling Gun Akimbo
+- Dildo Bow
+- Dildo Bow Akimbo
+- Cat Canon
+- Cat Canon Akimbo
+
+PTSD / THESE SUNNY DAZE
+- Um Drill
+- Piss Gun
+- Piss Gun Akimbo
+- Meat Shotgun
+- Meat Shotgun Akimbo
+- Bubble Gum MG
+- Bubble Gum MG Akimbo
+- Nuclear Syringe
+- Nuclear Syringe Akimbo
+
+Each row resolves the exact UnityEngine.Object.name at runtime.
+It no longer selects the first WeaponId sharing a category/slot pair.
+
+For normal weapons:
+- if not collected, native AddWeapon(exact WeaponId) is used
+- native EquipWeapon(exact WeaponId) is then used
+- duplicate AddWeapon is avoided
+- DLC ownership remains enforced for category 1 WeaponIds
+
+SPECIAL
+The new Special tab exposes the internal/special WeaponIds discovered by Weapon Catalog:
+- Dong
+- Dong Confusion
+- Dong Fire
+- Dong Ice
+- Hook (Add Only)
+- Cutscene Weapon DLC
+- No Weapon
+- No Weapon DLC
+
+HOOK SPECIAL CASE
+V2A32 and the subsequent user log proved:
+- WEAPON_Hook is category 0 / slot 99
+- adding that exact WeaponId to CollectedWeapons is enough for get_Hook() to expose it
+- EquipWeapon is not required
+- _hookWeapon may remain NULL
+
+Therefore the Special -> Hook command:
+- resolves exact WEAPON_Hook by Unity name
+- adds it only if missing
+- deliberately does NOT call EquipWeapon
+- verifies get_Hook() afterwards
+
+OTHER SPECIAL OBJECTS
+Other Special rows use exact-name AddWeapon/EquipWeapon for testing.
+They are internal objects and may have unusual gameplay behavior.
 
 WEAPON CATALOG
-RUN "Weapon Catalog" in F1 -> Weapons.
-
-It enumerates loaded Hyperstrange.PBD.WeaponId objects and logs:
-- index
-- UnityEngine.Object.name
-- WeaponId.ToString() when available
-- category
-- category label
-- slot
-- collected YES / NO / UNKNOWN
-
-The catalog is read-only.
-
-HOOK RESULT PRESERVED
-The latest user log also validates the V2A32 Hook isolation:
-- category0 / slot99 candidate count = 1
-- candidate not collected initially
-- native AddWeapon(slot99) completed
-- get_Hook() became NON-NULL
-- _hookWeapon remained NULL
-- get_Hook() returned the exact slot99 candidate
-- category 0 / slot 99
-
-Therefore AddWeapon of the unique category0/slot99 WeaponId is sufficient to expose the native Hook WeaponId without EquipWeapon or GiveAllWeapons.
+Still available in the Weapons tab and remains read-only.
 
 PRESERVED
 - V2A29 V2A20-style Base Weapon Wheel
 - V2A29 empty DLC wheel shell
-- V2A25 Weapon List / Arguments
-- ALT behavior
 - V2A30 safe Hook probe
 - V2A31 GiveAll Hook snapshots
 - V2A32 slot99 Hook isolation
-- V2A33 non-destructive Weapon Catalog implementation
+- V2A33/V2A34 Weapon Catalog
+- ALT slot key behavior
+- Weapon Keys Mode
 - V2A8 clean shutdown
 - No Crosshair
 - TimeScale
@@ -76,12 +117,11 @@ PostalBorkenMenu.log is runtime-generated and is not included.
 
 TEST
 1. Start the game.
-2. F1 -> Weapons -> Weapon Catalog -> RUN.
-3. Send PostalBorkenMenu.log.
-4. The expected block begins with:
-   [WEAPON CATALOG] ===== BEGIN =====
-and ends with:
-   [WEAPON CATALOG] ===== END =====
+2. Open F1.
+3. Check the new Arsenal and Special tabs.
+4. Try individual named weapons.
+5. For unusual entries such as Dong variants, Cutscene Weapon, No Weapon, or No Weapon DLC, test one at a time.
+6. Send PostalBorkenMenu.log with the results.
 
 PROJECT
 https://github.com/DeadneM/PostalBorkenMenu
