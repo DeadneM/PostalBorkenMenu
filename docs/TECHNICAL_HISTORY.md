@@ -574,3 +574,23 @@ V2A26 diagnostic expansion:
 - for matching classes, dump methods, parameter counts, return classes and fields
 - keep get_Hook -> InitHook -> get_Hook as the only active hook mutation
 - no weapon grants are performed by the probe
+
+
+### V2A27
+
+User request:
+- revert to the older Base Weapon Wheel + DLC Weapon Wheel behavior
+
+Wheel restoration:
+- preserve Base Weapon Wheel native category-0 filtering
+- restore DLC Weapon Wheel to the old category-1/PTSD filtered native wheel behavior
+- remove the V2A22 GiveAllWeapons fallback from DLC wheel
+- remove automatic InitOwnedDlcHook call from DLC wheel
+- no inventory mutation occurs when the DLC wheel has zero native DLC buttons
+- if no DLC/PTSD buttons are present, restore EnableButtons() and return failure cleanly
+
+Preserved:
+- V2A25 Weapon List / Argument implementation
+- V2A26 deep Hook probe
+- V2A23 ALT behavior
+- V2A8 shutdown/lifetime rules
