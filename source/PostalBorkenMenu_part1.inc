@@ -435,7 +435,7 @@ static CommandRec g_cmds[] = {
     {"__WeaponListBase9", L"9 Base Weapon", L"WeaponListBase9", 0,0,0,0,0,0,0,{L'9',0}},
     {"__WeaponListDlc9", L"9 DLC Weapon", L"WeaponListDlc9", 0,0,0,0,0,0,0,{L'9',0}},
     {"__GiveAllDlcWeapons", L"Give All DLC Weapons", L"GiveAllDlcWeapons", 0,0,0,0,0,0,0,{0}},
-    {"__InitDlcHook", L"DLC Hook Deep Probe", L"InitDlcHook", 0,0,0,0,0,0,0,{0}},
+    {"__InitDlcHook", L"DLC Hook Safe Probe", L"InitDlcHook", 0,0,0,0,0,0,0,{0}},
     {"__WeaponKeysMode", L"Weapon Keys Mode", L"WeaponKeysMode", 0,0,0,0,0,0,0,{L'O',L'F',L'F',0}},
     {"__BaseWeaponWheel", L"Base Weapon Wheel", L"BaseWeaponWheel", 0,0,0,0,0,0,0,{0}},
     {"__DlcWeaponWheel", L"DLC Weapon Wheel", L"DlcWeaponWheel", 0,0,0,0,0,0,0,{0}},
