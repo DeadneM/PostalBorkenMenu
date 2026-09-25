@@ -750,3 +750,42 @@ Important Hook result from same user log:
 - _hookWeapon remained NULL.
 - get_Hook() returned the exact category0/slot99 candidate.
 - this validates the slot99 AddWeapon isolation hypothesis from V2A32.
+
+
+### V2A36
+
+Trigger:
+- V2A35 crashed after the intro videos before any Arsenal/Special command was executed.
+- rollback test with V2A34 also crashed immediately.
+- this rules out the V2A35 named-tab code as the primary cause.
+- strongest remaining hypothesis: WEAPON_Hook added by the V2A32 isolation test persisted in the player's CollectedWeapons/profile and is loaded during the post-intro profile transition.
+
+Base:
+- dev/v2a34-weapon-catalog-dispatch-fix
+- V2A35 UI/named-weapon changes are intentionally NOT included in this recovery build.
+
+Recovery implementation:
+- startup-only recovery window before overlay creation and game-window subclassing
+- waits up to 20 seconds for a live PlayerInventoryComponent
+- exact-name scan for Unity WeaponId named WEAPON_Hook
+- requires exactly one match
+- reads get_CollectedWeapons()
+- checks membership with the existing collection Contains bridge
+- if present, resolves Remove(1) on the concrete CollectedWeapons collection class
+- calls Remove(WEAPON_Hook) only
+- verifies membership is false afterwards
+- if already absent, no mutation
+- hard-fails without mutation on ambiguity or unsupported collection shape
+
+Explicitly not called:
+- AddWeapon
+- EquipWeapon
+- GiveAllWeapons
+- GiveAllDlcWeapons
+- InitHook
+
+No direct save-file editing is performed.
+
+Purpose:
+- determine whether the persistent Hook inventory state is responsible for the post-intro crash
+- restore a clean profile state if the collection is reachable early enough
