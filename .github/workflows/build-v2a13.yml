@@ -1,0 +1,46 @@
+name: Build V2A13 Call DLC Slot
+
+on:
+  push:
+    branches:
+      - dev/v2a13-call-dlc-slot
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up MSVC x64
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build import libraries
+        shell: cmd
+        run: |
+          lib /nologo /machine:x64 /def:build\kernel32_ext.def /out:build\kernel32_ext.lib
+          lib /nologo /machine:x64 /def:build\user32_ext.def /out:build\user32_ext.lib
+
+      - name: Compile PostalBorkenMenu
+        shell: cmd
+        run: |
+          cl /nologo /c /O2 /GS- /GR- /EHs-c- /Zl /Fo:build\PostalBorkenMenu.obj source\PostalBorkenMenu.cpp
+          link /nologo /DLL /MACHINE:X64 /NODEFAULTLIB /ENTRY:DllMain /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /OUT:build\PostalBorkenMenu.asi build\PostalBorkenMenu.obj build\kernel32_ext.lib build\user32_ext.lib
+
+      - name: SHA-256
+        shell: powershell
+        run: |
+          Get-FileHash build\PostalBorkenMenu.asi -Algorithm SHA256 | Format-List
+
+      - name: Upload ASI
+        uses: actions/upload-artifact@v4
+        with:
+          name: PostalBorkenMenu_V2A13_ASI
+          path: build/PostalBorkenMenu.asi
+          if-no-files-found: error
