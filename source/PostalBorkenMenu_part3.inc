@@ -593,7 +593,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A22 DUAL WHEEL + GIVEALL REFRESH TEST");
+    LogA("PostalBorkenMenu V2A23 ALT RESTORE + DUAL WHEEL TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -602,7 +602,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Visual. Base + DLC wheel bindings available; DLC wheel retries after native GiveAllWeapons + InitHook.");
+    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Visual. ALT equip restored; Base + DLC wheel bindings available; DLC wheel retries after native GiveAllWeapons + InitHook.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
