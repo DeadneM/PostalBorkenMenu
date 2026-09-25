@@ -528,3 +528,23 @@ Hook status:
 Packaging:
 - ZIP contains only PostalBorkenMenu.asi, PostalBorkenMenu.ini and README.txt
 - PostalBorkenMenu.log is runtime-generated and is not distributed
+
+
+### V2A25
+
+User corrections:
+- in WEAPON LIST, the final 1..9 value is the Argument, not part of the display label
+- V2A24 Hook command was observed to give the weapon set because its diagnostic fallback explicitly called GiveAllWeapons()
+
+Weapon List correction:
+- display labels are now "1 Base Weapon", "1 DLC Weapon", ... "9 Base Weapon", "9 DLC Weapon"
+- Args are initialized and persisted separately as 1..9
+- DecodeWeaponListCommand reads the live Argument value and uses it as the actual WeaponId slot
+- Argument cells are clickable and cycle 1..9
+- RUN and KEY remain independent per row
+
+Hook correction:
+- removed GiveAllWeapons() entirely from InitOwnedDlcHook()
+- command display renamed DLC Hook Probe
+- probe now performs only ownership check, Hook/Grap method audit, get_Hook(), InitHook(), and final get_Hook()
+- V2A25 does not claim the hook itself is fixed; it removes the weapon-grant side effect and gathers cleaner evidence
