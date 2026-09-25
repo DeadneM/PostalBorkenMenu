@@ -723,3 +723,30 @@ Safety:
 Goal:
 - identify the real names of the 25 known Base WeaponIds, the loaded PTSD/DLC WeaponIds, and special entries such as category0/slot99
 - distinguish duplicate WeaponIds sharing the same slot
+
+
+### V2A34
+
+User V2A33 log diagnosis:
+- V2A33 banner loaded correctly.
+- READY banner confirmed non-destructive Weapon Catalog was present.
+- three attempts produced "[ERROR] Requested native command is unresolved".
+- no [WEAPON CATALOG] block was emitted.
+- source audit found the exact wiring bug: the active ExecuteCommandIndex() is in source/PostalBorkenMenu_part2.inc, while the V2A33 dispatcher edit had been applied to the wrong source part.
+- RunWeaponCatalog(), the menu row, and tab placement were otherwise present.
+
+V2A34 fix:
+- add __WeaponCatalog -> RunWeaponCatalog() to the active part2 ExecuteCommandIndex().
+- no catalog algorithm changes.
+- no wheel changes.
+- no hook changes.
+- no inventory mutation added by the catalog.
+
+Important Hook result from same user log:
+- InitHook alone still left _hookWeapon and get_Hook() null.
+- exactly one loaded category0/slot99 WeaponId was found.
+- native AddWeapon(category0/slot99) completed without EquipWeapon.
+- get_Hook() then became NON-NULL.
+- _hookWeapon remained NULL.
+- get_Hook() returned the exact category0/slot99 candidate.
+- this validates the slot99 AddWeapon isolation hypothesis from V2A32.
