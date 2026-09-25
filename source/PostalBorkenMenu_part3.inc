@@ -270,6 +270,8 @@ static WNDPROC BeginEarlyShutdown(HWND hwnd, const char* reason) {
         g_shuttingDown=1;
         g_ready=0;
         g_crosshairReapplyCountdown=0;
+        g_activeWheelBank=0;
+        g_activeWheelVk=0;
         g_bindIndex=-1;
         g_menuVisible=0;
         LogA(reason);
@@ -321,6 +323,12 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         ExecuteWeaponKeyMapping(slot,mode);
         return 0;
     }
+    if (msg==WM_APP_WHEELBANK) {
+        int bank=(int)wp;
+        BOOL show=lp ? TRUE : FALSE;
+        ExecuteNativeWheelBank(bank,show);
+        return 0;
+    }
     if (msg==WM_APP_CROSSHAIR) {
         if (g_ready && !g_shuttingDown) {
             BOOL attached=FALSE; void* thread=0;
@@ -354,6 +362,11 @@ static void PollHotkeys() {
     HWND fg=GetForegroundWindow();
     BOOL active=(fg && fg==g_gameHwnd);
 
+    if (!active && g_activeWheelBank && g_gameHwnd) {
+        PostMessageW(g_gameHwnd,WM_APP_WHEELBANK,(WPARAM)g_activeWheelBank,0);
+        g_activeWheelVk=0;
+    }
+
     for (int vk=8; vk<256; ++vk) {
         if (g_shuttingDown) return;
 
@@ -365,7 +378,6 @@ static void PollHotkeys() {
 
         if (!active || (!pressed && !released)) continue;
 
-        // Key-binding capture remains press-only.
         if (g_bindIndex>=0) {
             if (!pressed) continue;
             if (vk==VK_ESCAPE) {
@@ -387,9 +399,27 @@ static void PollHotkeys() {
             return;
         }
 
-        // Weapon-bank remap intentionally fires on KEY RELEASE. Rewired/the
-        // vanilla game has already processed its normal number-key selection
-        // on key-down, so PostalBorkenMenu's direct EquipWeapon call wins last.
+        if (g_ready && !g_shuttingDown && !g_menuVisible) {
+            for (int i=0;i<CMD_COUNT;i++) {
+                if (!g_cmds[i].vk || g_cmds[i].vk!=vk) continue;
+                int bank=0;
+                if (StrEqA(g_cmds[i].className,"__BaseWeaponWheel")) bank=1;
+                else if (StrEqA(g_cmds[i].className,"__DlcWeaponWheel")) bank=2;
+                if (!bank) continue;
+
+                if (pressed) {
+                    g_activeWheelVk=vk;
+                    PostMessageW(g_gameHwnd,WM_APP_WHEELBANK,(WPARAM)bank,1);
+                    return;
+                }
+                if (released && g_activeWheelVk==vk) {
+                    PostMessageW(g_gameHwnd,WM_APP_WHEELBANK,(WPARAM)bank,0);
+                    g_activeWheelVk=0;
+                    return;
+                }
+            }
+        }
+
         if (released && g_ready && !g_shuttingDown && vk>=0x31 && vk<=0x39) {
             int mode=GetWeaponKeysMode();
             if (mode>0) {
@@ -403,6 +433,10 @@ static void PollHotkeys() {
         if (!pressed) continue;
 
         if (vk==VK_F1) {
+            if (g_activeWheelBank) {
+                PostMessageW(g_gameHwnd,WM_APP_WHEELBANK,(WPARAM)g_activeWheelBank,0);
+                g_activeWheelVk=0;
+            }
             ToggleOverlay();
             return;
         }
@@ -410,6 +444,8 @@ static void PollHotkeys() {
         if (g_ready && !g_shuttingDown) {
             for (int i=0;i<CMD_COUNT;i++) {
                 if (g_cmds[i].vk && g_cmds[i].vk==vk) {
+                    if (StrEqA(g_cmds[i].className,"__BaseWeaponWheel") || StrEqA(g_cmds[i].className,"__DlcWeaponWheel"))
+                        continue;
                     PostMessageW(g_gameHwnd,WM_APP_EXEC,(WPARAM)i,0);
                     return;
                 }
@@ -417,7 +453,6 @@ static void PollHotkeys() {
         }
     }
 
-    // Event-driven crosshair refresh. No permanent 250 ms IL2CPP polling.
     if (g_crosshairReapplyCountdown>0) {
         LONG next=g_crosshairReapplyCountdown-1;
         g_crosshairReapplyCountdown=next;
@@ -446,7 +481,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A17 WEAPON KEY BANK TEST");
+    LogA("PostalBorkenMenu V2A18 DUAL NATIVE WHEEL TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -455,7 +490,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] F1 overlay. Give All DLC Weapons restored. Weapon Keys Mode: OFF / BASE / DLC / ALT. Number-key remap fires on key release.");
+    LogA("[READY] F1 overlay. Bind Base Weapon Wheel and DLC Weapon Wheel to two keys; HOLD to open and RELEASE to select/close.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
