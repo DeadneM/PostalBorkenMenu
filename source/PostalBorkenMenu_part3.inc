@@ -92,6 +92,7 @@ static int CommandMenuTab(int i) {
         StrEqA(n,"__DlcWeaponShortcut1") ||
         StrEqA(n,"__DlcWeaponShortcut2") ||
         StrEqA(n,"__GiveAllDlcWeapons") ||
+        StrEqA(n,"__InitDlcHook") ||
         StrEqA(n,"__WeaponKeysMode") ||
         StrEqA(n,"__BaseWeaponWheel")) return 1; // Weapons
 
@@ -564,7 +565,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A20 SUBMENUS + WEAPON SHORTCUTS TEST");
+    LogA("PostalBorkenMenu V2A21 SAFE EQUIP + DLC HOOK TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -573,7 +574,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Visual. Base Weapon Wheel retained; four independent weapon shortcuts available.");
+    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Visual. Safe equip checks enabled; Give / Init DLC Hook available.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
