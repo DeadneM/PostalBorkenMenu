@@ -83,14 +83,11 @@ static int CommandMenuTab(int i) {
     if(i<0 || i>=CMD_COUNT) return 0;
     const char* n=g_cmds[i].className;
 
+    int listCategory=0, listSlot=0;
+    if (DecodeWeaponListCommand(i,&listCategory,&listSlot)) return 2; // Weapon List
+
     if (StrEqA(n,"GiveAll") ||
         StrEqA(n,"__GiveAllWeapons") ||
-        StrEqA(n,"__EquipDlcWeapon") ||
-        StrEqA(n,"__EquipBaseWeapon") ||
-        StrEqA(n,"__BaseWeaponShortcut1") ||
-        StrEqA(n,"__BaseWeaponShortcut2") ||
-        StrEqA(n,"__DlcWeaponShortcut1") ||
-        StrEqA(n,"__DlcWeaponShortcut2") ||
         StrEqA(n,"__GiveAllDlcWeapons") ||
         StrEqA(n,"__InitDlcHook") ||
         StrEqA(n,"__WeaponKeysMode") ||
@@ -101,7 +98,7 @@ static int CommandMenuTab(int i) {
         StrEqA(n,"__NoCrosshair") ||
         StrEqA(n,"NoHudWithCrossHair") ||
         StrEqA(n,"NoModel") ||
-        StrEqA(n,"NoMenu")) return 2; // Visual
+        StrEqA(n,"NoMenu")) return 3; // Visual
 
     return 0; // Gameplay
 }
@@ -141,7 +138,7 @@ static void ScrollOverlayRows(int deltaRows) {
 }
 
 static void SelectMenuTab(int tab) {
-    if(tab<0 || tab>2) return;
+    if(tab<0 || tab>3) return;
     if(g_menuTab==tab) return;
     g_menuTab=tab;
     g_scrollRow=0;
@@ -160,12 +157,14 @@ static void PaintOverlay(HWND hwnd) {
 
     // Top-level submenus. They only filter what is displayed; command state,
     // bindings and INI persistence remain shared and unchanged.
-    Fill(dc,18,59,174,84,g_menuTab==0?C(70,74,86):C(38,40,47));
-    Fill(dc,182,59,338,84,g_menuTab==1?C(70,74,86):C(38,40,47));
-    Fill(dc,346,59,502,84,g_menuTab==2?C(70,74,86):C(38,40,47));
-    Text(dc,L"GAMEPLAY",18,59,174,84,C(238,238,240),DT_CENTER);
-    Text(dc,L"WEAPONS",182,59,338,84,C(238,238,240),DT_CENTER);
-    Text(dc,L"VISUAL",346,59,502,84,C(238,238,240),DT_CENTER);
+    Fill(dc,18,59,158,84,g_menuTab==0?C(70,74,86):C(38,40,47));
+    Fill(dc,166,59,306,84,g_menuTab==1?C(70,74,86):C(38,40,47));
+    Fill(dc,314,59,486,84,g_menuTab==2?C(70,74,86):C(38,40,47));
+    Fill(dc,494,59,634,84,g_menuTab==3?C(70,74,86):C(38,40,47));
+    Text(dc,L"GAMEPLAY",18,59,158,84,C(238,238,240),DT_CENTER);
+    Text(dc,L"WEAPONS",166,59,306,84,C(238,238,240),DT_CENTER);
+    Text(dc,L"WEAPON LIST",314,59,486,84,C(238,238,240),DT_CENTER);
+    Text(dc,L"VISUAL",494,59,634,84,C(238,238,240),DT_CENTER);
 
     Text(dc,L"Command",24,87,310,109,C(145,148,156),DT_LEFT);
     Text(dc,L"Argument",340,87,460,109,C(145,148,156),DT_LEFT);
@@ -182,12 +181,6 @@ static void PaintOverlay(HWND hwnd) {
         if (g_bindIndex==i) Fill(dc,598,y+3,738,y+ROW_H-5,C(85,54,34));
         Text(dc,g_cmds[i].displayName,25,y,326,y+ROW_H-2,C(232,233,236),DT_LEFT);
         BOOL clickableArg = StrEqA(g_cmds[i].className,"TimeScale") ||
-                            StrEqA(g_cmds[i].className,"__EquipDlcWeapon") ||
-                            StrEqA(g_cmds[i].className,"__EquipBaseWeapon") ||
-                            StrEqA(g_cmds[i].className,"__BaseWeaponShortcut1") ||
-                            StrEqA(g_cmds[i].className,"__BaseWeaponShortcut2") ||
-                            StrEqA(g_cmds[i].className,"__DlcWeaponShortcut1") ||
-                            StrEqA(g_cmds[i].className,"__DlcWeaponShortcut2") ||
                             StrEqA(g_cmds[i].className,"__WeaponKeysMode");
         if (clickableArg) Fill(dc,334,y+4,474,y+ROW_H-6,C(38,41,49));
         if (g_cmds[i].args[0]) Text(dc,g_cmds[i].args,342,y,462,y+ROW_H-2,C(198,202,210),DT_LEFT);
@@ -211,7 +204,7 @@ static void PaintOverlay(HWND hwnd) {
     }
 
     int fy=ROW_Y+VISIBLE_ROWS*ROW_H+4;
-    Text(dc,L"Tabs: Gameplay / Weapons / Visual  •  Mouse wheel scroll  •  F1 close",22,fy,738,fy+28,C(145,148,156),DT_LEFT);
+    Text(dc,L"Tabs: Gameplay / Weapons / Weapon List / Visual  •  Mouse wheel scroll  •  F1 close",22,fy,738,fy+28,C(145,148,156),DT_LEFT);
     EndPaint(hwnd,&ps);
 }
 
@@ -326,9 +319,10 @@ static BOOL HandleOverlayClick(int x,int y) {
     if(px<0 || py<0 || px>=OVERLAY_W || py>=OVERLAY_H) return FALSE;
 
     if(py>=59 && py<84) {
-        if(px>=18 && px<174) SelectMenuTab(0);
-        else if(px>=182 && px<338) SelectMenuTab(1);
-        else if(px>=346 && px<502) SelectMenuTab(2);
+        if(px>=18 && px<158) SelectMenuTab(0);
+        else if(px>=166 && px<306) SelectMenuTab(1);
+        else if(px>=314 && px<486) SelectMenuTab(2);
+        else if(px>=494 && px<634) SelectMenuTab(3);
         return TRUE;
     }
 
@@ -340,12 +334,6 @@ static BOOL HandleOverlayClick(int x,int y) {
             if(px>=493 && px<590){ ExecuteCommandIndex(i); if(g_menuHwnd)InvalidateRect(g_menuHwnd,0,TRUE); return TRUE; }
             if(px>=600 && px<744){ g_bindIndex=i; if(g_menuHwnd)InvalidateRect(g_menuHwnd,0,TRUE); return TRUE; }
             if(px>=330 && px<480 && StrEqA(g_cmds[i].className,"TimeScale")){ CycleTimeScaleArg(i); return TRUE; }
-            if(px>=330 && px<480 && (StrEqA(g_cmds[i].className,"__EquipDlcWeapon") ||
-                StrEqA(g_cmds[i].className,"__EquipBaseWeapon") ||
-                StrEqA(g_cmds[i].className,"__BaseWeaponShortcut1") ||
-                StrEqA(g_cmds[i].className,"__BaseWeaponShortcut2") ||
-                StrEqA(g_cmds[i].className,"__DlcWeaponShortcut1") ||
-                StrEqA(g_cmds[i].className,"__DlcWeaponShortcut2"))){ CycleWeaponSlotArg(i); return TRUE; }
             if(px>=330 && px<480 && StrEqA(g_cmds[i].className,"__WeaponKeysMode")){ CycleWeaponKeysMode(i); return TRUE; }
         }
     }
@@ -593,7 +581,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A23 ALT RESTORE + DUAL WHEEL TEST");
+    LogA("PostalBorkenMenu V2A24 WEAPON LIST + HOOK AUDIT TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -602,7 +590,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Visual. ALT equip restored; Base + DLC wheel bindings available; DLC wheel retries after native GiveAllWeapons + InitHook.");
+    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Weapon List / Visual. Fixed Base/DLC slots 1-9 available; hook audit active.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
