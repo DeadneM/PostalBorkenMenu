@@ -452,6 +452,203 @@ static BOOL EquipBaseWeaponInSlot(int cmdIndex) {
     return TRUE;
 }
 
+
+static BOOL IsTheseSunnyDazeOwned() {
+    Il2CppClass* dlcCategoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.Base","DLCCategory") : 0;
+    Il2CppClass* downloadableContentClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.Base","DownloadableContent") : 0;
+    if (!dlcCategoryClass || !downloadableContentClass) return FALSE;
+
+    const MethodInfo* isPurchased=FindMethodExact(downloadableContentClass,"IsDlcPurchased",1,dlcCategoryClass);
+    if (!isPurchased) return FALSE;
+
+    int dlc=1;
+    void* pars[1]; pars[0]=&dlc;
+    Il2CppException* ex=0;
+    Il2CppObject* boxed=g_il2cpp.runtime_invoke(isPurchased,0,pars,&ex);
+    if (ex) { LogA("[ERROR] IsDlcPurchased(PTSD) threw:"); FormatExceptionToLog(ex); return FALSE; }
+    if (!boxed) return FALSE;
+    void* raw=g_il2cpp.object_unbox(boxed);
+    if (!raw) return FALSE;
+    return (*(BYTE*)raw)!=0;
+}
+
+static BOOL GiveAllOwnedDlcWeapons() {
+    if (!IsTheseSunnyDazeOwned()) {
+        LogA("[DLC] Give All DLC Weapons blocked: These Sunny Daze ownership not confirmed.");
+        return FALSE;
+    }
+
+    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    Il2CppClass* inventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerInventoryComponent") : 0;
+    Il2CppClass* weaponsInventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.Inventory","WeaponsInventory") : 0;
+    Il2CppClass* resourcesClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Resources") : 0;
+
+    if (!weaponIdClass || !inventoryClass || !weaponsInventoryClass || !resourcesClass) {
+        LogA("[ERROR] Give All DLC Weapons metadata classes unresolved");
+        return FALSE;
+    }
+
+    const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Category",0);
+    const MethodInfo* addWeapon=FindMethodExact(weaponsInventoryClass,"AddWeapon",1,weaponIdClass);
+    const FieldInfo* weaponsControllerField=g_il2cpp.class_get_field_from_name(inventoryClass,"_weaponsController");
+    const MethodInfo* findAll=FindMethodExact(resourcesClass,"FindObjectsOfTypeAll",1,g_systemTypeClass);
+
+    if (!getCategory || !addWeapon || !weaponsControllerField || !findAll) {
+        LogA("[ERROR] Give All DLC Weapons native bridge unresolved");
+        return FALSE;
+    }
+
+    Il2CppObject* playerInv=FindLiveObject(inventoryClass);
+    if (!playerInv) { LogA("[ERROR] PlayerInventoryComponent instance not found"); return FALSE; }
+
+    Il2CppObject* weaponsInv=0;
+    g_il2cpp.field_get_value(playerInv,weaponsControllerField,&weaponsInv);
+    if (!weaponsInv) { LogA("[ERROR] PlayerInventoryComponent._weaponsController is null"); return FALSE; }
+
+    const Il2CppType* wt=g_il2cpp.class_get_type(weaponIdClass);
+    Il2CppObject* typeObj=wt ? g_il2cpp.type_get_object(wt) : 0;
+    if (!typeObj) return FALSE;
+
+    void* findPars[1]; findPars[0]=typeObj;
+    Il2CppException* ex=0;
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(findAll,0,findPars,&ex);
+    if (ex) { LogA("[ERROR] FindObjectsOfTypeAll(WeaponId) threw:"); FormatExceptionToLog(ex); return FALSE; }
+    if (!arrObj) return FALSE;
+
+    Il2CppArray* arr=(Il2CppArray*)arrObj;
+    SIZE_T n=g_il2cpp.array_length(arr);
+    if (n>1024) return FALSE;
+    unsigned int hdr=g_il2cpp.array_object_header_size();
+    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+
+    unsigned int found=0, added=0, errors=0;
+    for (SIZE_T i=0;i<n;i++) {
+        Il2CppObject* weapon=elems[i];
+        if (!weapon) continue;
+        ex=0;
+        Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,weapon,0,&ex);
+        if (ex || !catBox) { ++errors; continue; }
+        void* catRaw=g_il2cpp.object_unbox(catBox);
+        if (!catRaw || *(int*)catRaw!=1) continue;
+        ++found;
+
+        void* wp[1]; wp[0]=weapon;
+        ex=0;
+        g_il2cpp.runtime_invoke(addWeapon,weaponsInv,wp,&ex);
+        if (ex) { ++errors; continue; }
+        ++added;
+    }
+
+    LogIntA("[DLC] Give All DLC Weapons found PTSD WeaponIds: ",(int)found);
+    LogIntA("[DLC] Give All DLC Weapons AddWeapon completed: ",(int)added);
+    if (errors) LogIntA("[DLC] Give All DLC Weapons errors: ",(int)errors);
+    if (added) LogA("[OK] Give All DLC Weapons completed with native AddWeapon on every loaded PTSD WeaponId");
+    return added>0;
+}
+
+static BOOL EquipMappedWeaponCategorySlot(int category, int wantedSlot) {
+    if (wantedSlot<1 || wantedSlot>9) return FALSE;
+    if (category==1 && !IsTheseSunnyDazeOwned()) return FALSE;
+
+    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    Il2CppClass* inventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerInventoryComponent") : 0;
+    Il2CppClass* weaponsInventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.Inventory","WeaponsInventory") : 0;
+    Il2CppClass* resourcesClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Resources") : 0;
+    if (!weaponIdClass || !inventoryClass || !weaponsInventoryClass || !resourcesClass) return FALSE;
+
+    const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Category",0);
+    const MethodInfo* getSlot=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Slot",0);
+    const MethodInfo* addWeapon=FindMethodExact(weaponsInventoryClass,"AddWeapon",1,weaponIdClass);
+    const MethodInfo* equipWeapon=FindMethodExact(weaponsInventoryClass,"EquipWeapon",1,weaponIdClass);
+    const FieldInfo* weaponsControllerField=g_il2cpp.class_get_field_from_name(inventoryClass,"_weaponsController");
+    const MethodInfo* findAll=FindMethodExact(resourcesClass,"FindObjectsOfTypeAll",1,g_systemTypeClass);
+    if (!getCategory || !getSlot || !addWeapon || !equipWeapon || !weaponsControllerField || !findAll) return FALSE;
+
+    Il2CppObject* playerInv=FindLiveObject(inventoryClass);
+    if (!playerInv) return FALSE;
+    Il2CppObject* weaponsInv=0;
+    g_il2cpp.field_get_value(playerInv,weaponsControllerField,&weaponsInv);
+    if (!weaponsInv) return FALSE;
+
+    const Il2CppType* wt=g_il2cpp.class_get_type(weaponIdClass);
+    Il2CppObject* typeObj=wt ? g_il2cpp.type_get_object(wt) : 0;
+    if (!typeObj) return FALSE;
+
+    void* fp[1]; fp[0]=typeObj;
+    Il2CppException* ex=0;
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(findAll,0,fp,&ex);
+    if (ex || !arrObj) return FALSE;
+
+    Il2CppArray* arr=(Il2CppArray*)arrObj;
+    SIZE_T n=g_il2cpp.array_length(arr);
+    if (n>1024) return FALSE;
+    unsigned int hdr=g_il2cpp.array_object_header_size();
+    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+
+    Il2CppObject* selected=0;
+    for (SIZE_T i=0;i<n;i++) {
+        Il2CppObject* weapon=elems[i];
+        if (!weapon) continue;
+
+        ex=0;
+        Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,weapon,0,&ex);
+        if (ex || !catBox) continue;
+        void* catRaw=g_il2cpp.object_unbox(catBox);
+        if (!catRaw || *(int*)catRaw!=category) continue;
+
+        ex=0;
+        Il2CppObject* slotBox=g_il2cpp.runtime_invoke(getSlot,weapon,0,&ex);
+        if (ex || !slotBox) continue;
+        void* slotRaw=g_il2cpp.object_unbox(slotBox);
+        if (!slotRaw || *(int*)slotRaw!=wantedSlot) continue;
+
+        selected=weapon;
+        break;
+    }
+
+    if (!selected) {
+        if (category==1) LogIntA("[KEYMAP] No PTSD WeaponId found in slot ",wantedSlot);
+        else LogIntA("[KEYMAP] No base WeaponId found in slot ",wantedSlot);
+        return FALSE;
+    }
+
+    void* wp[1]; wp[0]=selected;
+    ex=0;
+    g_il2cpp.runtime_invoke(addWeapon,weaponsInv,wp,&ex);
+    if (ex) { LogA("[ERROR] KEYMAP AddWeapon threw:"); FormatExceptionToLog(ex); return FALSE; }
+
+    ex=0;
+    g_il2cpp.runtime_invoke(equipWeapon,weaponsInv,wp,&ex);
+    if (ex) { LogA("[ERROR] KEYMAP EquipWeapon threw:"); FormatExceptionToLog(ex); return FALSE; }
+
+    if (category==1) LogIntA("[KEYMAP] Equipped DLC weapon in slot ",wantedSlot);
+    else LogIntA("[KEYMAP] Equipped base weapon in slot ",wantedSlot);
+    return TRUE;
+}
+
+static void ExecuteWeaponKeyMapping(int slot, int mode) {
+    if (!g_ready || g_shuttingDown || slot<1 || slot>9) return;
+
+    BOOL attached=FALSE; void* thread=0;
+    if (!EnsureIl2CppThread(&attached,&thread)) return;
+
+    if (mode==1) {
+        EquipMappedWeaponCategorySlot(0,slot);
+    } else if (mode==2) {
+        EquipMappedWeaponCategorySlot(1,slot);
+    } else if (mode==3) {
+        // ALT starts with DLC because the game's own number-key handler has
+        // already selected its base weapon on key-down. On the next press of
+        // that same slot, switch back to base, then DLC, etc.
+        int category=(g_altSlotFlip[slot] & 1) ? 0 : 1;
+        g_altSlotFlip[slot]^=1;
+        if (!EquipMappedWeaponCategorySlot(category,slot))
+            EquipMappedWeaponCategorySlot(category==1 ? 0 : 1,slot);
+    }
+
+    ReleaseIl2CppThread(attached,thread);
+}
+
 static BOOL SetCrosshairVisualAlpha(float alpha) {
     if (!g_crosshairControllerClass || !g_currentCrosshairField || !g_componentGetGameObject ||
         !g_gameObjectGetComponentsInChildren || !g_canvasRendererSetAlpha || !g_canvasRendererTypeObject) {
@@ -553,6 +750,8 @@ static void ExecuteCommandIndex(int i) {
     else if (StrEqA(g_cmds[i].className,"__GiveAllWeapons")) GiveAllWeaponsOnly();
     else if (StrEqA(g_cmds[i].className,"__EquipDlcWeapon")) EquipOwnedDlcWeaponInSlot(i);
     else if (StrEqA(g_cmds[i].className,"__EquipBaseWeapon")) EquipBaseWeaponInSlot(i);
+    else if (StrEqA(g_cmds[i].className,"__GiveAllDlcWeapons")) GiveAllOwnedDlcWeapons();
+    else if (StrEqA(g_cmds[i].className,"__WeaponKeysMode")) LogA("[KEYMAP] Weapon Keys Mode changed through its Argument field");
     else if (StrEqA(g_cmds[i].className,"TimeScale")) ApplyTimeScaleToggle(i);
     else InvokeNativeCommand(i);
 
