@@ -338,6 +338,120 @@ static BOOL EquipOwnedDlcWeaponInSlot(int cmdIndex) {
     return TRUE;
 }
 
+
+static BOOL EquipBaseWeaponInSlot(int cmdIndex) {
+    if (cmdIndex<0 || cmdIndex>=CMD_COUNT) return FALSE;
+
+    // V2A16 deliberately mirrors the validated V2A15 direct-equip path.
+    // The only selection difference is DLCCategory.NONE (base game).
+    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    Il2CppClass* inventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerInventoryComponent") : 0;
+    Il2CppClass* weaponsInventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.Inventory","WeaponsInventory") : 0;
+
+    if (!weaponIdClass || !inventoryClass || !weaponsInventoryClass) {
+        LogA("[ERROR] Direct base weapon equip metadata classes unresolved");
+        return FALSE;
+    }
+
+    const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Category",0);
+    const MethodInfo* getSlot=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Slot",0);
+    const MethodInfo* addWeapon=FindMethodExact(weaponsInventoryClass,"AddWeapon",1,weaponIdClass);
+    const MethodInfo* equipWeapon=FindMethodExact(weaponsInventoryClass,"EquipWeapon",1,weaponIdClass);
+    const FieldInfo* weaponsControllerField=g_il2cpp.class_get_field_from_name(inventoryClass,"_weaponsController");
+
+    Il2CppClass* resourcesClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Resources") : 0;
+    const MethodInfo* findAll=resourcesClass ? FindMethodExact(resourcesClass,"FindObjectsOfTypeAll",1,g_systemTypeClass) : 0;
+
+    if (!getCategory || !getSlot || !addWeapon || !equipWeapon || !weaponsControllerField || !findAll) {
+        LogA("[ERROR] Direct base weapon equip native bridge unresolved");
+        return FALSE;
+    }
+
+    int wantedSlot=ParseFirstIntW(g_cmds[cmdIndex].args,1);
+    if (wantedSlot<0 || wantedSlot>12) {
+        LogA("[ERROR] Equip Base Weapon slot must be between 0 and 12");
+        return FALSE;
+    }
+    LogIntA("[BASE] Requested native WeaponId slot: ",wantedSlot);
+
+    Il2CppObject* playerInv=FindLiveObject(inventoryClass);
+    if (!playerInv) { LogA("[ERROR] PlayerInventoryComponent instance not found"); return FALSE; }
+
+    Il2CppObject* weaponsInv=0;
+    g_il2cpp.field_get_value(playerInv,weaponsControllerField,&weaponsInv);
+    if (!weaponsInv) { LogA("[ERROR] PlayerInventoryComponent._weaponsController is null"); return FALSE; }
+
+    const Il2CppType* wt=g_il2cpp.class_get_type(weaponIdClass);
+    Il2CppObject* typeObj=wt ? g_il2cpp.type_get_object(wt) : 0;
+    if (!typeObj) { LogA("[ERROR] WeaponId System.Type unavailable"); return FALSE; }
+
+    void* findPars[1]; findPars[0]=typeObj;
+    Il2CppException* ex=0;
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(findAll,0,findPars,&ex);
+    if (ex) { LogA("[ERROR] Resources.FindObjectsOfTypeAll(WeaponId) threw:"); FormatExceptionToLog(ex); return FALSE; }
+    if (!arrObj) { LogA("[ERROR] Resources.FindObjectsOfTypeAll(WeaponId) returned null"); return FALSE; }
+
+    Il2CppArray* arr=(Il2CppArray*)arrObj;
+    SIZE_T n=g_il2cpp.array_length(arr);
+    if (n>1024) { LogA("[ERROR] WeaponId scan exceeded defensive limit"); return FALSE; }
+    unsigned int hdr=g_il2cpp.array_object_header_size();
+    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+
+    Il2CppObject* selected=0;
+    unsigned int baseCount=0, matchingCount=0;
+    for (SIZE_T i=0;i<n;i++) {
+        Il2CppObject* weapon=elems[i];
+        if (!weapon) continue;
+
+        ex=0;
+        Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,weapon,0,&ex);
+        if (ex || !catBox || !g_il2cpp.object_unbox(catBox)) continue;
+        int category=*(int*)g_il2cpp.object_unbox(catBox);
+        if (category!=0) continue; // DLCCategory.NONE = base game
+        ++baseCount;
+
+        ex=0;
+        Il2CppObject* slotBox=g_il2cpp.runtime_invoke(getSlot,weapon,0,&ex);
+        if (ex || !slotBox || !g_il2cpp.object_unbox(slotBox)) continue;
+        int slot=*(int*)g_il2cpp.object_unbox(slotBox);
+
+        LogIntA("[BASE] Loaded base WeaponId slot: ",slot);
+        if (slot==wantedSlot) {
+            ++matchingCount;
+            if (!selected) selected=weapon;
+        }
+    }
+
+    LogIntA("[BASE] Loaded base WeaponIds found: ",(int)baseCount);
+    LogIntA("[BASE] Base WeaponIds matching requested slot: ",(int)matchingCount);
+    if (!selected) {
+        LogA("[BASE] No loaded base WeaponId uses the requested slot.");
+        return FALSE;
+    }
+
+    void* weaponPars[1]; weaponPars[0]=selected;
+
+    ex=0;
+    g_il2cpp.runtime_invoke(addWeapon,weaponsInv,weaponPars,&ex);
+    if (ex) {
+        LogA("[ERROR] WeaponsInventory.AddWeapon(selected base WeaponId) threw:");
+        FormatExceptionToLog(ex);
+        return FALSE;
+    }
+    LogA("[BASE] Native AddWeapon(selected base WeaponId) completed");
+
+    ex=0;
+    g_il2cpp.runtime_invoke(equipWeapon,weaponsInv,weaponPars,&ex);
+    if (ex) {
+        LogA("[ERROR] WeaponsInventory.EquipWeapon(selected base WeaponId) threw:");
+        FormatExceptionToLog(ex);
+        return FALSE;
+    }
+
+    LogA("[OK] Native EquipWeapon(selected base WeaponId) completed");
+    return TRUE;
+}
+
 static BOOL SetCrosshairVisualAlpha(float alpha) {
     if (!g_crosshairControllerClass || !g_currentCrosshairField || !g_componentGetGameObject ||
         !g_gameObjectGetComponentsInChildren || !g_canvasRendererSetAlpha || !g_canvasRendererTypeObject) {
@@ -438,6 +552,7 @@ static void ExecuteCommandIndex(int i) {
     if (StrEqA(g_cmds[i].className,"__NoCrosshair")) ToggleNoCrosshair();
     else if (StrEqA(g_cmds[i].className,"__GiveAllWeapons")) GiveAllWeaponsOnly();
     else if (StrEqA(g_cmds[i].className,"__EquipDlcWeapon")) EquipOwnedDlcWeaponInSlot(i);
+    else if (StrEqA(g_cmds[i].className,"__EquipBaseWeapon")) EquipBaseWeaponInSlot(i);
     else if (StrEqA(g_cmds[i].className,"TimeScale")) ApplyTimeScaleToggle(i);
     else InvokeNativeCommand(i);
 
