@@ -1267,6 +1267,10 @@ static BOOL ShowNativeDlcWeaponWheel() {
         return FALSE;
     }
 
+    // V2A29 deliberately follows the V2A20 Base Weapon Wheel architecture:
+    // use the already-live native PlayerWeaponWheelComponent / PlayerWheelView,
+    // filter what can be filtered, but still show the wheel even when the DLC
+    // category currently has zero live buttons.
     Il2CppClass* wheelClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent") : 0;
     Il2CppClass* wheelButtonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
     Il2CppClass* wheelViewClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerView","PlayerWheelView") : 0;
@@ -1294,7 +1298,7 @@ static BOOL ShowNativeDlcWeaponWheel() {
         return FALSE;
     }
 
-    // Start from the game's own enabled-button state before classifying it.
+    // Begin from the game's own button state exactly as the V2A20 wheel does.
     Il2CppException* ex=0;
     g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&ex);
     if (ex) {
@@ -1302,33 +1306,15 @@ static BOOL ShowNativeDlcWeaponWheel() {
         FormatExceptionToLog(ex);
     }
 
-    int enabled=FilterNativeWheelForCategory(wheel,buttonsField,buttonGetWeapon,buttonEnable,getCategory,1,
-                                             "[WHEEL] DLC scan BEFORE native GiveAllWeapons fallback");
+    int enabled=FilterNativeWheelForCategory(
+        wheel,buttonsField,buttonGetWeapon,buttonEnable,getCategory,1,
+        "[WHEEL] V2A20-style DLC wheel scan");
 
-    if (enabled<=0) {
-        LogA("[WHEEL] No DLC/PTSD button is currently usable. Running validated PlayerInventoryComponent.GiveAllWeapons().");
-        BOOL giveOk=GiveAllWeaponsOnly();
-        BOOL hookOk=InitOwnedDlcHook();
-        LogA(giveOk ? "[WHEEL] GiveAllWeapons fallback completed." : "[WHEEL] GiveAllWeapons fallback failed.");
-        LogA(hookOk ? "[WHEEL] Native DLC hook is initialized." : "[WHEEL] Native DLC hook init did not confirm an object.");
-
-        ex=0;
-        g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&ex);
-        if (ex) {
-            LogA("[WARN] EnableButtons() refresh threw after GiveAllWeapons:");
-            FormatExceptionToLog(ex);
-        }
-
-        enabled=FilterNativeWheelForCategory(wheel,buttonsField,buttonGetWeapon,buttonEnable,getCategory,1,
-                                             "[WHEEL] DLC scan AFTER native GiveAllWeapons + InitHook refresh");
-    }
-
-    if (enabled<=0) {
-        ex=0;
-        g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&ex);
-        LogA("[WHEEL] DLC wheel still has no native PTSD buttons after GiveAllWeapons. Collection likely contains base-wheel buttons only.");
-        return FALSE;
-    }
+    // Important difference from V2A22/V2A27:
+    // zero DLC buttons is NOT an error. Show PlayerWheelView anyway so the
+    // wheel shell remains visible, matching the useful V2A20 behavior.
+    if (enabled<=0)
+        LogA("[WHEEL] No live DLC/PTSD buttons found; showing empty native wheel shell (V2A20-style behavior).");
 
     ex=0;
     g_il2cpp.runtime_invoke(showMethod,view,0,&ex);
@@ -1341,7 +1327,8 @@ static BOOL ShowNativeDlcWeaponWheel() {
     }
 
     g_dlcWheelActive=1;
-    LogA("[WHEEL] DLC native weapon wheel opened");
+    LogA(enabled>0 ? "[WHEEL] DLC native weapon wheel opened"
+                   : "[WHEEL] EMPTY DLC native weapon wheel opened");
     return TRUE;
 }
 
@@ -1498,7 +1485,7 @@ static void ExecuteCommandIndex(int i) {
     else if (StrEqA(g_cmds[i].className,"__InitDlcHook")) InitOwnedDlcHook();
     else if (StrEqA(g_cmds[i].className,"__WeaponKeysMode")) LogA("[KEYMAP] Weapon Keys Mode changed through its Argument field");
     else if (StrEqA(g_cmds[i].className,"__BaseWeaponWheel")) LogA("[WHEEL] Bind Base Weapon Wheel to a key, then HOLD that key to open it.");
-    else if (StrEqA(g_cmds[i].className,"__DlcWeaponWheel")) LogA("[WHEEL] Bind DLC Weapon Wheel to a key, then HOLD that key to open it. Empty-wheel fallback uses native GiveAllWeapons.");
+    else if (StrEqA(g_cmds[i].className,"__DlcWeaponWheel")) LogA("[WHEEL] Bind DLC Weapon Wheel to a key, then HOLD it. V2A20-style wheel shell opens even when no DLC button is live.");
     else if (StrEqA(g_cmds[i].className,"TimeScale")) ApplyTimeScaleToggle(i);
     else InvokeNativeCommand(i);
 
