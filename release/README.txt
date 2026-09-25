@@ -1,4 +1,4 @@
-PostalBorkenMenu V2A25 TEST
+PostalBorkenMenu V2A26 TEST
 POSTAL: Brain-Damaged
 
 IMPORTANT
@@ -6,55 +6,54 @@ IMPORTANT
 - F1 opens/closes the PostalBorkenMenu overlay.
 - PostalBorkenMenu.log is generated automatically at runtime and is not shipped in this archive.
 
-V2A25 CHANGES
+V2A26 PURPOSE
+V2A25 proved that:
+- the pure Hook probe no longer grants weapons
+- WeaponsInventory.get_Hook() is null before the probe
+- WeaponsInventory.InitHook() completes without exception
+- get_Hook() is still null afterwards
 
-1. WEAPON LIST ARGUMENTS
-The WEAPON LIST tab keeps the paired order:
-1 Base Weapon | Argument 1
-1 DLC Weapon  | Argument 1
-2 Base Weapon | Argument 2
-2 DLC Weapon  | Argument 2
-...
-9 Base Weapon | Argument 9
-9 DLC Weapon  | Argument 9
+Earlier V2A24 evidence also showed that after native GiveAllWeapons(), get_Hook() was already non-null.
+Therefore InitHook() alone is not the creator of the usable hook. Some state prepared by the native GiveAllWeapons path is missing.
 
-The last number is now the actual Argument value shown in the Argument column.
-It is no longer part of the command name.
+V2A26 DEEP HOOK DISCOVERY
+The DLC Hook Deep Probe remains side-effect free with respect to weapon grants.
 
-Each row still has:
-- RUN
-- independent KEY binding
+It now logs:
+- exact return-type metadata for WeaponsInventory.get_Hook()
+- every field name on PlayerInventoryComponent
+- every field name on WeaponsInventory
+- all Assembly-CSharp classes whose class/namespace contains:
+  Hook / Grap / Rope / Cable / Tether
+- all methods and fields on those matching classes
+- methods/fields with those terms on other classes
+- parameter counts
+- method return types
 
-The Argument value is the slot actually sent to the weapon lookup.
-Click the Argument cell to cycle slots 1 through 9.
+Then it performs the same pure:
+get_Hook() -> InitHook() -> get_Hook()
+sequence.
 
-2. DLC HOOK PROBE
-User result from V2A24:
-- the Hook command did not make the hook usable
-- its GiveAllWeapons fallback only gave the weapon set
+It still does NOT call GiveAllWeapons.
 
-V2A25 removes GiveAllWeapons from the Hook path completely.
+TEST
+1. Launch the game normally.
+2. Open F1 -> WEAPONS.
+3. Run DLC Hook Deep Probe once.
+4. Do not run Give All Weapons first.
+5. Send the generated PostalBorkenMenu.log.
 
-DLC Hook Probe now only:
-- checks These Sunny Daze ownership
-- audits PlayerInventoryComponent for Hook/Grap methods
-- audits WeaponsInventory for Hook/Grap methods
-- checks WeaponsInventory.get_Hook()
-- if null, calls WeaponsInventory.InitHook()
-- checks get_Hook() again
-
-It does NOT call GiveAllWeapons and should not grant the normal weapon set.
-
-If the hook is still unusable, run DLC Hook Probe once and send the generated PostalBorkenMenu.log. The new audit lines will be used to identify the actual native hook activation path.
+The useful section will begin with:
+[HOOK DEEP] ===== Assembly-CSharp Hook/Grap discovery begin =====
 
 PRESERVED
-- V2A8 shutdown/lifetime stability model
-- ALT behavior from V2A23
-- Base and DLC weapon wheels
-- DLC ownership checks
+- V2A25 Weapon List labels and Argument-based slots
+- ALT behavior
+- Base/DLC wheel experiment
+- V2A8 shutdown/lifetime model
 - No Crosshair
 - TimeScale
-- async hotkeys
+- DLC ownership checks
 
 PACKAGE CONTENTS
 PostalBorkenMenu.asi
