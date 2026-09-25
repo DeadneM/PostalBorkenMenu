@@ -547,6 +547,198 @@ static BOOL SafeAddAndEquipWeaponId(Il2CppObject* playerInv,
     return TRUE;
 }
 
+static BOOL DecodeNamedWeaponCommand(int cmdIndex, const char** exactName, BOOL* special) {
+    if (cmdIndex<0 || cmdIndex>=CMD_COUNT || !exactName || !special) return FALSE;
+    const char* n=g_cmds[cmdIndex].className;
+    const char* arsenalPrefix="__Arsenal_";
+    const char* specialPrefix="__Special_";
+
+    if (StrStartsWithA(n,arsenalPrefix)) {
+        *exactName=n+StrLenA(arsenalPrefix);
+        *special=FALSE;
+    } else if (StrStartsWithA(n,specialPrefix)) {
+        *exactName=n+StrLenA(specialPrefix);
+        *special=TRUE;
+    } else {
+        return FALSE;
+    }
+
+    return *exactName && StrStartsWithA(*exactName,"WEAPON_");
+}
+
+static BOOL ExecuteNamedWeaponByUnityName(const char* exactName, BOOL special) {
+    if (!exactName || !exactName[0]) return FALSE;
+
+    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    Il2CppClass* inventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerInventoryComponent") : 0;
+    Il2CppClass* weaponsInventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.Inventory","WeaponsInventory") : 0;
+    Il2CppClass* resourcesClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Resources") : 0;
+    Il2CppClass* unityObjectClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Object") : 0;
+    if (!weaponIdClass || !inventoryClass || !weaponsInventoryClass || !resourcesClass || !unityObjectClass) {
+        LogA("[NAMED WEAPON] Required metadata classes unresolved.");
+        return FALSE;
+    }
+
+    if (!g_il2cpp.string_chars || !g_il2cpp.string_length) {
+        LogA("[NAMED WEAPON] IL2CPP string helpers unavailable; exact-name lookup cannot run.");
+        return FALSE;
+    }
+
+    const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Category",0);
+    const MethodInfo* getSlot=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Slot",0);
+    const MethodInfo* getName=g_il2cpp.class_get_method_from_name(unityObjectClass,"get_name",0);
+    const MethodInfo* findAll=FindMethodExact(resourcesClass,"FindObjectsOfTypeAll",1,g_systemTypeClass);
+    const FieldInfo* weaponsControllerField=g_il2cpp.class_get_field_from_name(inventoryClass,"_weaponsController");
+    if (!getCategory || !getSlot || !getName || !findAll || !weaponsControllerField) {
+        LogA("[NAMED WEAPON] Exact-name bridge unresolved.");
+        return FALSE;
+    }
+
+    const Il2CppType* wt=g_il2cpp.class_get_type(weaponIdClass);
+    Il2CppObject* typeObj=wt ? g_il2cpp.type_get_object(wt) : 0;
+    if (!typeObj) {
+        LogA("[NAMED WEAPON] WeaponId System.Type unavailable.");
+        return FALSE;
+    }
+
+    void* findPars[1]; findPars[0]=typeObj;
+    Il2CppException* ex=0;
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(findAll,0,findPars,&ex);
+    if (ex) {
+        LogA("[NAMED WEAPON] Resources.FindObjectsOfTypeAll(WeaponId) threw:");
+        FormatExceptionToLog(ex);
+        return FALSE;
+    }
+    if (!arrObj) {
+        LogA("[NAMED WEAPON] WeaponId scan returned null.");
+        return FALSE;
+    }
+
+    Il2CppArray* arr=(Il2CppArray*)arrObj;
+    SIZE_T n=g_il2cpp.array_length(arr);
+    if (n>1024) {
+        LogA("[NAMED WEAPON] WeaponId scan exceeded defensive limit.");
+        return FALSE;
+    }
+
+    unsigned int hdr=g_il2cpp.array_object_header_size();
+    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+    Il2CppObject* selected=0;
+    int matches=0;
+
+    for (SIZE_T i=0;i<n;i++) {
+        Il2CppObject* weapon=elems[i];
+        if (!weapon) continue;
+
+        ex=0;
+        Il2CppObject* nameObj=g_il2cpp.runtime_invoke(getName,weapon,0,&ex);
+        if (ex || !nameObj) continue;
+
+        char unityName[256]; unityName[0]=0;
+        CatalogManagedStringToAscii((Il2CppString*)nameObj,unityName,256);
+        if (!StrEqA(unityName,exactName)) continue;
+
+        ++matches;
+        if (!selected) selected=weapon;
+    }
+
+    char wantedLine[512]; wantedLine[0]=0;
+    CatalogAppendA(wantedLine,512,special ? "[SPECIAL] Requested exact WeaponId: " : "[ARSENAL] Requested exact WeaponId: ");
+    CatalogAppendA(wantedLine,512,exactName);
+    LogA(wantedLine);
+    LogIntA(special ? "[SPECIAL] Exact-name matches: " : "[ARSENAL] Exact-name matches: ",matches);
+
+    if (matches!=1 || !selected) {
+        LogA("[NAMED WEAPON] Refusing action because the exact Unity name is not unique.");
+        return FALSE;
+    }
+
+    int category=-999, slot=-999;
+    ex=0;
+    Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,selected,0,&ex);
+    if (!ex && catBox && g_il2cpp.object_unbox(catBox))
+        category=*(int*)g_il2cpp.object_unbox(catBox);
+
+    ex=0;
+    Il2CppObject* slotBox=g_il2cpp.runtime_invoke(getSlot,selected,0,&ex);
+    if (!ex && slotBox && g_il2cpp.object_unbox(slotBox))
+        slot=*(int*)g_il2cpp.object_unbox(slotBox);
+
+    LogIntA(special ? "[SPECIAL] Category: " : "[ARSENAL] Category: ",category);
+    LogIntA(special ? "[SPECIAL] Slot: " : "[ARSENAL] Slot: ",slot);
+
+    if (category==1 && !IsTheseSunnyDazeOwned()) {
+        LogA("[ARSENAL] PTSD/DLC weapon blocked because These Sunny Daze ownership was not confirmed.");
+        return FALSE;
+    }
+
+    Il2CppObject* playerInv=FindLiveObject(inventoryClass);
+    if (!playerInv) {
+        LogA("[NAMED WEAPON] PlayerInventoryComponent instance not found.");
+        return FALSE;
+    }
+
+    Il2CppObject* weaponsInv=0;
+    g_il2cpp.field_get_value(playerInv,weaponsControllerField,&weaponsInv);
+    if (!weaponsInv) {
+        LogA("[NAMED WEAPON] PlayerInventoryComponent._weaponsController is null.");
+        return FALSE;
+    }
+
+    // V2A32 proved that Hook must be added to CollectedWeapons, but must not
+    // be passed through the ordinary EquipWeapon path.
+    if (StrEqA(exactName,"WEAPON_Hook")) {
+        int collected=IsWeaponCollected(playerInv,inventoryClass,selected);
+        if (collected==1) {
+            LogA("[SPECIAL] WEAPON_Hook already collected; AddWeapon skipped.");
+        } else {
+            if (collected<0) {
+                LogA("[SPECIAL] Could not inspect CollectedWeapons; refusing Hook mutation.");
+                return FALSE;
+            }
+
+            const MethodInfo* addWeapon=FindMethodExact(weaponsInventoryClass,"AddWeapon",1,weaponIdClass);
+            if (!addWeapon) {
+                LogA("[SPECIAL] Hook AddWeapon bridge unresolved.");
+                return FALSE;
+            }
+
+            void* pars[1]; pars[0]=selected;
+            ex=0;
+            g_il2cpp.runtime_invoke(addWeapon,weaponsInv,pars,&ex);
+            if (ex) {
+                LogA("[SPECIAL] AddWeapon(WEAPON_Hook) threw:");
+                FormatExceptionToLog(ex);
+                return FALSE;
+            }
+            LogA("[SPECIAL] WEAPON_Hook added with native AddWeapon only; EquipWeapon intentionally skipped.");
+        }
+
+        const MethodInfo* getHook=g_il2cpp.class_get_method_from_name(weaponsInventoryClass,"get_Hook",0);
+        if (getHook) {
+            ex=0;
+            Il2CppObject* hook=g_il2cpp.runtime_invoke(getHook,weaponsInv,0,&ex);
+            if (!ex)
+                LogA(hook==selected ? "[SPECIAL] Hook verified: get_Hook() returns exact WEAPON_Hook."
+                                    : hook ? "[SPECIAL] get_Hook() is non-null but points to a different WeaponId."
+                                           : "[SPECIAL] get_Hook() remains null.");
+        }
+        return TRUE;
+    }
+
+    BOOL ok=SafeAddAndEquipWeaponId(playerInv,weaponsInv,inventoryClass,weaponsInventoryClass,weaponIdClass,selected,
+                                    special ? "[SPECIAL] Native AddWeapon(exact WeaponId) completed"
+                                            : category==1 ? "[ARSENAL] Native AddWeapon(exact PTSD WeaponId) completed"
+                                                          : "[ARSENAL] Native AddWeapon(exact base WeaponId) completed");
+    if (ok) {
+        char done[512]; done[0]=0;
+        CatalogAppendA(done,512,special ? "[SPECIAL] Exact WeaponId active: " : "[ARSENAL] Exact WeaponId equipped: ");
+        CatalogAppendA(done,512,exactName);
+        LogA(done);
+    }
+    return ok;
+}
+
 static BOOL IsHookDiscoveryName(const char* name) {
     if (!name) return FALSE;
     return StrContainsNoCaseA(name,"hook") ||
@@ -1871,8 +2063,11 @@ static void ExecuteCommandIndex(int i) {
     BOOL attached=FALSE; void* thread=0;
     if (!EnsureIl2CppThread(&attached,&thread)) return;
 
+    const char* exactWeaponName=0;
+    BOOL exactSpecial=FALSE;
     int listCategory=0, listSlot=0;
-    if (DecodeWeaponListCommand(i,&listCategory,&listSlot)) EquipMappedWeaponCategorySlot(listCategory,listSlot);
+    if (DecodeNamedWeaponCommand(i,&exactWeaponName,&exactSpecial)) ExecuteNamedWeaponByUnityName(exactWeaponName,exactSpecial);
+    else if (DecodeWeaponListCommand(i,&listCategory,&listSlot)) EquipMappedWeaponCategorySlot(listCategory,listSlot);
     else if (StrEqA(g_cmds[i].className,"__NoCrosshair")) ToggleNoCrosshair();
     else if (StrEqA(g_cmds[i].className,"__GiveAllWeapons")) GiveAllWeaponsOnly();
     else if (StrEqA(g_cmds[i].className,"__GiveAllDlcWeapons")) GiveAllOwnedDlcWeapons();
