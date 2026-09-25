@@ -1,9 +1,9 @@
-name: Build V2A26 Hook Deep Discovery
+name: Build V2A29 V2A20 Wheel + Empty DLC Shell
 
 on:
   push:
     branches:
-      - dev/v2a26-hook-deep-discovery
+      - dev/v2a29-v2a20-wheel-empty-dlc
   workflow_dispatch:
 
 permissions:
@@ -38,7 +38,7 @@ jobs:
         run: |
           Get-FileHash build\PostalBorkenMenu.asi -Algorithm SHA256 | Format-List
 
-      - name: Stage V2A26 package
+      - name: Stage V2A29 package
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path package | Out-Null
@@ -52,14 +52,14 @@ jobs:
           $files = Get-ChildItem package -File | Select-Object -ExpandProperty Name
           $expected = @('PostalBorkenMenu.asi','PostalBorkenMenu.ini','README.txt')
           if (Compare-Object ($files | Sort-Object) ($expected | Sort-Object)) {
-            Write-Error "Unexpected V2A26 package contents"
+            Write-Error "Unexpected V2A29 package contents"
             exit 1
           }
           Get-ChildItem package -File | Format-Table Name,Length
 
-      - name: Upload V2A26 package
+      - name: Upload V2A29 package
         uses: actions/upload-artifact@v4
         with:
-          name: POSTAL_Brain_Damaged_PostalBorkenMenu_V2A26_HOOK_DEEP_DISCOVERY_TEST
+          name: POSTAL_Brain_Damaged_PostalBorkenMenu_V2A29_V2A20_WHEEL_EMPTY_DLC_TEST
           path: package/*
           if-no-files-found: error
