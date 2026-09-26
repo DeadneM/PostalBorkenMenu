@@ -106,6 +106,7 @@ __declspec(dllimport) BOOL __stdcall SetWindowTextW(HWND, LPCWSTR);
 __declspec(dllimport) int __stdcall GetWindowTextW(HWND, LPWSTR, int);
 __declspec(dllimport) HWND __stdcall SetFocus(HWND);
 __declspec(dllimport) BOOL __stdcall SetForegroundWindow(HWND);
+__declspec(dllimport) HCURSOR __stdcall LoadCursorW(HINSTANCE, LPCWSTR);
 __declspec(dllimport) BOOL __stdcall IsWindow(HWND);
 __declspec(dllimport) BOOL __stdcall GetClientRect(HWND, RECT*);
 __declspec(dllimport) BOOL __stdcall ClientToScreen(HWND, POINT*);
@@ -155,6 +156,7 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 #define SW_SHOWNORMAL 1
 #define SW_SHOW 5
 #define GWLP_WNDPROC (-4)
+#define IDC_ARROW ((LPCWSTR)(ULONG_PTR)32512)
 
 #define WM_DESTROY 0x0002
 #define WM_NCDESTROY 0x0082
