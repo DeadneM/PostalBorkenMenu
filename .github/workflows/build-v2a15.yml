@@ -1,9 +1,9 @@
-name: Build V2A34 Weapon Catalog Dispatch Fix
+name: Build V2A37 Five Tabs UI-Only Bisect
 
 on:
   push:
     branches:
-      - dev/v2a34-weapon-catalog-dispatch-fix
+      - dev/v2a37-five-tabs-ui-only
   workflow_dispatch:
 
 permissions:
@@ -38,7 +38,7 @@ jobs:
         run: |
           Get-FileHash build\PostalBorkenMenu.asi -Algorithm SHA256 | Format-List
 
-      - name: Stage V2A34 package
+      - name: Stage V2A37 package
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path package | Out-Null
@@ -52,14 +52,14 @@ jobs:
           $files = Get-ChildItem package -File | Select-Object -ExpandProperty Name
           $expected = @('PostalBorkenMenu.asi','PostalBorkenMenu.ini','README.txt')
           if (Compare-Object ($files | Sort-Object) ($expected | Sort-Object)) {
-            Write-Error "Unexpected V2A34 package contents"
+            Write-Error "Unexpected V2A37 package contents"
             exit 1
           }
           Get-ChildItem package -File | Format-Table Name,Length
 
-      - name: Upload V2A34 package
+      - name: Upload V2A37 package
         uses: actions/upload-artifact@v4
         with:
-          name: POSTAL_Brain_Damaged_PostalBorkenMenu_V2A34_WEAPON_CATALOG_DISPATCH_FIX
+          name: POSTAL_Brain_Damaged_PostalBorkenMenu_V2A37_FIVE_TABS_UI_ONLY_BISECT_TEST
           path: package/*
           if-no-files-found: error
