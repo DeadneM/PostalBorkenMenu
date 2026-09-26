@@ -1,87 +1,71 @@
-PostalBorkenMenu V2A34 TEST
+PostalBorkenMenu V2A37 UI-ONLY BISECT TEST
 POSTAL: Brain-Damaged
 
+BASE
+Built directly from V2A34 Weapon Catalog Dispatch Fix.
+
+PURPOSE
+Test only the five-tab overlay structure.
+
+TABS
+Gameplay
+Weapons
+Arsenal
+Special
+Visual
+
 IMPORTANT
-- Remove -debug from the game's launch options.
-- F1 opens/closes the PostalBorkenMenu overlay.
-- PostalBorkenMenu.log is generated automatically at runtime and is not included in this archive.
+- Arsenal is intentionally empty.
+- Special is intentionally empty.
+- No named WeaponId rows are present.
+- The legacy V2A34 Weapon List rows remain under Weapons so no existing command behavior is removed.
 
-V2A34 PURPOSE
-Fix the V2A33 Weapon Catalog command dispatch bug.
+NO NEW WEAPON LOGIC
+V2A37 adds no:
+- exact-name WeaponId lookup
+- AddWeapon path
+- EquipWeapon path
+- automatic WeaponId scan
+- automatic Hook recovery
+- startup FindObjectOfType polling
+- new DLC ownership logic
+- new INI weapon entries
 
-V2A33 RESULT
-The Weapon Catalog row was present in the Weapons tab, but pressing RUN reached the generic native-command path and logged:
-[ERROR] Requested native command is unresolved
-
-Cause:
-- RunWeaponCatalog() existed.
-- the UI row existed.
-- the Weapons-tab mapping existed.
-- but the active ExecuteCommandIndex() implementation in source/PostalBorkenMenu_part2.inc did not contain the __WeaponCatalog branch.
-
-V2A34 CHANGE
-Adds exactly:
-__WeaponCatalog -> RunWeaponCatalog()
-
-to the active command dispatcher.
-
-No Weapon Catalog logic itself is changed.
-
-WEAPON CATALOG
-RUN "Weapon Catalog" in F1 -> Weapons.
-
-It enumerates loaded Hyperstrange.PBD.WeaponId objects and logs:
-- index
-- UnityEngine.Object.name
-- WeaponId.ToString() when available
-- category
-- category label
-- slot
-- collected YES / NO / UNKNOWN
-
-The catalog is read-only.
-
-HOOK RESULT PRESERVED
-The latest user log also validates the V2A32 Hook isolation:
-- category0 / slot99 candidate count = 1
-- candidate not collected initially
-- native AddWeapon(slot99) completed
-- get_Hook() became NON-NULL
-- _hookWeapon remained NULL
-- get_Hook() returned the exact slot99 candidate
-- category 0 / slot 99
-
-Therefore AddWeapon of the unique category0/slot99 WeaponId is sufficient to expose the native Hook WeaponId without EquipWeapon or GiveAllWeapons.
-
-PRESERVED
-- V2A29 V2A20-style Base Weapon Wheel
-- V2A29 empty DLC wheel shell
-- V2A25 Weapon List / Arguments
+PRESERVED EXACTLY FROM V2A34
+- Weapon Catalog
+- V2A29 wheel behavior
+- Weapon List slot rows and Arguments
+- Weapon Keys Mode
 - ALT behavior
-- V2A30 safe Hook probe
-- V2A31 GiveAll Hook snapshots
-- V2A32 slot99 Hook isolation
-- V2A33 non-destructive Weapon Catalog implementation
-- V2A8 clean shutdown
+- Hook probes already present in V2A34
+- V2A8 shutdown/lifetime behavior
 - No Crosshair
 - TimeScale
-- DLC ownership checks
+- native developer commands
+
+FUNCTIONAL DELTA
+Only source/PostalBorkenMenu_part3.inc changes behavior:
+- tab count 4 -> 5
+- tab labels/layout
+- click regions
+- legacy Weapon List rows remapped from old tab 2 into Weapons tab
+- Visual remapped from tab 3 to tab 4
+- Arsenal tab 2 contains zero commands
+- Special tab 3 contains zero commands
+
+TEST
+1. Start the game normally.
+2. Do not run any command yet.
+3. Confirm whether the game reaches the menu without crashing.
+4. Press F1.
+5. Click all five tabs.
+6. Confirm Arsenal and Special are empty.
+7. Exit normally.
+8. Send PostalBorkenMenu.log.
 
 PACKAGE CONTENTS
 PostalBorkenMenu.asi
 PostalBorkenMenu.ini
 README.txt
 
-PostalBorkenMenu.log is runtime-generated and is not included.
-
-TEST
-1. Start the game.
-2. F1 -> Weapons -> Weapon Catalog -> RUN.
-3. Send PostalBorkenMenu.log.
-4. The expected block begins with:
-   [WEAPON CATALOG] ===== BEGIN =====
-and ends with:
-   [WEAPON CATALOG] ===== END =====
-
-PROJECT
-https://github.com/DeadneM/PostalBorkenMenu
+PostalBorkenMenu.log is generated at runtime and is not included.
