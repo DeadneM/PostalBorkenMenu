@@ -781,3 +781,32 @@ Startup:
 Interpretation:
 - if stable, resolver code presence is not the cause.
 - if it crashes, bisect inside ExecuteNamedWeaponByUnityName next.
+
+
+### V2A39
+
+Base:
+- V2A38 dormant exact-name resolver bisect, validated working by the user.
+
+Single functional delta:
+- ExecuteCommandIndex() now declares exactWeaponName/exactSpecial.
+- DecodeNamedWeaponCommand() is called first.
+- if it returns true, ExecuteNamedWeaponByUnityName() is called.
+- otherwise execution falls through to the untouched V2A34 legacy dispatcher.
+
+Important:
+- command table remains V2A34/V2A38.
+- there are zero __Arsenal_* rows.
+- there are zero __Special_* rows.
+- therefore the new branch should never reach ExecuteNamedWeaponByUnityName() in this test.
+
+No other V2A35 functional changes:
+- no five-tab UI
+- no Arsenal/Special rows
+- no INI expansion
+- no startup scan
+- no automatic inventory mutation
+
+Interpretation:
+- stable => dispatcher branch is innocent; isolate g_cmds row expansion next.
+- crash => dispatcher integration itself is the regression.
