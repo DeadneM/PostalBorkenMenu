@@ -27,7 +27,6 @@ FillRect
 DrawTextW
 SetLayeredWindowAttributes
 GetAsyncKeyState
-keybd_event
 PeekMessageW
 DestroyWindow
 PostQuitMessage
