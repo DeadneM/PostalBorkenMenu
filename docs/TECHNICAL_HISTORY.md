@@ -922,3 +922,49 @@ Rationale:
 Packaging:
 - exactly PostalBorkenMenu.asi, PostalBorkenMenu.ini, README.txt.
 - never include PostalBorkenMenu.log.
+
+
+### V2A46
+
+Base:
+- direct branch from dev/v2a42-clean-arsenal-five-tabs-skip-intro.
+- V2A42 exact artifact remains canonical stable fallback.
+
+Goal:
+- isolate only the overlay window model.
+- no new gameplay, IL2CPP, save, pause, intro, level-start or weapon behavior.
+
+Window delta:
+- CreateWindowExW extended style changes from:
+  WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE
+  to:
+  WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_LAYERED
+- retain WS_POPUP and layered alpha 242.
+- register standard IDC_ARROW on the overlay window class.
+- add LoadCursorW user32 import.
+
+Input routing delta:
+- OverlayWndProc now consumes WM_MOUSEWHEEL directly.
+- OverlayWndProc now consumes WM_LBUTTONDOWN directly.
+- HandleOverlayClick becomes HandleOverlayClickLocal and consumes overlay-client coordinates directly.
+- remove the V2A42 WM_MOUSEWHEEL and WM_LBUTTONDOWN overlay-routing blocks from GameWndProc.
+
+Focus delta:
+- F1 open:
+  ShowWindow(SW_SHOW), SetForegroundWindow(overlay), SetFocus(overlay).
+- F1 close:
+  ShowWindow(SW_HIDE), SetForegroundWindow(game), SetFocus(game).
+- WM_CLOSE of overlay also returns focus to game.
+- PollHotkeys considers either game HWND or visible overlay HWND active so F1 remains functional while overlay owns foreground.
+
+Frozen:
+- V2A42 IL2CPP bridges.
+- V2A40 stable HWND subclass timing.
+- V2A8 shutdown.
+- V2A29 wheel path.
+- entire command table and INI.
+- known-nonworking synthetic V2A42 Skip Intro is intentionally not touched in this isolation build.
+
+Interpretation:
+- if stable and cursor appears, interactive overlay architecture becomes candidate foundation for later UI work.
+- if it crashes, reject V2A46 and revert immediately to exact V2A42.
