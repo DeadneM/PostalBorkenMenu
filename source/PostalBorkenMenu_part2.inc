@@ -2026,17 +2026,6 @@ static BOOL ToggleNoCrosshair() {
     return ok;
 }
 
-static BOOL ToggleSkipIntroVideos() {
-    g_skipIntroVideos = g_skipIntroVideos ? 0 : 1;
-    WritePrivateProfileStringW(L"Settings",L"SkipIntroVideos",g_skipIntroVideos?L"1":L"0",g_iniPath);
-    WritePrivateProfileStringW(0,0,0,g_iniPath);
-    LogA(g_skipIntroVideos
-        ? "[INTRO] Skip Intro Videos enabled. It will apply on the next launch."
-        : "[INTRO] Skip Intro Videos disabled. Intro playback will be left untouched on the next launch.");
-    if (g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
-    return TRUE;
-}
-
 static float ParseTimeScale(const WCHAR* a) {
     if (!a) return 1.0f;
     if (a[0]==L'0' && a[1]==L'.' && a[2]==L'5' && a[3]==0) return 0.5f;
@@ -2052,6 +2041,44 @@ static float GetEngineTimeScale() {
     void* raw=g_il2cpp.object_unbox(boxed);
     if (!raw) return g_lastAppliedTimeScale;
     return *(float*)raw;
+}
+
+static BOOL SetOverlayTimeScale(float value) {
+    if (!g_timeScaleSetter) return FALSE;
+    void* pars[1]; pars[0]=&value;
+    Il2CppException* ex=0;
+    g_il2cpp.runtime_invoke(g_timeScaleSetter,0,pars,&ex);
+    if (ex) {
+        LogA("[OVERLAY] TimeManager.SetGameTimeScale threw:");
+        FormatExceptionToLog(ex);
+        return FALSE;
+    }
+    g_lastAppliedTimeScale=value;
+    return TRUE;
+}
+
+static void ApplyOverlayPauseState(BOOL open) {
+    if (!g_ready || g_shuttingDown) return;
+
+    BOOL attached=FALSE; void* thread=0;
+    if (!EnsureIl2CppThread(&attached,&thread)) return;
+
+    if (open) {
+        if (!g_overlayPauseApplied) {
+            g_overlaySavedTimeScale=GetEngineTimeScale();
+            if (SetOverlayTimeScale(0.0f)) {
+                g_overlayPauseApplied=1;
+                LogA("[OVERLAY] Game timescale paused at 0.0 while F1 overlay is open.");
+            }
+        }
+    } else if (g_overlayPauseApplied) {
+        float restore=g_overlaySavedTimeScale;
+        if (SetOverlayTimeScale(restore))
+            LogA("[OVERLAY] Previous game timescale restored after closing F1.");
+        g_overlayPauseApplied=0;
+    }
+
+    ReleaseIl2CppThread(attached,thread);
 }
 
 static BOOL ApplyTimeScaleToggle(int i) {
@@ -2085,7 +2112,6 @@ static void ExecuteCommandIndex(int i) {
     if (DecodeNamedWeaponCommand(i,&exactWeaponName,&exactSpecial)) ExecuteNamedWeaponByUnityName(exactWeaponName,exactSpecial);
     else if (DecodeWeaponListCommand(i,&listCategory,&listSlot)) EquipMappedWeaponCategorySlot(listCategory,listSlot);
     else if (StrEqA(g_cmds[i].className,"__NoCrosshair")) ToggleNoCrosshair();
-    else if (StrEqA(g_cmds[i].className,"__SkipIntroVideos")) ToggleSkipIntroVideos();
     else if (StrEqA(g_cmds[i].className,"__GiveAllWeapons")) GiveAllWeaponsOnly();
     else if (StrEqA(g_cmds[i].className,"__GiveAllDlcWeapons")) GiveAllOwnedDlcWeapons();
     else if (StrEqA(g_cmds[i].className,"__WeaponCatalog")) RunWeaponCatalog();
