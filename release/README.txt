@@ -1,100 +1,73 @@
-PostalBorkenMenu V2A42
+PostalBorkenMenu V2A48 - GORI-STYLE DX11 IN-SWAPCHAIN OVERLAY TEST
 POSTAL: Brain-Damaged
 
 BASE
-Built from V2A41 while preserving the V2A40 stable-window subclass fix that the user validated.
+V2A42 is the last user-confirmed stable PostalBorkenMenu base.
+V2A48 keeps its command/weapon/IL2CPP logic and replaces the old persistent
+Postal overlay window with a Gori-style in-game renderer.
 
-THIS BUILD
-V2A42 reconstructs the desired five-tab overlay and cleans the named weapon lists.
+WHY THIS BUILD
+V2A43 / V2A44 / V2A46 / V2A47A / V2A47B were rejected during mouse/window
+experiments. V2A47C was stable, but ShowCursor from its worker-thread cave did
+not produce a visible cursor.
 
-TABS
+POSTAL RENDERER
+Player.log confirms:
+Direct3D 11.0, feature level 11.1.
+
+GORI-STYLE ARCHITECTURE
+Gori rendered its menu inside the game's swapchain instead of maintaining a
+second interactive desktop window.
+
+V2A48 applies the same separation to POSTAL:
+- no persistent PostalBorkenMenu HWND is created
+- the real game HWND keeps the validated V2A40 WndProc subclass
+- a temporary hidden D3D11 probe obtains the DXGI swapchain Present vtable
+- the Present vtable is patched, then the temporary probe windows are destroyed
+- the menu is rendered into the game's D3D11 backbuffer immediately before Present
+- the old V2A42 visual layout is painted to an in-memory GDI bitmap and uploaded
+  to a D3D11 texture
+- F1 visibility is marshalled to the real game-window thread
+- mouse clicks / wheel / raw movement are consumed by the real game WndProc while
+  the overlay is open
+- cursor visibility is requested on the real game-window thread, not the worker
+
+OPTIONS TRANSFERRED
+The V2A42 five-tab command model is preserved:
 - Gameplay
 - Weapons
 - Arsenal
 - Special
 - Visual
 
-ARSENAL
-Only single WeaponId variants are exposed.
+Preserved features include native developer commands, Give All, Give All Weapons,
+No Crosshair, TimeScale, exact-name Arsenal, Special weapons, weapon-key mode and
+the validated V2A29 wheel paths.
 
-Base:
-- Shovel
-- Pistol
-- Shotgun
-- Machine Gun
-- Rocket Launcher
-- Lightning Gun
-- Gatling Gun
-- Dildo Bow
-- Cat Canon
+KNOWN INTRO ITEM
+The old V2A42 Escape-based "Skip Intro Videos" experiment is known not to skip
+the game's startup videos. V2A48 keeps its dormant internal record only for
+history/compatibility, but hides the control from the new menu.
 
-These Sunny Daze / PTSD:
-- Um Drill
-- Piss Gun
-- Meat Shotgun
-- Bubble Gum Machine Gun
-- Nuclear Syringe
-
-All _Akimbo WeaponIds are intentionally removed from the overlay.
-
-SPECIAL
-Kept:
-- Hook (Add Only)
-- Cutscene Weapon DLC
-- No Weapon
-- No Weapon DLC
-
-Removed:
-- Dong
-- Dong Confusion
-- Dong Fire
-- Dong Ice
-
-The Hook path remains AddWeapon-only and is never passed through EquipWeapon.
-
-SKIP INTRO VIDEOS
-A new checkbox appears in the Gameplay tab.
-
-Default:
-SkipIntroVideos=1
-
-The value is persisted in PostalBorkenMenu.ini under [Settings].
-Changing the checkbox affects the next launch.
-
-Implementation for this test:
-- no game files are renamed or deleted
-- SAVE_DATA.cfg is not modified
-- no EXE/GameAssembly patching
-- while V2A40 qualifies the foreground game HWND, after the same HWND has remained valid for 1 second, the ASI sends exactly one synthetic Escape key pulse if Skip Intro Videos is enabled
-- the normal V2A40 WndProc subclass is still delayed until 3 seconds of HWND stability
-- no repeated key injection occurs
-
-This deliberately targets startup only and does not touch normal in-game cutscenes.
-
-STABILITY PRESERVED
-- V2A40: 3-second stable foreground HWND qualification before SetWindowLongPtrW
-- V2A8: early WM_CLOSE shutdown fencing
-- no permanent IL2CPP crosshair polling
-- V2A29 weapon-wheel behavior
-- exact-name WeaponId resolver remains targeted
-- no broad Assembly-CSharp scans
-- no startup Hook recovery
+NO AUTO-LEVEL WORK YET
+V2A48 intentionally does not reintroduce the rejected V2A43 SceneManager /
+automatic level-start actions. First validate the new overlay architecture.
 
 TEST
-1. Launch normally with SkipIntroVideos=1.
-2. Confirm whether the intro video is skipped.
-3. Confirm the game reaches the menu and remains stable.
-4. Open F1.
-5. Check all five tabs.
-6. Confirm Arsenal contains no Akimbo entries.
-7. Confirm Special contains no Dong entries.
-8. Toggle Skip Intro Videos off and on once to verify checkbox persistence.
-9. Test one normal Arsenal weapon and, if owned, one DLC weapon.
-10. Exit normally and send PostalBorkenMenu.log.
+1. Launch normally and reach the main menu.
+2. Enter gameplay.
+3. Press F1.
+4. Confirm the menu is drawn inside the game image.
+5. Confirm a usable cursor is visible.
+6. Click tabs and RUN buttons.
+7. Test mouse-wheel scrolling.
+8. Press F1 again and confirm normal gameplay input returns.
+9. Exit normally.
+10. If anything fails, send PostalBorkenMenu.log and Player.log.
 
-PACKAGE CONTENTS
+PACKAGE
 PostalBorkenMenu.asi
 PostalBorkenMenu.ini
 README.txt
 
-PostalBorkenMenu.log is generated at runtime and is intentionally not included.
+PostalBorkenMenu.log is generated at runtime and is intentionally NOT included.
