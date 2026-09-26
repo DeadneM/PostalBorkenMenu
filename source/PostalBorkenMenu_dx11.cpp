@@ -18,6 +18,9 @@ void __stdcall PostalOverlayPaintToDC(HDC dc);
 void __stdcall PostalOverlayLog(const char* text);
 }
 
+#pragma function(memset)
+#pragma function(memcpy)
+
 extern "C" void* memset(void* dst, int v, size_t n) {
     unsigned char* p=(unsigned char*)dst;
     while(n--) *p++=(unsigned char)v;
