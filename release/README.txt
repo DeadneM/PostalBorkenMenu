@@ -1,54 +1,60 @@
-PostalBorkenMenu V2A39 BISECT TEST
+PostalBorkenMenu V2A40 STABLE WINDOW SUBCLASS TEST
 POSTAL: Brain-Damaged
 
 BASE
-Built directly from V2A38, which the user validated as working.
+Built directly from V2A39.
 
-PURPOSE
-Test only the V2A35 named-weapon dispatcher integration.
+WHY THIS TEST EXISTS
+V2A39 reaches full READY and then crashes without any command execution being logged.
+The exact-name resolver is linked and the named dispatcher branch is present, but no Arsenal/Special rows exist.
 
-V2A39 CHANGE
-ExecuteCommandIndex() now contains the V2A35 branch:
+This points away from named-weapon execution and toward a startup timing race around the game-window subclass.
 
-DecodeNamedWeaponCommand(...)
--> ExecuteNamedWeaponByUnityName(...)
+V2A40 CHANGE
+HookGameWindow() no longer subclasses the first foreground window belonging to the game process immediately.
 
-This branch runs before the legacy Weapon List decoder.
+It now requires:
+- foreground window belongs to the current process
+- HWND is valid
+- client area is at least 320x200
+- the same foreground HWND remains stable for 30 consecutive 100 ms samples
 
-CRITICAL SAFETY OF THIS TEST
-There are still ZERO command rows beginning with:
-- __Arsenal_
-- __Special_
+That is 3 seconds of stability before SetWindowLongPtrW installs GameWndProc.
 
-Therefore DecodeNamedWeaponCommand() should return FALSE for every existing command.
-ExecuteNamedWeaponByUnityName() should never be called.
+If the candidate changes or becomes invalid, the stability counter resets.
 
-UNCHANGED FROM V2A38
+LOG MARKERS
+[WINDOW] Waiting for one stable foreground game window before subclassing.
+[WINDOW] New foreground candidate detected; stability timer restarted.
+[WINDOW] Candidate stable for 1 second.
+[WINDOW] Candidate stable for 2 seconds.
+[WINDOW] Candidate stable for 3 seconds; installing WndProc subclass now.
+[OK] Stable game window subclass installed - F1 overlay ready
+
+UNCHANGED FROM V2A39
+- exact-name resolver code
+- named dispatcher branch
 - original V2A34 command table
-- original four tabs
+- zero Arsenal/Special rows
+- original four-tab UI
 - original INI
-- no Arsenal rows
-- no Special rows
 - no automatic WeaponId scan
-- no automatic AddWeapon
-- no automatic EquipWeapon
+- no automatic AddWeapon/EquipWeapon
 - no recovery code
-- V2A34/V2A38 startup path
-- V2A8 shutdown/lifetime behavior
-
-EXPECTED LOG
-[BISECT] V2A35 exact-name resolver linked; dispatcher branch enabled; no Arsenal/Special rows exist.
+- V2A8 shutdown fencing
 
 TEST
 1. Launch normally.
-2. Do not press F1 at first.
-3. Confirm whether the game reaches the menu.
-4. If stable, open F1 briefly and exit normally.
-5. Send PostalBorkenMenu.log.
+2. Do not press any mod hotkey during startup.
+3. Check whether the game passes the intro/menu transition.
+4. If stable, open F1 once.
+5. Exit normally.
+6. Send PostalBorkenMenu.log.
 
 INTERPRETATION
-- Stable: the resolver AND dispatcher integration are both innocent. Next suspect becomes the new Arsenal/Special command rows / enlarged g_cmds table.
-- Crash: the dispatcher branch itself is implicated.
+- Stable: window subclass timing race confirmed.
+- Crash after READY: continue isolating post-subclass activity.
+- Crash before subclass: the failure is earlier than GameWndProc installation.
 
 PACKAGE CONTENTS
 PostalBorkenMenu.asi
