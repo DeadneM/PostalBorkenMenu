@@ -2026,17 +2026,6 @@ static BOOL ToggleNoCrosshair() {
     return ok;
 }
 
-static BOOL ToggleSkipIntroVideos() {
-    g_skipIntroVideos = g_skipIntroVideos ? 0 : 1;
-    WritePrivateProfileStringW(L"Settings",L"SkipIntroVideos",g_skipIntroVideos?L"1":L"0",g_iniPath);
-    WritePrivateProfileStringW(0,0,0,g_iniPath);
-    LogA(g_skipIntroVideos
-        ? "[INTRO] Skip Intro Videos enabled. It will apply on the next launch."
-        : "[INTRO] Skip Intro Videos disabled. Intro playback will be left untouched on the next launch.");
-    if (g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
-    return TRUE;
-}
-
 static float ParseTimeScale(const WCHAR* a) {
     if (!a) return 1.0f;
     if (a[0]==L'0' && a[1]==L'.' && a[2]==L'5' && a[3]==0) return 0.5f;
@@ -2085,7 +2074,6 @@ static void ExecuteCommandIndex(int i) {
     if (DecodeNamedWeaponCommand(i,&exactWeaponName,&exactSpecial)) ExecuteNamedWeaponByUnityName(exactWeaponName,exactSpecial);
     else if (DecodeWeaponListCommand(i,&listCategory,&listSlot)) EquipMappedWeaponCategorySlot(listCategory,listSlot);
     else if (StrEqA(g_cmds[i].className,"__NoCrosshair")) ToggleNoCrosshair();
-    else if (StrEqA(g_cmds[i].className,"__SkipIntroVideos")) ToggleSkipIntroVideos();
     else if (StrEqA(g_cmds[i].className,"__GiveAllWeapons")) GiveAllWeaponsOnly();
     else if (StrEqA(g_cmds[i].className,"__GiveAllDlcWeapons")) GiveAllOwnedDlcWeapons();
     else if (StrEqA(g_cmds[i].className,"__WeaponCatalog")) RunWeaponCatalog();
