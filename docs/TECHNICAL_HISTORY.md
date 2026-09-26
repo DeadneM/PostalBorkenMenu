@@ -750,3 +750,34 @@ Important Hook result from same user log:
 - _hookWeapon remained NULL.
 - get_Hook() returned the exact category0/slot99 candidate.
 - this validates the slot99 AddWeapon isolation hypothesis from V2A32.
+
+
+### V2A37
+
+Bisect goal:
+- isolate whether the five-tab overlay shell itself causes the V2A35 startup instability.
+- start directly from V2A34, not V2A35 or V2A36.
+
+Functional code delta:
+- source/PostalBorkenMenu_part3.inc only.
+- overlay tab count 4 -> 5.
+- labels become Gameplay / Weapons / Arsenal / Special / Visual.
+- Arsenal and Special intentionally have zero mapped commands.
+- legacy V2A34 Weapon List rows are mapped into Weapons for this test.
+- Visual commands move from tab index 3 to tab index 4.
+- tab click rectangles updated for five equal-width regions.
+- SelectMenuTab accepts 0..4.
+
+Explicitly absent:
+- no __Arsenal_* commands.
+- no __Special_* commands.
+- no named WeaponId resolver.
+- no exact Unity object-name lookup.
+- no new AddWeapon/EquipWeapon code.
+- no startup recovery.
+- no startup FindObjectOfType polling.
+- no config/INI functional changes.
+
+Interpretation:
+- if V2A37 is stable, five-tab rendering/filtering is not the V2A35 crash source, and the next bisect step can add named rows without executable logic.
+- if V2A37 crashes, the regression is inside the five-tab UI/filter path itself.
