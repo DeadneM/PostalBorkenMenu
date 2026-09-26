@@ -61,6 +61,15 @@ static Il2CppClass* g_timeManagerClass = 0;
 static const MethodInfo* g_timeScaleSetter = 0;
 static const MethodInfo* g_timeScaleGetter = 0;
 
+// Unity cursor control is used only while the overlay is open.
+static const MethodInfo* g_cursorGetLockState = 0;
+static const MethodInfo* g_cursorSetLockState = 0;
+static const MethodInfo* g_cursorGetVisible = 0;
+static const MethodInfo* g_cursorSetVisible = 0;
+
+// SceneManager is sampled once per second for level-start automation.
+static const MethodInfo* g_sceneManagerGetActiveScene = 0;
+
 static BOOL IsSynthetic(const char* n) {
     return n && n[0]=='_' && n[1]=='_';
 }
@@ -2037,6 +2046,258 @@ static BOOL ToggleSkipIntroVideos() {
     return TRUE;
 }
 
+static void SaveBoolSetting(const WCHAR* key, LONG value) {
+    WritePrivateProfileStringW(L"Settings",key,value?L"1":L"0",g_iniPath);
+    WritePrivateProfileStringW(0,0,0,g_iniPath);
+}
+
+static void ArmCurrentSceneForAutoLevel() {
+    // Force the next one-second SceneManager sample to treat the current scene
+    // as a fresh baseline. This makes a newly enabled auto option useful
+    // immediately instead of waiting for another map transition.
+    g_lastSceneHandle=-2147483647;
+    g_autoLevelPending=0;
+    g_autoLevelDelayPolls=0;
+    g_autoLevelRetryPolls=0;
+}
+
+static BOOL ToggleAutoGiveAll() {
+    g_autoGiveAll = g_autoGiveAll ? 0 : 1;
+    SaveBoolSetting(L"AutoGiveAll",g_autoGiveAll);
+    if (g_autoGiveAll) ArmCurrentSceneForAutoLevel();
+    LogA(g_autoGiveAll ? "[AUTO LEVEL] Give All enabled." : "[AUTO LEVEL] Give All disabled.");
+    if (g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
+    return TRUE;
+}
+
+static BOOL ToggleAutoGiveAllWeapons() {
+    g_autoGiveAllWeapons = g_autoGiveAllWeapons ? 0 : 1;
+    SaveBoolSetting(L"AutoGiveAllWeapons",g_autoGiveAllWeapons);
+    if (g_autoGiveAllWeapons) ArmCurrentSceneForAutoLevel();
+    LogA(g_autoGiveAllWeapons ? "[AUTO LEVEL] Give All Weapons enabled." : "[AUTO LEVEL] Give All Weapons disabled.");
+    if (g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
+    return TRUE;
+}
+
+static BOOL ToggleAutoNoHud() {
+    g_autoNoHud = g_autoNoHud ? 0 : 1;
+    if (g_autoNoHud) g_autoNoHudKeepCrosshair=0;
+    SaveBoolSetting(L"AutoNoHud",g_autoNoHud);
+    SaveBoolSetting(L"AutoNoHudKeepCrosshair",g_autoNoHudKeepCrosshair);
+    if (g_autoNoHud) ArmCurrentSceneForAutoLevel();
+    LogA(g_autoNoHud ? "[AUTO LEVEL] No HUD enabled." : "[AUTO LEVEL] No HUD disabled.");
+    if (g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
+    return TRUE;
+}
+
+static BOOL ToggleAutoNoHudKeepCrosshair() {
+    g_autoNoHudKeepCrosshair = g_autoNoHudKeepCrosshair ? 0 : 1;
+    if (g_autoNoHudKeepCrosshair) g_autoNoHud=0;
+    SaveBoolSetting(L"AutoNoHudKeepCrosshair",g_autoNoHudKeepCrosshair);
+    SaveBoolSetting(L"AutoNoHud",g_autoNoHud);
+    if (g_autoNoHudKeepCrosshair) ArmCurrentSceneForAutoLevel();
+    LogA(g_autoNoHudKeepCrosshair ? "[AUTO LEVEL] No HUD (keep crosshair) enabled." : "[AUTO LEVEL] No HUD (keep crosshair) disabled.");
+    if (g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
+    return TRUE;
+}
+
+static BOOL SetGameTimeScaleDirect(float value) {
+    if (!g_timeScaleSetter) return FALSE;
+    void* pars[1]; pars[0]=&value;
+    Il2CppException* ex=0;
+    g_il2cpp.runtime_invoke(g_timeScaleSetter,0,pars,&ex);
+    if (ex) {
+        LogA("[OVERLAY] TimeManager.SetGameTimeScale threw:");
+        FormatExceptionToLog(ex);
+        return FALSE;
+    }
+    g_lastAppliedTimeScale=value;
+    return TRUE;
+}
+
+static void ForceOverlayCursorUnlocked() {
+    if (!g_cursorSetLockState || !g_cursorSetVisible) return;
+
+    int none=0; // UnityEngine.CursorLockMode.None
+    void* lockPars[1]; lockPars[0]=&none;
+    Il2CppException* ex=0;
+    g_il2cpp.runtime_invoke(g_cursorSetLockState,0,lockPars,&ex);
+    if (ex) { LogA("[OVERLAY] Cursor.set_lockState(None) threw:"); FormatExceptionToLog(ex); }
+
+    BYTE visible=1;
+    void* visPars[1]; visPars[0]=&visible;
+    ex=0;
+    g_il2cpp.runtime_invoke(g_cursorSetVisible,0,visPars,&ex);
+    if (ex) { LogA("[OVERLAY] Cursor.set_visible(true) threw:"); FormatExceptionToLog(ex); }
+}
+
+static void ApplyOverlayInteractionState(BOOL open) {
+    if (!g_ready || g_shuttingDown) return;
+
+    BOOL attached=FALSE; void* thread=0;
+    if (!EnsureIl2CppThread(&attached,&thread)) return;
+
+    if (open) {
+        if (!g_overlayInteractionApplied) {
+            g_overlaySavedTimeScale=GetEngineTimeScale();
+            g_overlaySavedCursorValid=FALSE;
+
+            if (g_cursorGetLockState && g_cursorGetVisible) {
+                Il2CppException* ex=0;
+                Il2CppObject* lockBox=g_il2cpp.runtime_invoke(g_cursorGetLockState,0,0,&ex);
+                if (!ex && lockBox) {
+                    void* raw=g_il2cpp.object_unbox(lockBox);
+                    if (raw) {
+                        g_overlaySavedCursorLockState=*(int*)raw;
+                        ex=0;
+                        Il2CppObject* visBox=g_il2cpp.runtime_invoke(g_cursorGetVisible,0,0,&ex);
+                        if (!ex && visBox) {
+                            raw=g_il2cpp.object_unbox(visBox);
+                            if (raw) {
+                                g_overlaySavedCursorVisible=(*(BYTE*)raw)?TRUE:FALSE;
+                                g_overlaySavedCursorValid=TRUE;
+                            }
+                        }
+                    }
+                }
+            }
+
+            SetGameTimeScaleDirect(0.0f);
+            ForceOverlayCursorUnlocked();
+            g_overlayInteractionApplied=1;
+            LogA("[OVERLAY] Game paused; Unity cursor unlocked and made visible.");
+        } else {
+            ForceOverlayCursorUnlocked();
+        }
+    } else if (g_overlayInteractionApplied) {
+        if (g_overlaySavedCursorValid && g_cursorSetLockState && g_cursorSetVisible) {
+            int oldLock=g_overlaySavedCursorLockState;
+            void* lockPars[1]; lockPars[0]=&oldLock;
+            Il2CppException* ex=0;
+            g_il2cpp.runtime_invoke(g_cursorSetLockState,0,lockPars,&ex);
+            if (ex) { LogA("[OVERLAY] Cursor lock restore threw:"); FormatExceptionToLog(ex); }
+
+            BYTE oldVisible=g_overlaySavedCursorVisible?1:0;
+            void* visPars[1]; visPars[0]=&oldVisible;
+            ex=0;
+            g_il2cpp.runtime_invoke(g_cursorSetVisible,0,visPars,&ex);
+            if (ex) { LogA("[OVERLAY] Cursor visibility restore threw:"); FormatExceptionToLog(ex); }
+        }
+
+        SetGameTimeScaleDirect(g_overlaySavedTimeScale);
+        g_overlayInteractionApplied=0;
+        g_overlaySavedCursorValid=FALSE;
+        LogA("[OVERLAY] Previous cursor state and game timescale restored.");
+    }
+
+    ReleaseIl2CppThread(attached,thread);
+}
+
+static int FindCommandIndexByClassName(const char* name) {
+    if (!name) return -1;
+    for (int i=0;i<CMD_COUNT;i++) if (StrEqA(g_cmds[i].className,name)) return i;
+    return -1;
+}
+
+static BOOL AnyAutoLevelBehaviorEnabled() {
+    return g_autoGiveAll || g_autoGiveAllWeapons || g_autoNoHud ||
+           g_autoNoHudKeepCrosshair || g_noCrosshair;
+}
+
+static int GetActiveSceneHandleAttached() {
+    if (!g_sceneManagerGetActiveScene) return -2147483647;
+    Il2CppException* ex=0;
+    Il2CppObject* boxed=g_il2cpp.runtime_invoke(g_sceneManagerGetActiveScene,0,0,&ex);
+    if (ex || !boxed) {
+        if (ex) { LogA("[AUTO LEVEL] SceneManager.GetActiveScene threw:"); FormatExceptionToLog(ex); }
+        return -2147483647;
+    }
+    void* raw=g_il2cpp.object_unbox(boxed);
+    if (!raw) return -2147483647;
+    // UnityEngine.SceneManagement.Scene is a value type whose first field is m_Handle.
+    return *(int*)raw;
+}
+
+static void PollLevelStartAutomation() {
+    if (!g_ready || g_shuttingDown || !AnyAutoLevelBehaviorEnabled()) return;
+
+    if (++g_scenePollTicks < 100) return; // ModThread cadence is ~10 ms.
+    g_scenePollTicks=0;
+
+    BOOL attached=FALSE; void* thread=0;
+    if (!EnsureIl2CppThread(&attached,&thread)) return;
+
+    int sceneHandle=GetActiveSceneHandleAttached();
+    if (sceneHandle!=-2147483647) {
+        if (g_lastSceneHandle==-2147483647) {
+            g_lastSceneHandle=sceneHandle;
+            g_autoLevelPending=1;
+            g_autoLevelDelayPolls=2;
+            g_autoLevelRetryPolls=0;
+            LogIntA("[AUTO LEVEL] Initial active scene handle: ",sceneHandle);
+            LogA("[AUTO LEVEL] Current scene queued for one-time auto actions.");
+        } else if (sceneHandle!=g_lastSceneHandle) {
+            LogIntA("[AUTO LEVEL] Scene changed to handle: ",sceneHandle);
+            g_lastSceneHandle=sceneHandle;
+            g_autoLevelPending=1;
+            g_autoLevelDelayPolls=2;
+            g_autoLevelRetryPolls=0;
+            LogA("[AUTO LEVEL] Waiting 2 seconds for player/HUD objects to settle.");
+        }
+    }
+
+    if (!g_autoLevelPending) {
+        ReleaseIl2CppThread(attached,thread);
+        return;
+    }
+
+    if (g_autoLevelDelayPolls>0) {
+        --g_autoLevelDelayPolls;
+        ReleaseIl2CppThread(attached,thread);
+        return;
+    }
+
+    // A live PlayerInventoryComponent is our targeted "this is a playable level"
+    // gate. No global Assembly-CSharp scan is performed.
+    Il2CppObject* inv=FindLiveObject(g_inventoryClass);
+    if (!inv) {
+        ++g_autoLevelRetryPolls;
+        if (g_autoLevelRetryPolls==1 || g_autoLevelRetryPolls==5 || g_autoLevelRetryPolls==10)
+            LogA("[AUTO LEVEL] PlayerInventoryComponent not ready; retrying once per second.");
+        if (g_autoLevelRetryPolls>=15) {
+            LogA("[AUTO LEVEL] No playable PlayerInventoryComponent after 15 retries; scene auto actions cancelled.");
+            g_autoLevelPending=0;
+        }
+        ReleaseIl2CppThread(attached,thread);
+        return;
+    }
+
+    LogA("[AUTO LEVEL] Playable level detected; applying enabled one-time actions.");
+
+    if (g_autoGiveAll) {
+        int i=FindCommandIndexByClassName("GiveAll");
+        if (i>=0) InvokeNativeCommand(i);
+    }
+    if (g_autoGiveAllWeapons) GiveAllWeaponsOnly();
+
+    if (g_autoNoHud) {
+        int i=FindCommandIndexByClassName("NoHud");
+        if (i>=0) InvokeNativeCommand(i);
+    } else if (g_autoNoHudKeepCrosshair) {
+        int i=FindCommandIndexByClassName("NoHudWithCrossHair");
+        if (i>=0) InvokeNativeCommand(i);
+    }
+
+    if (g_noCrosshair)
+        SetCrosshairVisualAlpha(0.0f);
+
+    g_autoLevelPending=0;
+    g_autoLevelRetryPolls=0;
+    LogA("[AUTO LEVEL] Enabled level-start actions completed.");
+
+    ReleaseIl2CppThread(attached,thread);
+}
+
 static float ParseTimeScale(const WCHAR* a) {
     if (!a) return 1.0f;
     if (a[0]==L'0' && a[1]==L'.' && a[2]==L'5' && a[3]==0) return 0.5f;
@@ -2086,6 +2347,10 @@ static void ExecuteCommandIndex(int i) {
     else if (DecodeWeaponListCommand(i,&listCategory,&listSlot)) EquipMappedWeaponCategorySlot(listCategory,listSlot);
     else if (StrEqA(g_cmds[i].className,"__NoCrosshair")) ToggleNoCrosshair();
     else if (StrEqA(g_cmds[i].className,"__SkipIntroVideos")) ToggleSkipIntroVideos();
+    else if (StrEqA(g_cmds[i].className,"__AutoGiveAll")) ToggleAutoGiveAll();
+    else if (StrEqA(g_cmds[i].className,"__AutoGiveAllWeapons")) ToggleAutoGiveAllWeapons();
+    else if (StrEqA(g_cmds[i].className,"__AutoNoHud")) ToggleAutoNoHud();
+    else if (StrEqA(g_cmds[i].className,"__AutoNoHudKeepCrosshair")) ToggleAutoNoHudKeepCrosshair();
     else if (StrEqA(g_cmds[i].className,"__GiveAllWeapons")) GiveAllWeaponsOnly();
     else if (StrEqA(g_cmds[i].className,"__GiveAllDlcWeapons")) GiveAllOwnedDlcWeapons();
     else if (StrEqA(g_cmds[i].className,"__WeaponCatalog")) RunWeaponCatalog();
@@ -2172,6 +2437,16 @@ static BOOL InitIl2Cpp() {
     g_timeScaleSetter=g_timeManagerClass ? FindMethodExact(g_timeManagerClass,"SetGameTimeScale",1,g_floatClass) : 0;
     g_timeScaleGetter=g_timeManagerClass ? FindMethodExact(g_timeManagerClass,"get_GameTimeScale",0) : 0;
 
+    Il2CppClass* cursorClass=g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Cursor");
+    Il2CppClass* cursorLockModeClass=g_il2cpp.class_from_name(g_coreImage,"UnityEngine","CursorLockMode");
+    g_cursorGetLockState=cursorClass ? g_il2cpp.class_get_method_from_name(cursorClass,"get_lockState",0) : 0;
+    g_cursorSetLockState=(cursorClass && cursorLockModeClass) ? FindMethodExact(cursorClass,"set_lockState",1,cursorLockModeClass) : 0;
+    g_cursorGetVisible=cursorClass ? g_il2cpp.class_get_method_from_name(cursorClass,"get_visible",0) : 0;
+    g_cursorSetVisible=cursorClass ? FindMethodExact(cursorClass,"set_visible",1,g_boolClass) : 0;
+
+    Il2CppClass* sceneManagerClass=g_il2cpp.class_from_name(g_coreImage,"UnityEngine.SceneManagement","SceneManager");
+    g_sceneManagerGetActiveScene=sceneManagerClass ? g_il2cpp.class_get_method_from_name(sceneManagerClass,"GetActiveScene",0) : 0;
+
     if (g_findObjectOfType2 && g_giveAllWeapons) LogA("[OK] Give All Weapons bridge resolved");
     else LogA("[WARN] Give All Weapons bridge incomplete");
     if (g_findObjectOfType2 && g_crosshairControllerClass && g_currentCrosshairField && g_componentGetGameObject &&
@@ -2182,6 +2457,14 @@ static BOOL InitIl2Cpp() {
     else LogA("[WARN] TimeManager.SetGameTimeScale bridge unresolved");
     if (g_timeScaleGetter) LogA("[OK] TimeManager.get_GameTimeScale bridge resolved");
     else LogA("[WARN] TimeManager.get_GameTimeScale bridge unavailable; local-state fallback active");
+    if (g_cursorGetLockState && g_cursorSetLockState && g_cursorGetVisible && g_cursorSetVisible)
+        LogA("[OK] Unity cursor lock/visibility bridge resolved");
+    else
+        LogA("[WARN] Unity cursor bridge incomplete; overlay mouse unlock may be limited");
+    if (g_sceneManagerGetActiveScene)
+        LogA("[OK] SceneManager.GetActiveScene bridge resolved");
+    else
+        LogA("[WARN] SceneManager bridge unavailable; level-start automation disabled");
 
     ReleaseIl2CppThread(attached,thread);
     LogA("[OK] Startup worker detached from IL2CPP after metadata resolution");
