@@ -84,6 +84,12 @@ static int CommandMenuTab(int i) {
     if(i<0 || i>=CMD_COUNT) return 0;
     const char* n=g_cmds[i].className;
 
+    // The V2A42 Escape-based "Skip Intro Videos" experiment is known not to
+    // skip POSTAL: Brain-Damaged startup videos. Keep the dormant command
+    // record for binary/history continuity, but do not expose a misleading
+    // control in the Gori-style overlay.
+    if (StrEqA(n,"__SkipIntroVideos")) return -1;
+
     const char* exactName=0;
     BOOL special=FALSE;
     if (DecodeNamedWeaponCommand(i,&exactName,&special))
@@ -104,7 +110,7 @@ static int CommandMenuTab(int i) {
         StrEqA(n,"NoModel") ||
         StrEqA(n,"NoMenu")) return 4; // Visual
 
-    return 0; // Gameplay, including Skip Intro Videos
+    return 0; // Gameplay
 }
 
 static int TabCommandCount() {
