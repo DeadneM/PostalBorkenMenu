@@ -922,3 +922,42 @@ Rationale:
 Packaging:
 - exactly PostalBorkenMenu.asi, PostalBorkenMenu.ini, README.txt.
 - never include PostalBorkenMenu.log.
+
+
+### V2A45
+
+Base:
+- direct branch from V2A42, the last user-confirmed working build.
+- V2A43 rejected: crash after adding Unity Cursor + SceneManager / auto-level architecture.
+- V2A44 rejected: crash after Win32 cursor + overlay pause experiment.
+
+Goal:
+- re-establish a clean stable checkpoint without any new mouse/pause/auto-level work.
+- remove only the synthetic Escape-based intro implementation from V2A42.
+
+Removed:
+- __SkipIntroVideos command row
+- g_skipIntroVideos
+- g_introSkipPulseSent
+- ToggleSkipIntroVideos()
+- SkipIntro dispatcher branch
+- Skip Intro checkbox paint/click handling
+- SkipIntroVideos INI key
+- keybd_event import
+- KEYEVENTF_KEYUP
+- startup Escape pulse
+
+Preserved:
+- every V2A42 weapon/UI/stability behavior outside the intro feature.
+
+SAVE_DATA.cfg evidence:
+- GeneralSettingsData contains WatchedIntro=true, SkipIntro=true, SkipCutscenes=false.
+- therefore the user already has the game's saved SkipIntro option enabled.
+- this field cannot explain startup videos that continue playing unless the startup-video path is separate.
+- do not mutate SAVE_DATA.cfg until that distinction is proven.
+
+Packaging remains:
+- PostalBorkenMenu.asi
+- PostalBorkenMenu.ini
+- README.txt
+- never PostalBorkenMenu.log
