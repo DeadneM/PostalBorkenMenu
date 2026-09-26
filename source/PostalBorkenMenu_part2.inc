@@ -2068,8 +2068,11 @@ static void ExecuteCommandIndex(int i) {
     BOOL attached=FALSE; void* thread=0;
     if (!EnsureIl2CppThread(&attached,&thread)) return;
 
+    const char* exactWeaponName=0;
+    BOOL exactSpecial=FALSE;
     int listCategory=0, listSlot=0;
-    if (DecodeWeaponListCommand(i,&listCategory,&listSlot)) EquipMappedWeaponCategorySlot(listCategory,listSlot);
+    if (DecodeNamedWeaponCommand(i,&exactWeaponName,&exactSpecial)) ExecuteNamedWeaponByUnityName(exactWeaponName,exactSpecial);
+    else if (DecodeWeaponListCommand(i,&listCategory,&listSlot)) EquipMappedWeaponCategorySlot(listCategory,listSlot);
     else if (StrEqA(g_cmds[i].className,"__NoCrosshair")) ToggleNoCrosshair();
     else if (StrEqA(g_cmds[i].className,"__GiveAllWeapons")) GiveAllWeaponsOnly();
     else if (StrEqA(g_cmds[i].className,"__GiveAllDlcWeapons")) GiveAllOwnedDlcWeapons();
