@@ -16,6 +16,9 @@ SetWindowTextW
 GetWindowTextW
 SetFocus
 SetForegroundWindow
+LoadCursorW
+SetCursor
+ShowCursor
 IsWindow
 GetClientRect
 ClientToScreen
