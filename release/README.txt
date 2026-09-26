@@ -1,87 +1,63 @@
-PostalBorkenMenu V2A34 TEST
+PostalBorkenMenu V2A38 BISECT TEST
 POSTAL: Brain-Damaged
 
-IMPORTANT
-- Remove -debug from the game's launch options.
-- F1 opens/closes the PostalBorkenMenu overlay.
-- PostalBorkenMenu.log is generated automatically at runtime and is not included in this archive.
+BASE
+Built directly from V2A34 Weapon Catalog Dispatch Fix, the last version with a complete known-good run.
 
-V2A34 PURPOSE
-Fix the V2A33 Weapon Catalog command dispatch bug.
+PURPOSE
+Isolate the V2A35 exact-name weapon resolver from every other V2A35 change.
 
-V2A33 RESULT
-The Weapon Catalog row was present in the Weapons tab, but pressing RUN reached the generic native-command path and logged:
-[ERROR] Requested native command is unresolved
+V2A38 ADDS
+The V2A35 functions:
+- DecodeNamedWeaponCommand()
+- ExecuteNamedWeaponByUnityName()
 
-Cause:
-- RunWeaponCatalog() existed.
-- the UI row existed.
-- the Weapons-tab mapping existed.
-- but the active ExecuteCommandIndex() implementation in source/PostalBorkenMenu_part2.inc did not contain the __WeaponCatalog branch.
+are compiled and retained in the ASI.
 
-V2A34 CHANGE
-Adds exactly:
-__WeaponCatalog -> RunWeaponCatalog()
+The resolver contains the same V2A35 exact-name path:
+- Resources.FindObjectsOfTypeAll(WeaponId)
+- UnityEngine.Object.get_name()
+- exact Unity name matching
+- category/slot logging
+- ownership check for category 1
+- duplicate-safe AddWeapon + EquipWeapon
+- special Hook AddWeapon-only path
 
-to the active command dispatcher.
+BUT THEY ARE DORMANT.
 
-No Weapon Catalog logic itself is changed.
+V2A38 DOES NOT ADD
+- any __Arsenal_* command rows
+- any __Special_* command rows
+- any new tab
+- any new INI weapon entries
+- any ExecuteCommandIndex() branch for exact-name weapons
+- any automatic WeaponId scan
+- any automatic AddWeapon
+- any automatic EquipWeapon
+- any automatic Hook action
+- any startup recovery
 
-WEAPON CATALOG
-RUN "Weapon Catalog" in F1 -> Weapons.
+A volatile function pointer is read only to ensure the linker keeps the resolver in the binary.
+The resolver itself is never called.
 
-It enumerates loaded Hyperstrange.PBD.WeaponId objects and logs:
-- index
-- UnityEngine.Object.name
-- WeaponId.ToString() when available
-- category
-- category label
-- slot
-- collected YES / NO / UNKNOWN
+EXPECTED LOG
+[BISECT] V2A35 exact-name resolver is linked but dormant; no named-weapon dispatch exists.
 
-The catalog is read-only.
+TEST
+1. Launch the game normally.
+2. Do not press F1 initially.
+3. Check whether it reaches the menu.
+4. If stable, open F1 and verify the original V2A34 four-tab layout.
+5. Exit normally.
+6. Send PostalBorkenMenu.log.
 
-HOOK RESULT PRESERVED
-The latest user log also validates the V2A32 Hook isolation:
-- category0 / slot99 candidate count = 1
-- candidate not collected initially
-- native AddWeapon(slot99) completed
-- get_Hook() became NON-NULL
-- _hookWeapon remained NULL
-- get_Hook() returned the exact slot99 candidate
-- category 0 / slot 99
-
-Therefore AddWeapon of the unique category0/slot99 WeaponId is sufficient to expose the native Hook WeaponId without EquipWeapon or GiveAllWeapons.
-
-PRESERVED
-- V2A29 V2A20-style Base Weapon Wheel
-- V2A29 empty DLC wheel shell
-- V2A25 Weapon List / Arguments
-- ALT behavior
-- V2A30 safe Hook probe
-- V2A31 GiveAll Hook snapshots
-- V2A32 slot99 Hook isolation
-- V2A33 non-destructive Weapon Catalog implementation
-- V2A8 clean shutdown
-- No Crosshair
-- TimeScale
-- DLC ownership checks
+INTERPRETATION
+- Stable: the exact-name resolver code itself is innocent; the crash is caused by its integration, command rows, or later V2A35 UI/dispatch changes.
+- Crash: the mere linked presence of the resolver changes the binary enough to reproduce the fault, so we narrow further inside this block.
 
 PACKAGE CONTENTS
 PostalBorkenMenu.asi
 PostalBorkenMenu.ini
 README.txt
 
-PostalBorkenMenu.log is runtime-generated and is not included.
-
-TEST
-1. Start the game.
-2. F1 -> Weapons -> Weapon Catalog -> RUN.
-3. Send PostalBorkenMenu.log.
-4. The expected block begins with:
-   [WEAPON CATALOG] ===== BEGIN =====
-and ends with:
-   [WEAPON CATALOG] ===== END =====
-
-PROJECT
-https://github.com/DeadneM/PostalBorkenMenu
+PostalBorkenMenu.log is generated at runtime and is not included.
