@@ -243,6 +243,14 @@ static void UpdateOverlayPosition() {
 static LRESULT __stdcall OverlayWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg==WM_PAINT) { PaintOverlay(hwnd); return 0; }
 
+    if (msg==WM_MOUSEWHEEL && g_menuVisible) {
+        short delta=(short)((wp>>16)&0xFFFF);
+        if(delta>0) ScrollOverlayRows(-3);
+        else if(delta<0) ScrollOverlayRows(3);
+        return 0;
+    }
+
+
     if (msg==WM_LBUTTONDOWN && g_menuVisible) {
         int x=(short)(lp & 0xFFFF);
         int y=(short)((lp>>16)&0xFFFF);
@@ -443,13 +451,6 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
 
     if (g_shuttingDown) {
         return g_oldGameWndProc ? CallWindowProcW(g_oldGameWndProc,hwnd,msg,wp,lp) : DefWindowProcW(hwnd,msg,wp,lp);
-    }
-
-    if (msg==WM_MOUSEWHEEL && g_menuVisible) {
-        short delta=(short)((wp>>16)&0xFFFF);
-        if(delta>0) ScrollOverlayRows(-3);
-        else if(delta<0) ScrollOverlayRows(3);
-        return 0;
     }
 
     if (msg==WM_APP_EXEC) { ExecuteCommandIndex((int)wp); return 0; }
