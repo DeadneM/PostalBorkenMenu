@@ -556,25 +556,73 @@ static void PollHotkeys() {
 
 static BOOL HookGameWindow() {
     DWORD pid=GetCurrentProcessId();
+    HWND candidate=0;
+    int stableSamples=0;
+
+    LogA("[WINDOW] Waiting for one stable foreground game window before subclassing.");
+
     for (int k=0;k<600;k++) {
         HWND h=GetForegroundWindow();
-        if (h && h!=g_menuHwnd) {
-            DWORD wp=0; GetWindowThreadProcessId(h,&wp);
-            if (wp==pid) {
-                LONG_PTR old=SetWindowLongPtrW(h,GWLP_WNDPROC,(LONG_PTR)GameWndProc);
-                if (old) { g_gameHwnd=h; g_oldGameWndProc=(WNDPROC)old; LogA("[OK] Game window subclass installed - F1 overlay ready"); return TRUE; }
+        BOOL valid=FALSE;
+
+        if (h && h!=g_menuHwnd && IsWindow(h)) {
+            DWORD wp=0;
+            GetWindowThreadProcessId(h,&wp);
+
+            RECT r={};
+            if (wp==pid && GetClientRect(h,&r)) {
+                int w=(int)(r.right-r.left);
+                int hh=(int)(r.bottom-r.top);
+                if (w>=320 && hh>=200) valid=TRUE;
             }
         }
+
+        if (valid) {
+            if (h==candidate) {
+                ++stableSamples;
+            } else {
+                candidate=h;
+                stableSamples=1;
+                LogA("[WINDOW] New foreground candidate detected; stability timer restarted.");
+            }
+
+            if (stableSamples==10)
+                LogA("[WINDOW] Candidate stable for 1 second.");
+            else if (stableSamples==20)
+                LogA("[WINDOW] Candidate stable for 2 seconds.");
+
+            if (stableSamples>=30) {
+                LogA("[WINDOW] Candidate stable for 3 seconds; installing WndProc subclass now.");
+                LONG_PTR old=SetWindowLongPtrW(candidate,GWLP_WNDPROC,(LONG_PTR)GameWndProc);
+                if (old) {
+                    g_gameHwnd=candidate;
+                    g_oldGameWndProc=(WNDPROC)old;
+                    LogA("[OK] Stable game window subclass installed - F1 overlay ready");
+                    return TRUE;
+                }
+
+                LogA("[WINDOW] Subclass attempt failed; candidate stability reset.");
+                candidate=0;
+                stableSamples=0;
+            }
+        } else {
+            if (candidate || stableSamples)
+                LogA("[WINDOW] Foreground candidate lost; stability timer reset.");
+            candidate=0;
+            stableSamples=0;
+        }
+
         Sleep(100);
     }
-    LogA("[ERROR] Could not find/subclass the game window");
+
+    LogA("[ERROR] Could not find a stable game window to subclass");
     return FALSE;
 }
 
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A39 NAMED DISPATCH NO-ROWS BISECT");
+    LogA("PostalBorkenMenu V2A40 STABLE WINDOW SUBCLASS TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -587,7 +635,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Weapon List / Visual. V2A38 preserved; named dispatcher branch enabled with zero matching rows.");
+    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Weapon List / Visual. V2A39 preserved; stable 3-second game-window subclass active.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
