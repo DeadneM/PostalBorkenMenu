@@ -47,6 +47,7 @@ static void LoadConfig() {
         GetPrivateProfileStringW(L"Args",g_cmds[i].iniName,def,g_cmds[i].args,128,g_iniPath);
     }
     g_noCrosshair=(LONG)GetPrivateProfileIntW(L"Settings",L"NoCrosshair",0,g_iniPath);
+    g_skipIntroVideos=(LONG)GetPrivateProfileIntW(L"Settings",L"SkipIntroVideos",1,g_iniPath);
 }
 
 // GDI is resolved dynamically so the ASI remains linked only to kernel32/user32.
@@ -83,8 +84,10 @@ static int CommandMenuTab(int i) {
     if(i<0 || i>=CMD_COUNT) return 0;
     const char* n=g_cmds[i].className;
 
-    int listCategory=0, listSlot=0;
-    if (DecodeWeaponListCommand(i,&listCategory,&listSlot)) return 2; // Weapon List
+    const char* exactName=0;
+    BOOL special=FALSE;
+    if (DecodeNamedWeaponCommand(i,&exactName,&special))
+        return special ? 3 : 2; // Arsenal / Special
 
     if (StrEqA(n,"GiveAll") ||
         StrEqA(n,"__GiveAllWeapons") ||
@@ -99,9 +102,9 @@ static int CommandMenuTab(int i) {
         StrEqA(n,"__NoCrosshair") ||
         StrEqA(n,"NoHudWithCrossHair") ||
         StrEqA(n,"NoModel") ||
-        StrEqA(n,"NoMenu")) return 3; // Visual
+        StrEqA(n,"NoMenu")) return 4; // Visual
 
-    return 0; // Gameplay
+    return 0; // Gameplay, including Skip Intro Videos
 }
 
 static int TabCommandCount() {
@@ -139,7 +142,7 @@ static void ScrollOverlayRows(int deltaRows) {
 }
 
 static void SelectMenuTab(int tab) {
-    if(tab<0 || tab>3) return;
+    if(tab<0 || tab>4) return;
     if(g_menuTab==tab) return;
     g_menuTab=tab;
     g_scrollRow=0;
@@ -156,16 +159,16 @@ static void PaintOverlay(HWND hwnd) {
     Text(dc,L"PostalBorkenMenu  •  ASI Overlay",22,27,500,50,C(165,168,176),DT_LEFT);
     Text(dc,g_ready?L"IL2CPP READY":L"IL2CPP INITIALIZING...",560,10,738,32,g_ready?C(115,220,145):C(230,190,90),DT_CENTER);
 
-    // Top-level submenus. They only filter what is displayed; command state,
-    // bindings and INI persistence remain shared and unchanged.
-    Fill(dc,18,59,158,84,g_menuTab==0?C(70,74,86):C(38,40,47));
-    Fill(dc,166,59,306,84,g_menuTab==1?C(70,74,86):C(38,40,47));
-    Fill(dc,314,59,486,84,g_menuTab==2?C(70,74,86):C(38,40,47));
-    Fill(dc,494,59,634,84,g_menuTab==3?C(70,74,86):C(38,40,47));
-    Text(dc,L"GAMEPLAY",18,59,158,84,C(238,238,240),DT_CENTER);
-    Text(dc,L"WEAPONS",166,59,306,84,C(238,238,240),DT_CENTER);
-    Text(dc,L"WEAPON LIST",314,59,486,84,C(238,238,240),DT_CENTER);
-    Text(dc,L"VISUAL",494,59,634,84,C(238,238,240),DT_CENTER);
+    Fill(dc,12,59,152,84,g_menuTab==0?C(70,74,86):C(38,40,47));
+    Fill(dc,158,59,298,84,g_menuTab==1?C(70,74,86):C(38,40,47));
+    Fill(dc,304,59,444,84,g_menuTab==2?C(70,74,86):C(38,40,47));
+    Fill(dc,450,59,590,84,g_menuTab==3?C(70,74,86):C(38,40,47));
+    Fill(dc,596,59,736,84,g_menuTab==4?C(70,74,86):C(38,40,47));
+    Text(dc,L"GAMEPLAY",12,59,152,84,C(238,238,240),DT_CENTER);
+    Text(dc,L"WEAPONS",158,59,298,84,C(238,238,240),DT_CENTER);
+    Text(dc,L"ARSENAL",304,59,444,84,C(238,238,240),DT_CENTER);
+    Text(dc,L"SPECIAL",450,59,590,84,C(238,238,240),DT_CENTER);
+    Text(dc,L"VISUAL",596,59,736,84,C(238,238,240),DT_CENTER);
 
     Text(dc,L"Command",24,87,310,109,C(145,148,156),DT_LEFT);
     Text(dc,L"Argument",340,87,460,109,C(145,148,156),DT_LEFT);
@@ -179,8 +182,21 @@ static void PaintOverlay(HWND hwnd) {
         if(i<0) break;
         int y=ROW_Y+vr*ROW_H;
         Fill(dc,14,y,746,y+ROW_H-2,(vr&1)?C(23,24,29):C(27,28,34));
-        if (g_bindIndex==i) Fill(dc,598,y+3,738,y+ROW_H-5,C(85,54,34));
         Text(dc,g_cmds[i].displayName,25,y,326,y+ROW_H-2,C(232,233,236),DT_LEFT);
+
+        BOOL isSkipIntro=StrEqA(g_cmds[i].className,"__SkipIntroVideos");
+        if (isSkipIntro) {
+            Fill(dc,493,y+4,585,y+ROW_H-6,C(43,46,54));
+            Fill(dc,501,y+7,517,y+ROW_H-9,C(28,30,35));
+            if(g_skipIntroVideos) Text(dc,L"X",501,y+5,517,y+ROW_H-7,C(120,230,150),DT_CENTER);
+            Text(dc,g_skipIntroVideos?L"ENABLED":L"DISABLED",522,y+4,585,y+ROW_H-6,
+                 g_skipIntroVideos?C(120,230,150):C(200,200,205),DT_CENTER);
+            Fill(dc,600,y+4,738,y+ROW_H-6,C(38,41,49));
+            Text(dc,L"NEXT LAUNCH",600,y+4,738,y+ROW_H-6,C(198,202,210),DT_CENTER);
+            continue;
+        }
+
+        if (g_bindIndex==i) Fill(dc,598,y+3,738,y+ROW_H-5,C(85,54,34));
         int listCategory=0, listSlot=0;
         BOOL isWeaponList=DecodeWeaponListCommand(i,&listCategory,&listSlot);
         BOOL clickableArg = StrEqA(g_cmds[i].className,"TimeScale") ||
@@ -208,7 +224,7 @@ static void PaintOverlay(HWND hwnd) {
     }
 
     int fy=ROW_Y+VISIBLE_ROWS*ROW_H+4;
-    Text(dc,L"Tabs: Gameplay / Weapons / Weapon List / Visual  •  Mouse wheel scroll  •  F1 close",22,fy,738,fy+28,C(145,148,156),DT_LEFT);
+    Text(dc,L"Tabs: Gameplay / Weapons / Arsenal / Special / Visual  •  Mouse wheel scroll  •  F1 close",22,fy,738,fy+28,C(145,148,156),DT_LEFT);
     EndPaint(hwnd,&ps);
 }
 
@@ -310,10 +326,11 @@ static BOOL HandleOverlayClick(int x,int y) {
     if(px<0 || py<0 || px>=OVERLAY_W || py>=OVERLAY_H) return FALSE;
 
     if(py>=59 && py<84) {
-        if(px>=18 && px<158) SelectMenuTab(0);
-        else if(px>=166 && px<306) SelectMenuTab(1);
-        else if(px>=314 && px<486) SelectMenuTab(2);
-        else if(px>=494 && px<634) SelectMenuTab(3);
+        if(px>=12 && px<152) SelectMenuTab(0);
+        else if(px>=158 && px<298) SelectMenuTab(1);
+        else if(px>=304 && px<444) SelectMenuTab(2);
+        else if(px>=450 && px<590) SelectMenuTab(3);
+        else if(px>=596 && px<736) SelectMenuTab(4);
         return TRUE;
     }
 
@@ -322,6 +339,10 @@ static BOOL HandleOverlayClick(int x,int y) {
         int i=TabCommandIndex(g_scrollRow+visibleIndex);
         int ry=(py-ROW_Y)%ROW_H;
         if(i>=0 && i<CMD_COUNT && ry<ROW_H-1) {
+            if(StrEqA(g_cmds[i].className,"__SkipIntroVideos")) {
+                if(px>=493 && px<744) ToggleSkipIntroVideos();
+                return TRUE;
+            }
             if(px>=493 && px<590){ ExecuteCommandIndex(i); if(g_menuHwnd)InvalidateRect(g_menuHwnd,0,TRUE); return TRUE; }
             if(px>=600 && px<744){ g_bindIndex=i; if(g_menuHwnd)InvalidateRect(g_menuHwnd,0,TRUE); return TRUE; }
             if(px>=330 && px<480 && StrEqA(g_cmds[i].className,"TimeScale")){ CycleTimeScaleArg(i); return TRUE; }
@@ -586,9 +607,17 @@ static BOOL HookGameWindow() {
                 LogA("[WINDOW] New foreground candidate detected; stability timer restarted.");
             }
 
-            if (stableSamples==10)
+            if (stableSamples==10) {
                 LogA("[WINDOW] Candidate stable for 1 second.");
-            else if (stableSamples==20)
+                if (g_skipIntroVideos && !g_introSkipPulseSent && GetForegroundWindow()==candidate) {
+                    LogA("[INTRO] Skip Intro Videos enabled; sending one Escape pulse to the stable foreground game window.");
+                    keybd_event((BYTE)VK_ESCAPE,0,0,0);
+                    Sleep(30);
+                    keybd_event((BYTE)VK_ESCAPE,0,KEYEVENTF_KEYUP,0);
+                    g_introSkipPulseSent=1;
+                    LogA("[INTRO] Startup Escape pulse sent.");
+                }
+            } else if (stableSamples==20)
                 LogA("[WINDOW] Candidate stable for 2 seconds.");
 
             if (stableSamples>=30) {
@@ -622,20 +651,21 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A41 NAMED ROWS ONLY BISECT");
+    LogA("PostalBorkenMenu V2A42 CLEAN ARSENAL + FIVE TABS + SKIP INTRO TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
     LoadConfig();
     if (g_dormantExactNameResolver)
-        LogA("[BISECT] V2A35 exact-name resolver linked; dispatcher branch enabled; no Arsenal/Special rows exist.");
+        LogA("[OK] Exact-name WeaponId resolver linked; cleaned Arsenal/Special dispatcher active.");
     else
-        LogA("[BISECT] ERROR: exact-name resolver was not retained.");
+        LogA("[ERROR] Exact-name WeaponId resolver was not retained.");
+    LogA(g_skipIntroVideos ? "[INTRO] Skip Intro Videos config: ENABLED (default)." : "[INTRO] Skip Intro Videos config: DISABLED.");
     if (!InitIl2Cpp()) return 0;
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] V2A40 stable-window fix preserved; 34 Arsenal/Special command rows added; four-tab UI otherwise unchanged.");
+    LogA("[READY] Five tabs active. Arsenal has 14 single weapons, Special has 4 non-Dong entries. Skip Intro checkbox persists in INI.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
