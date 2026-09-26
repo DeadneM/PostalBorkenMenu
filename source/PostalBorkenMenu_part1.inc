@@ -106,6 +106,9 @@ __declspec(dllimport) BOOL __stdcall SetWindowTextW(HWND, LPCWSTR);
 __declspec(dllimport) int __stdcall GetWindowTextW(HWND, LPWSTR, int);
 __declspec(dllimport) HWND __stdcall SetFocus(HWND);
 __declspec(dllimport) BOOL __stdcall SetForegroundWindow(HWND);
+__declspec(dllimport) int __stdcall ShowCursor(BOOL);
+__declspec(dllimport) HCURSOR __stdcall SetCursor(HCURSOR);
+__declspec(dllimport) HCURSOR __stdcall LoadCursorW(HINSTANCE, LPCWSTR);
 __declspec(dllimport) BOOL __stdcall IsWindow(HWND);
 __declspec(dllimport) BOOL __stdcall GetClientRect(HWND, RECT*);
 __declspec(dllimport) BOOL __stdcall ClientToScreen(HWND, POINT*);
@@ -202,9 +205,17 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 
 #define EN_CHANGE 0x0300
 #define WM_PAINT 0x000F
+#define WM_SETCURSOR 0x0020
+#define WM_INPUT 0x00FF
 #define WM_MOVE 0x0003
 #define WM_SIZE 0x0005
+#define WM_MOUSEMOVE 0x0200
 #define WM_LBUTTONDOWN 0x0201
+#define WM_LBUTTONUP 0x0202
+#define WM_RBUTTONDOWN 0x0204
+#define WM_RBUTTONUP 0x0205
+#define WM_MBUTTONDOWN 0x0207
+#define WM_MBUTTONUP 0x0208
 #define WM_MOUSEWHEEL 0x020A
 #define WM_MOUSEHWHEEL 0x020E
 #define WS_POPUP 0x80000000L
@@ -223,6 +234,7 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 #define TRANSPARENT_BK 1
 #define PM_REMOVE 0x0001
 #define KEYEVENTF_KEYUP 0x0002
+#define IDC_ARROW ((LPCWSTR)(ULONG_PTR)32512)
 
 static HMODULE g_self = 0;
 static HWND g_menuHwnd = 0;
@@ -236,6 +248,7 @@ static volatile LONG g_shuttingDown = 0;
 static volatile LONG g_noCrosshair = 0;
 static volatile LONG g_skipIntroVideos = 1;
 static volatile LONG g_introSkipPulseSent = 0;
+static int g_cursorShowBalance = 0;
 static DWORD g_lastCrosshairTick = 0;
 static volatile LONG g_crosshairReapplyCountdown = 0;
 static int g_scrollRow = 0;
@@ -314,6 +327,11 @@ static void LogA(const char* s) {
     DWORD wr=0; DWORD len=(DWORD)StrLenA(s); if (len) WriteFile(h,s,len,&wr,0);
     const char eol[2]={'\r','\n'}; WriteFile(h,eol,2,&wr,0); CloseHandle(h);
 }
+
+extern "C" void __stdcall PostalOverlayLog(const char* s) { LogA(s); }
+extern "C" int __stdcall PostalOverlayIsVisible() { return g_menuVisible ? 1 : 0; }
+extern "C" BOOL __stdcall PostalDx11Install(HWND gameWindow);
+extern "C" void __stdcall PostalDx11Shutdown();
 static void BuildPaths() {
     WCHAR p[MAX_PATH_W]; p[0]=0;
     GetModuleFileNameW(g_self,p,MAX_PATH_W);
