@@ -922,3 +922,68 @@ Rationale:
 Packaging:
 - exactly PostalBorkenMenu.asi, PostalBorkenMenu.ini, README.txt.
 - never include PostalBorkenMenu.log.
+
+
+### V2A43
+
+Base:
+- V2A42 clean Arsenal + five tabs + Skip Intro.
+- V2A42 user result: validated working.
+
+Overlay interaction fix:
+- resolve UnityEngine.Cursor:
+  - get_lockState
+  - set_lockState
+  - get_visible
+  - set_visible
+- F1 open:
+  - save current TimeManager scale
+  - set scale 0.0
+  - save Cursor.lockState and Cursor.visible
+  - force CursorLockMode.None and visible=true
+- while overlay open:
+  - refresh cursor unlock/visibility every ~250 ms only while menu is visible
+  - suppress WM_INPUT / gameplay mouse movement/buttons behind overlay
+- F1 close:
+  - restore exact saved cursor state
+  - restore exact previous timescale
+- no persistent INI setting is required for the overlay pause behavior.
+
+Level-start automation:
+New [Settings] booleans, default 0:
+- AutoGiveAll
+- AutoGiveAllWeapons
+- AutoNoHud
+- AutoNoHudKeepCrosshair
+
+UI:
+- Auto Give All and Auto Give All Weapons live in Weapons.
+- Auto No HUD and Auto No HUD + Crosshair live in Visual.
+- checkbox rows reuse the existing V2A42 checkbox presentation.
+- AutoNoHud and AutoNoHudKeepCrosshair are mutually exclusive.
+
+Scene detection:
+- resolve UnityEngine.SceneManagement.SceneManager.GetActiveScene().
+- Scene value type is unboxed and its first integer field m_Handle is used as the scene identity.
+- poll once per second, and only if at least one level-start behavior or persistent NoCrosshair is enabled.
+- on a new scene:
+  - wait 2 polls
+  - targeted FindLiveObject(PlayerInventoryComponent)
+  - retry once/sec, max 15
+  - when found, execute selected actions once
+- no broad Assembly-CSharp scan.
+- no permanent PlayerInventoryComponent polling outside a pending scene transition.
+
+One-time action order:
+- native GiveAll
+- validated PlayerInventoryComponent.GiveAllWeapons
+- one of native NoHud / NoHudWithCrossHair
+- persistent NoCrosshair alpha re-application
+
+Safety:
+- V2A8 WM_CLOSE fencing remains.
+- V2A40 stable HWND subclass remains.
+- V2A29 wheel path remains frozen.
+- Hook special remains Add-only.
+- no automatic Hook action.
+- package remains ASI + INI + README only.
