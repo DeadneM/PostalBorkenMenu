@@ -48,6 +48,14 @@ static void LoadConfig() {
     }
     g_noCrosshair=(LONG)GetPrivateProfileIntW(L"Settings",L"NoCrosshair",0,g_iniPath);
     g_skipIntroVideos=(LONG)GetPrivateProfileIntW(L"Settings",L"SkipIntroVideos",1,g_iniPath);
+    g_autoGiveAll=(LONG)GetPrivateProfileIntW(L"Settings",L"AutoGiveAll",0,g_iniPath);
+    g_autoGiveAllWeapons=(LONG)GetPrivateProfileIntW(L"Settings",L"AutoGiveAllWeapons",0,g_iniPath);
+    g_autoNoHud=(LONG)GetPrivateProfileIntW(L"Settings",L"AutoNoHud",0,g_iniPath);
+    g_autoNoHudKeepCrosshair=(LONG)GetPrivateProfileIntW(L"Settings",L"AutoNoHudKeepCrosshair",0,g_iniPath);
+
+    // Mutually exclusive by design. Prefer the stronger "No HUD" if a hand-edited
+    // INI accidentally enables both.
+    if (g_autoNoHud && g_autoNoHudKeepCrosshair) g_autoNoHudKeepCrosshair=0;
 }
 
 // GDI is resolved dynamically so the ASI remains linked only to kernel32/user32.
@@ -91,6 +99,8 @@ static int CommandMenuTab(int i) {
 
     if (StrEqA(n,"GiveAll") ||
         StrEqA(n,"__GiveAllWeapons") ||
+        StrEqA(n,"__AutoGiveAll") ||
+        StrEqA(n,"__AutoGiveAllWeapons") ||
         StrEqA(n,"__GiveAllDlcWeapons") ||
         StrEqA(n,"__WeaponCatalog") ||
         StrEqA(n,"__InitDlcHook") ||
@@ -99,8 +109,10 @@ static int CommandMenuTab(int i) {
         StrEqA(n,"__DlcWeaponWheel")) return 1; // Weapons
 
     if (StrEqA(n,"NoHud") ||
+        StrEqA(n,"__AutoNoHud") ||
         StrEqA(n,"__NoCrosshair") ||
         StrEqA(n,"NoHudWithCrossHair") ||
+        StrEqA(n,"__AutoNoHudKeepCrosshair") ||
         StrEqA(n,"NoModel") ||
         StrEqA(n,"NoMenu")) return 4; // Visual
 
@@ -150,6 +162,28 @@ static void SelectMenuTab(int tab) {
     if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
 }
 
+static BOOL IsSettingsCheckboxCommand(const char* n) {
+    return StrEqA(n,"__SkipIntroVideos") ||
+           StrEqA(n,"__AutoGiveAll") ||
+           StrEqA(n,"__AutoGiveAllWeapons") ||
+           StrEqA(n,"__AutoNoHud") ||
+           StrEqA(n,"__AutoNoHudKeepCrosshair");
+}
+
+static BOOL SettingsCheckboxValue(const char* n) {
+    if (StrEqA(n,"__SkipIntroVideos")) return g_skipIntroVideos ? TRUE : FALSE;
+    if (StrEqA(n,"__AutoGiveAll")) return g_autoGiveAll ? TRUE : FALSE;
+    if (StrEqA(n,"__AutoGiveAllWeapons")) return g_autoGiveAllWeapons ? TRUE : FALSE;
+    if (StrEqA(n,"__AutoNoHud")) return g_autoNoHud ? TRUE : FALSE;
+    if (StrEqA(n,"__AutoNoHudKeepCrosshair")) return g_autoNoHudKeepCrosshair ? TRUE : FALSE;
+    return FALSE;
+}
+
+static const WCHAR* SettingsCheckboxTail(const char* n) {
+    if (StrEqA(n,"__SkipIntroVideos")) return L"NEXT LAUNCH";
+    return L"LEVEL START";
+}
+
 static void PaintOverlay(HWND hwnd) {
     PAINTSTRUCT ps={}; HDC dc=BeginPaint(hwnd,&ps); if(!dc) return;
     Fill(dc,0,0,OVERLAY_W,OVERLAY_H,C(16,17,20));
@@ -184,15 +218,16 @@ static void PaintOverlay(HWND hwnd) {
         Fill(dc,14,y,746,y+ROW_H-2,(vr&1)?C(23,24,29):C(27,28,34));
         Text(dc,g_cmds[i].displayName,25,y,326,y+ROW_H-2,C(232,233,236),DT_LEFT);
 
-        BOOL isSkipIntro=StrEqA(g_cmds[i].className,"__SkipIntroVideos");
-        if (isSkipIntro) {
+        BOOL isSettingsCheckbox=IsSettingsCheckboxCommand(g_cmds[i].className);
+        if (isSettingsCheckbox) {
+            BOOL enabled=SettingsCheckboxValue(g_cmds[i].className);
             Fill(dc,493,y+4,585,y+ROW_H-6,C(43,46,54));
             Fill(dc,501,y+7,517,y+ROW_H-9,C(28,30,35));
-            if(g_skipIntroVideos) Text(dc,L"X",501,y+5,517,y+ROW_H-7,C(120,230,150),DT_CENTER);
-            Text(dc,g_skipIntroVideos?L"ENABLED":L"DISABLED",522,y+4,585,y+ROW_H-6,
-                 g_skipIntroVideos?C(120,230,150):C(200,200,205),DT_CENTER);
+            if(enabled) Text(dc,L"X",501,y+5,517,y+ROW_H-7,C(120,230,150),DT_CENTER);
+            Text(dc,enabled?L"ENABLED":L"DISABLED",522,y+4,585,y+ROW_H-6,
+                 enabled?C(120,230,150):C(200,200,205),DT_CENTER);
             Fill(dc,600,y+4,738,y+ROW_H-6,C(38,41,49));
-            Text(dc,L"NEXT LAUNCH",600,y+4,738,y+ROW_H-6,C(198,202,210),DT_CENTER);
+            Text(dc,SettingsCheckboxTail(g_cmds[i].className),600,y+4,738,y+ROW_H-6,C(198,202,210),DT_CENTER);
             continue;
         }
 
@@ -265,8 +300,22 @@ static BOOL CreateOverlayWindow() {
 
 static void ToggleOverlay() {
     if(!g_menuHwnd) return;
-    if(g_menuVisible){ ShowWindow(g_menuHwnd,SW_HIDE); g_menuVisible=0; g_bindIndex=-1; }
-    else { ClampScrollRow(); UpdateOverlayPosition(); ShowWindow(g_menuHwnd,SW_SHOWNOACTIVATE); g_menuVisible=1; InvalidateRect(g_menuHwnd,0,TRUE); }
+
+    if(g_menuVisible) {
+        ShowWindow(g_menuHwnd,SW_HIDE);
+        g_menuVisible=0;
+        g_bindIndex=-1;
+        g_overlayCursorKeepTicks=0;
+        if(g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_OVERLAYSTATE,0,0);
+    } else {
+        ClampScrollRow();
+        UpdateOverlayPosition();
+        ShowWindow(g_menuHwnd,SW_SHOWNOACTIVATE);
+        g_menuVisible=1;
+        g_overlayCursorKeepTicks=0;
+        if(g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_OVERLAYSTATE,1,0);
+        InvalidateRect(g_menuHwnd,0,TRUE);
+    }
 }
 
 static void CycleTimeScaleArg(int i) {
@@ -339,8 +388,11 @@ static BOOL HandleOverlayClick(int x,int y) {
         int i=TabCommandIndex(g_scrollRow+visibleIndex);
         int ry=(py-ROW_Y)%ROW_H;
         if(i>=0 && i<CMD_COUNT && ry<ROW_H-1) {
-            if(StrEqA(g_cmds[i].className,"__SkipIntroVideos")) {
-                if(px>=493 && px<744) ToggleSkipIntroVideos();
+            if(IsSettingsCheckboxCommand(g_cmds[i].className)) {
+                if(px>=493 && px<744) {
+                    ExecuteCommandIndex(i);
+                    if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
+                }
                 return TRUE;
             }
             if(px>=493 && px<590){ ExecuteCommandIndex(i); if(g_menuHwnd)InvalidateRect(g_menuHwnd,0,TRUE); return TRUE; }
@@ -424,6 +476,15 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         ExecuteNativeDlcWheel(lp ? TRUE : FALSE);
         return 0;
     }
+    if (msg==WM_APP_OVERLAYSTATE) {
+        ApplyOverlayInteractionState(wp ? TRUE : FALSE);
+        return 0;
+    }
+    if (msg==WM_APP_OVERLAYCURSOR) {
+        if (g_menuVisible && g_overlayInteractionApplied)
+            ApplyOverlayInteractionState(TRUE);
+        return 0;
+    }
     if (msg==WM_APP_CROSSHAIR) {
         if (g_ready && !g_shuttingDown) {
             BOOL attached=FALSE; void* thread=0;
@@ -433,6 +494,17 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
             }
         }
         return 0;
+    }
+
+    if (g_menuVisible) {
+        // Overlay uses the game window's client coordinates while remaining
+        // borderless/no-activate. Suppress raw/gameplay mouse traffic so clicks
+        // do not fire weapons or rotate the view behind the menu.
+        if (msg==WM_INPUT || msg==WM_MOUSEMOVE ||
+            msg==WM_LBUTTONUP ||
+            msg==WM_RBUTTONDOWN || msg==WM_RBUTTONUP ||
+            msg==WM_MBUTTONDOWN || msg==WM_MBUTTONUP)
+            return 0;
     }
 
     // V2A7 repeatedly entered IL2CPP every ~250 ms while No Crosshair was on.
@@ -573,6 +645,15 @@ static void PollHotkeys() {
         if (next==0 && g_ready && !g_shuttingDown && g_gameHwnd && IsWindow(g_gameHwnd))
             PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
     }
+
+    if (g_menuVisible && g_gameHwnd && g_overlayInteractionApplied) {
+        if (++g_overlayCursorKeepTicks>=25) {
+            g_overlayCursorKeepTicks=0;
+            PostMessageW(g_gameHwnd,WM_APP_OVERLAYCURSOR,0,0);
+        }
+    } else {
+        g_overlayCursorKeepTicks=0;
+    }
 }
 
 static BOOL HookGameWindow() {
@@ -651,7 +732,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42 CLEAN ARSENAL + FIVE TABS + SKIP INTRO TEST");
+    LogA("PostalBorkenMenu V2A43 OVERLAY MOUSE + AUTO LEVEL TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -665,7 +746,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] Five tabs active. Arsenal has 14 single weapons, Special has 4 non-Dong entries. Skip Intro checkbox persists in INI.");
+    LogA("[READY] V2A42 preserved. F1 auto-pauses/unlocks mouse. Level-start automation available for Give All / Give All Weapons / HUD.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
@@ -678,6 +759,7 @@ static DWORD __stdcall ModThread(void*) {
         }
         if (g_shuttingDown) break;
         PollHotkeys();
+        PollLevelStartAutomation();
         Sleep(10);
     }
 
