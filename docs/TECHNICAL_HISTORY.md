@@ -922,3 +922,48 @@ Rationale:
 Packaging:
 - exactly PostalBorkenMenu.asi, PostalBorkenMenu.ini, README.txt.
 - never include PostalBorkenMenu.log.
+
+
+### V2A44
+
+Base:
+- exact V2A42 stable branch.
+- V2A43 is rejected after user-reported crash.
+
+Rollback:
+- remove every V2A43 Unity Cursor bridge.
+- remove every V2A43 SceneManager bridge.
+- remove all V2A43 auto-level settings and polling.
+
+Intro correction:
+- remove keybd_event import.
+- remove startup Escape pulse.
+- remove __SkipIntroVideos overlay row and SkipIntroVideos INI placeholder.
+- user confirmed Escape does not skip POSTAL: Brain-Damaged intros.
+- external verification confirms the game added a native -novideo launch option in post-release Patch 1.
+- do not invent a replacement until SAVE_DATA.cfg/native settings are mapped.
+
+Overlay mouse implementation:
+- no new IL2CPP metadata classes.
+- use user32 GetCursor / LoadCursorW / ShowCursor / SetCursor on the game WndProc thread.
+- add WM_APP_OVERLAYSTATE only.
+- on F1 open:
+  - save previous cursor handle.
+  - adjust ShowCursor count only as far as needed to become visible.
+  - set IDC_ARROW.
+  - save current TimeManager timescale.
+  - set timescale to 0.0 using the existing validated TimeManager bridge.
+- while open:
+  - WM_SETCURSOR reinforces IDC_ARROW.
+  - swallow WM_INPUT, WM_MOUSEMOVE, LButtonUp, RButton down/up, MButton down/up.
+  - existing overlay wheel and left-click paths remain.
+- on close:
+  - restore timescale.
+  - unwind only mod-owned ShowCursor increments.
+  - restore previous cursor handle.
+- on shutdown:
+  - restore Win32 cursor count only, with no new IL2CPP work during teardown.
+
+Packaging:
+- exactly ASI + INI + README.
+- never include runtime log.
