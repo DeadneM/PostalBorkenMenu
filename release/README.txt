@@ -1,61 +1,100 @@
-PostalBorkenMenu V2A41 NAMED ROWS ONLY BISECT
+PostalBorkenMenu V2A42
 POSTAL: Brain-Damaged
 
 BASE
-Built directly from V2A40, validated working by the user.
+Built from V2A41 while preserving the V2A40 stable-window subclass fix that the user validated.
 
-PURPOSE
-Isolate the effect of adding the V2A35 named Arsenal/Special command rows to g_cmds.
+THIS BUILD
+V2A42 reconstructs the desired five-tab overlay and cleans the named weapon lists.
 
-V2A41 CHANGE
-Adds exactly:
-- 26 __Arsenal_* command rows
-- 8 __Special_* command rows
+TABS
+- Gameplay
+- Weapons
+- Arsenal
+- Special
+- Visual
 
-Total new named rows: 34.
+ARSENAL
+Only single WeaponId variants are exposed.
 
-The original 18 V2A34 Weapon List rows are intentionally still present.
-This makes CMD_COUNT 76 for this diagnostic build.
+Base:
+- Shovel
+- Pistol
+- Shotgun
+- Machine Gun
+- Rocket Launcher
+- Lightning Gun
+- Gatling Gun
+- Dildo Bow
+- Cat Canon
 
-IMPORTANT
-The UI is still the original four-tab V2A40 layout.
-No five-tab UI changes are included.
-The INI is unchanged from V2A40.
-The V2A40 three-second stable-window subclass fix is preserved.
+These Sunny Daze / PTSD:
+- Um Drill
+- Piss Gun
+- Meat Shotgun
+- Bubble Gum Machine Gun
+- Nuclear Syringe
 
-Because CommandMenuTab() has not yet been taught about Arsenal/Special,
-the new rows would fall through to the Gameplay tab if F1 is opened.
-For this diagnostic test, DO NOT open F1 during startup.
+All _Akimbo WeaponIds are intentionally removed from the overlay.
 
-PRESERVED
-- V2A40 stable game-window subclass
-- V2A39 exact-name dispatcher branch
-- V2A38 exact-name resolver
-- V2A34 legacy Weapon List
-- V2A29 wheel behavior
-- V2A8 shutdown/lifetime fencing
+SPECIAL
+Kept:
+- Hook (Add Only)
+- Cutscene Weapon DLC
+- No Weapon
+- No Weapon DLC
 
-NO OTHER NEW BEHAVIOR
-- no new tab mapping
-- no INI additions
-- no automatic WeaponId scan
-- no automatic AddWeapon/EquipWeapon
-- no recovery code
+Removed:
+- Dong
+- Dong Confusion
+- Dong Fire
+- Dong Ice
+
+The Hook path remains AddWeapon-only and is never passed through EquipWeapon.
+
+SKIP INTRO VIDEOS
+A new checkbox appears in the Gameplay tab.
+
+Default:
+SkipIntroVideos=1
+
+The value is persisted in PostalBorkenMenu.ini under [Settings].
+Changing the checkbox affects the next launch.
+
+Implementation for this test:
+- no game files are renamed or deleted
+- SAVE_DATA.cfg is not modified
+- no EXE/GameAssembly patching
+- while V2A40 qualifies the foreground game HWND, after the same HWND has remained valid for 1 second, the ASI sends exactly one synthetic Escape key pulse if Skip Intro Videos is enabled
+- the normal V2A40 WndProc subclass is still delayed until 3 seconds of HWND stability
+- no repeated key injection occurs
+
+This deliberately targets startup only and does not touch normal in-game cutscenes.
+
+STABILITY PRESERVED
+- V2A40: 3-second stable foreground HWND qualification before SetWindowLongPtrW
+- V2A8: early WM_CLOSE shutdown fencing
+- no permanent IL2CPP crosshair polling
+- V2A29 weapon-wheel behavior
+- exact-name WeaponId resolver remains targeted
+- no broad Assembly-CSharp scans
+- no startup Hook recovery
 
 TEST
-1. Launch the game.
-2. Do not press F1 or any mod hotkey.
-3. Confirm whether the game reaches the menu and stays stable.
-4. If stable, exit normally.
-5. Send PostalBorkenMenu.log.
-
-INTERPRETATION
-- Stable: the extra g_cmds rows themselves are not the crash source. Next test is the five-tab routing/UI.
-- Crash: the command-table expansion / startup handling of those rows is implicated.
+1. Launch normally with SkipIntroVideos=1.
+2. Confirm whether the intro video is skipped.
+3. Confirm the game reaches the menu and remains stable.
+4. Open F1.
+5. Check all five tabs.
+6. Confirm Arsenal contains no Akimbo entries.
+7. Confirm Special contains no Dong entries.
+8. Toggle Skip Intro Videos off and on once to verify checkbox persistence.
+9. Test one normal Arsenal weapon and, if owned, one DLC weapon.
+10. Exit normally and send PostalBorkenMenu.log.
 
 PACKAGE CONTENTS
 PostalBorkenMenu.asi
 PostalBorkenMenu.ini
 README.txt
 
-PostalBorkenMenu.log is generated at runtime and is not included.
+PostalBorkenMenu.log is generated at runtime and is intentionally not included.
