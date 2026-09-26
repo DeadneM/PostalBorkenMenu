@@ -117,6 +117,7 @@ __declspec(dllimport) int __stdcall FillRect(HDC, const RECT*, HBRUSH);
 __declspec(dllimport) int __stdcall DrawTextW(HDC, LPCWSTR, int, RECT*, UINT);
 __declspec(dllimport) BOOL __stdcall SetLayeredWindowAttributes(HWND, COLORREF, BYTE, DWORD);
 __declspec(dllimport) short __stdcall GetAsyncKeyState(int);
+__declspec(dllimport) void __stdcall keybd_event(BYTE, BYTE, DWORD, ULONG_PTR);
 __declspec(dllimport) BOOL __stdcall PeekMessageW(MSG*, HWND, UINT, UINT, UINT);
 __declspec(dllimport) BOOL __stdcall DestroyWindow(HWND);
 __declspec(dllimport) void __stdcall PostQuitMessage(int);
@@ -221,6 +222,7 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 #define DT_SINGLELINE 0x0020
 #define TRANSPARENT_BK 1
 #define PM_REMOVE 0x0001
+#define KEYEVENTF_KEYUP 0x0002
 
 static HMODULE g_self = 0;
 static HWND g_menuHwnd = 0;
@@ -232,11 +234,13 @@ static volatile LONG g_ready = 0;
 static volatile LONG g_menuVisible = 0;
 static volatile LONG g_shuttingDown = 0;
 static volatile LONG g_noCrosshair = 0;
+static volatile LONG g_skipIntroVideos = 1;
+static volatile LONG g_introSkipPulseSent = 0;
 static DWORD g_lastCrosshairTick = 0;
 static volatile LONG g_crosshairReapplyCountdown = 0;
 static int g_scrollRow = 0;
 static BYTE g_altSlotFlip[10] = {};
-static int g_menuTab = 0; // 0 Gameplay, 1 Weapons, 2 Weapon List, 3 Visual
+static int g_menuTab = 0; // 0 Gameplay, 1 Weapons, 2 Arsenal, 3 Special, 4 Visual
 static volatile LONG g_baseWheelActive = 0;
 static int g_baseWheelVk = 0;
 static volatile LONG g_dlcWheelActive = 0;
@@ -417,61 +421,28 @@ static CommandRec g_cmds[] = {
     {"TimeScale", L"Time Scale", L"TimeScale", 0,0,0,0,0,0,0,{L'0',L'.',L'5',0}},
     {"LogTime", L"Log Time", L"LogTime", 0,0,0,0,0,0,0,{0}},
     {"GiveAll", L"Give All", L"GiveAll", VK_F6,0,0,0,0,0,0,{0}},
+    {"__SkipIntroVideos", L"Skip Intro Videos", L"SkipIntroVideos", 0,0,0,0,0,0,0,{0}},
     {"__GiveAllWeapons", L"Give All Weapons", L"GiveAllWeapons", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_Shovel", L"Shovel", L"Arsenal_Shovel", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_Pistol", L"Pistol", L"Arsenal_Pistol", 0,0,0,0,0,0,0,{0}},
-    {"__Arsenal_WEAPON_Pistol_Akimbo", L"Pistol Akimbo", L"Arsenal_Pistol_Akimbo", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_Shotgun", L"Shotgun", L"Arsenal_Shotgun", 0,0,0,0,0,0,0,{0}},
-    {"__Arsenal_WEAPON_Shotgun_Akimbo", L"Shotgun Akimbo", L"Arsenal_Shotgun_Akimbo", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_MachineGun", L"Machine Gun", L"Arsenal_MachineGun", 0,0,0,0,0,0,0,{0}},
-    {"__Arsenal_WEAPON_MachineGun_Akimbo", L"Machine Gun Akimbo", L"Arsenal_MachineGun_Akimbo", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_RocketLauncher", L"Rocket Launcher", L"Arsenal_RocketLauncher", 0,0,0,0,0,0,0,{0}},
-    {"__Arsenal_WEAPON_RocketLauncher_Akimbo", L"Rocket Launcher Akimbo", L"Arsenal_RocketLauncher_Akimbo", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_LightningGun", L"Lightning Gun", L"Arsenal_LightningGun", 0,0,0,0,0,0,0,{0}},
-    {"__Arsenal_WEAPON_LightningGun_Akimbo", L"Lightning Gun Akimbo", L"Arsenal_LightningGun_Akimbo", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_GatlingGun", L"Gatling Gun", L"Arsenal_GatlingGun", 0,0,0,0,0,0,0,{0}},
-    {"__Arsenal_WEAPON_GatlingGun_Akimbo", L"Gatling Gun Akimbo", L"Arsenal_GatlingGun_Akimbo", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_DildoBow", L"Dildo Bow", L"Arsenal_DildoBow", 0,0,0,0,0,0,0,{0}},
-    {"__Arsenal_WEAPON_DildoBow_Akimbo", L"Dildo Bow Akimbo", L"Arsenal_DildoBow_Akimbo", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_CatCanon", L"Cat Canon", L"Arsenal_CatCanon", 0,0,0,0,0,0,0,{0}},
-    {"__Arsenal_WEAPON_CatCanon_Akimbo", L"Cat Canon Akimbo", L"Arsenal_CatCanon_Akimbo", 0,0,0,0,0,0,0,{0}},
 
     {"__Arsenal_WEAPON_UmDrill", L"Um Drill [DLC]", L"Arsenal_UmDrill", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_PissGun", L"Piss Gun [DLC]", L"Arsenal_PissGun", 0,0,0,0,0,0,0,{0}},
-    {"__Arsenal_WEAPON_PissGun_Akimbo", L"Piss Gun Akimbo [DLC]", L"Arsenal_PissGun_Akimbo", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_MeatShotgun", L"Meat Shotgun [DLC]", L"Arsenal_MeatShotgun", 0,0,0,0,0,0,0,{0}},
-    {"__Arsenal_WEAPON_MeatShotgun_Akimbo", L"Meat Shotgun Akimbo [DLC]", L"Arsenal_MeatShotgun_Akimbo", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_BubbleGumMachineGun", L"Bubble Gum MG [DLC]", L"Arsenal_BubbleGumMachineGun", 0,0,0,0,0,0,0,{0}},
-    {"__Arsenal_WEAPON_BubbleGumMachineGun_Akimbo", L"Bubble Gum MG Akimbo [DLC]", L"Arsenal_BubbleGumMachineGun_Akimbo", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_NuclearSyringe", L"Nuclear Syringe [DLC]", L"Arsenal_NuclearSyringe", 0,0,0,0,0,0,0,{0}},
-    {"__Arsenal_WEAPON_NuclearSyringe_Akimbo", L"Nuclear Syringe Akimbo [DLC]", L"Arsenal_NuclearSyringe_Akimbo", 0,0,0,0,0,0,0,{0}},
 
-    {"__Special_WEAPON_Dong", L"Dong", L"Special_Dong", 0,0,0,0,0,0,0,{0}},
-    {"__Special_WEAPON_Dong_Confusion", L"Dong Confusion", L"Special_Dong_Confusion", 0,0,0,0,0,0,0,{0}},
-    {"__Special_WEAPON_Dong_Fire", L"Dong Fire", L"Special_Dong_Fire", 0,0,0,0,0,0,0,{0}},
-    {"__Special_WEAPON_Dong_Ice", L"Dong Ice", L"Special_Dong_Ice", 0,0,0,0,0,0,0,{0}},
     {"__Special_WEAPON_Hook", L"Hook (Add Only)", L"Special_Hook", 0,0,0,0,0,0,0,{0}},
     {"__Special_WEAPON_CutsceneWeapon_DLC", L"Cutscene Weapon DLC", L"Special_CutsceneWeapon_DLC", 0,0,0,0,0,0,0,{0}},
     {"__Special_WEAPON_NoWeapon", L"No Weapon", L"Special_NoWeapon", 0,0,0,0,0,0,0,{0}},
     {"__Special_WEAPON_NoWeapon_DLC", L"No Weapon DLC", L"Special_NoWeapon_DLC", 0,0,0,0,0,0,0,{0}},
-    {"__WeaponListBase1", L"1 Base Weapon", L"WeaponListBase1", 0,0,0,0,0,0,0,{L'1',0}},
-    {"__WeaponListDlc1", L"1 DLC Weapon", L"WeaponListDlc1", 0,0,0,0,0,0,0,{L'1',0}},
-    {"__WeaponListBase2", L"2 Base Weapon", L"WeaponListBase2", 0,0,0,0,0,0,0,{L'2',0}},
-    {"__WeaponListDlc2", L"2 DLC Weapon", L"WeaponListDlc2", 0,0,0,0,0,0,0,{L'2',0}},
-    {"__WeaponListBase3", L"3 Base Weapon", L"WeaponListBase3", 0,0,0,0,0,0,0,{L'3',0}},
-    {"__WeaponListDlc3", L"3 DLC Weapon", L"WeaponListDlc3", 0,0,0,0,0,0,0,{L'3',0}},
-    {"__WeaponListBase4", L"4 Base Weapon", L"WeaponListBase4", 0,0,0,0,0,0,0,{L'4',0}},
-    {"__WeaponListDlc4", L"4 DLC Weapon", L"WeaponListDlc4", 0,0,0,0,0,0,0,{L'4',0}},
-    {"__WeaponListBase5", L"5 Base Weapon", L"WeaponListBase5", 0,0,0,0,0,0,0,{L'5',0}},
-    {"__WeaponListDlc5", L"5 DLC Weapon", L"WeaponListDlc5", 0,0,0,0,0,0,0,{L'5',0}},
-    {"__WeaponListBase6", L"6 Base Weapon", L"WeaponListBase6", 0,0,0,0,0,0,0,{L'6',0}},
-    {"__WeaponListDlc6", L"6 DLC Weapon", L"WeaponListDlc6", 0,0,0,0,0,0,0,{L'6',0}},
-    {"__WeaponListBase7", L"7 Base Weapon", L"WeaponListBase7", 0,0,0,0,0,0,0,{L'7',0}},
-    {"__WeaponListDlc7", L"7 DLC Weapon", L"WeaponListDlc7", 0,0,0,0,0,0,0,{L'7',0}},
-    {"__WeaponListBase8", L"8 Base Weapon", L"WeaponListBase8", 0,0,0,0,0,0,0,{L'8',0}},
-    {"__WeaponListDlc8", L"8 DLC Weapon", L"WeaponListDlc8", 0,0,0,0,0,0,0,{L'8',0}},
-    {"__WeaponListBase9", L"9 Base Weapon", L"WeaponListBase9", 0,0,0,0,0,0,0,{L'9',0}},
-    {"__WeaponListDlc9", L"9 DLC Weapon", L"WeaponListDlc9", 0,0,0,0,0,0,0,{L'9',0}},
     {"__GiveAllDlcWeapons", L"Give All DLC Weapons", L"GiveAllDlcWeapons", 0,0,0,0,0,0,0,{0}},
     {"__WeaponCatalog", L"Weapon Catalog", L"WeaponCatalog", 0,0,0,0,0,0,0,{0}},
     {"__InitDlcHook", L"DLC Hook Slot99 Test", L"InitDlcHook", 0,0,0,0,0,0,0,{0}},
