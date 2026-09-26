@@ -810,3 +810,33 @@ No other V2A35 functional changes:
 Interpretation:
 - stable => dispatcher branch is innocent; isolate g_cmds row expansion next.
 - crash => dispatcher integration itself is the regression.
+
+
+### V2A40
+
+Base:
+- V2A39 named-dispatch no-rows bisect.
+
+Observed V2A39 result:
+- user reports crash.
+- runtime log reaches:
+  - IL2CPP ready
+  - overlay creation
+  - game window subclass
+  - async keyboard polling
+  - READY
+- no command execution is logged after READY.
+- therefore there is no evidence that DecodeNamedWeaponCommand or ExecuteNamedWeaponByUnityName ran before the crash.
+
+Hypothesis:
+- tiny code/timing changes may alter which foreground process window HookGameWindow() subclasses during Unity startup.
+- previous V2A35 runs were inconsistent around the same overlay/subclass boundary.
+- treat the immediate first-foreground-window subclass as a race candidate.
+
+Single functional change:
+- HookGameWindow() now requires the same valid foreground HWND from the current process to remain stable for 3 seconds.
+- candidate must have a client area >= 320x200.
+- candidate resets if foreground ownership/validity/size changes.
+- only after 30 consecutive 100 ms samples is SetWindowLongPtrW called.
+
+No weapon, UI, INI, IL2CPP or dispatcher changes versus V2A39.
