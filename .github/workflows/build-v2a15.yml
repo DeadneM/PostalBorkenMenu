@@ -1,9 +1,9 @@
-name: Build V2A42 Clean Arsenal Five Tabs Skip Intro
+name: Build V2A48 Gori Style DX11 Overlay
 
 on:
   push:
     branches:
-      - dev/v2a42-clean-arsenal-five-tabs-skip-intro
+      - dev/v2a48-gori-style-dx11-overlay
   workflow_dispatch:
 
 permissions:
@@ -31,14 +31,15 @@ jobs:
         shell: cmd
         run: |
           cl /nologo /c /O2 /GS- /GR- /EHs-c- /Zl /Fo:build\PostalBorkenMenu.obj source\PostalBorkenMenu.cpp
-          link /nologo /DLL /MACHINE:X64 /NODEFAULTLIB /ENTRY:DllMain /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /OUT:build\PostalBorkenMenu.asi build\PostalBorkenMenu.obj build\kernel32_ext.lib build\user32_ext.lib
+          cl /nologo /c /O2 /GS- /GR- /EHs-c- /Zl /DWIN32_LEAN_AND_MEAN /DNOMINMAX /Fo:build\PostalBorkenMenu_dx11.obj source\PostalBorkenMenu_dx11.cpp
+          link /nologo /DLL /MACHINE:X64 /NODEFAULTLIB /ENTRY:DllMain /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /OUT:build\PostalBorkenMenu.asi build\PostalBorkenMenu.obj build\PostalBorkenMenu_dx11.obj build\kernel32_ext.lib build\user32_ext.lib kernel32.lib user32.lib gdi32.lib d3d11.lib dxgi.lib d3dcompiler.lib
 
       - name: SHA-256
         shell: powershell
         run: |
           Get-FileHash build\PostalBorkenMenu.asi -Algorithm SHA256 | Format-List
 
-      - name: Stage V2A42 package
+      - name: Stage V2A48 package
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path package | Out-Null
@@ -52,14 +53,14 @@ jobs:
           $files = Get-ChildItem package -File | Select-Object -ExpandProperty Name
           $expected = @('PostalBorkenMenu.asi','PostalBorkenMenu.ini','README.txt')
           if (Compare-Object ($files | Sort-Object) ($expected | Sort-Object)) {
-            Write-Error "Unexpected V2A42 package contents"
+            Write-Error "Unexpected V2A48 package contents"
             exit 1
           }
           Get-ChildItem package -File | Format-Table Name,Length
 
-      - name: Upload V2A42 package
+      - name: Upload V2A48 package
         uses: actions/upload-artifact@v4
         with:
-          name: POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_CLEAN_ARSENAL_FIVE_TABS_SKIP_INTRO_TEST
+          name: POSTAL_Brain_Damaged_PostalBorkenMenu_V2A48_GORI_STYLE_DX11_OVERLAY_TEST
           path: package/*
           if-no-files-found: error
