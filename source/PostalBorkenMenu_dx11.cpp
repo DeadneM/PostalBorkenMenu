@@ -347,17 +347,15 @@ static void DrawOverlay(IDXGISwapChain* swap) {
         vpW=(FLOAT)desc.BufferDesc.Width-UI_X;
     if(desc.BufferDesc.Height && UI_Y+vpH>(FLOAT)desc.BufferDesc.Height)
         vpH=(FLOAT)desc.BufferDesc.Height-UI_Y;
-    if(vpW<1.0f || vpH<1.0f) goto restore_state;
+    if(vpW>=1.0f && vpH>=1.0f) {
+        D3D11_VIEWPORT vp = {};
+        vp.TopLeftX=UI_X;
+        vp.TopLeftY=UI_Y;
+        vp.Width=vpW;
+        vp.Height=vpH;
+        vp.MinDepth=0.0f;
+        vp.MaxDepth=1.0f;
 
-    D3D11_VIEWPORT vp = {};
-    vp.TopLeftX=UI_X;
-    vp.TopLeftY=UI_Y;
-    vp.Width=vpW;
-    vp.Height=vpH;
-    vp.MinDepth=0.0f;
-    vp.MaxDepth=1.0f;
-
-    {
         FLOAT factor[4]={0,0,0,0};
         g_context->OMSetRenderTargets(1,&g_rtv,0);
         g_context->OMSetBlendState(g_blend,factor,0xffffffffu);
@@ -377,7 +375,6 @@ static void DrawOverlay(IDXGISwapChain* swap) {
         g_context->Draw(3,0);
     }
 
-restore_state:
     g_context->PSSetShaderResources(0,1,&oldSrv);
     g_context->PSSetSamplers(0,1,&oldSampler);
     g_context->VSSetShader(oldVs,0,0);
@@ -582,9 +579,12 @@ extern "C" void __stdcall PostalDx11Shutdown() {
         }
     }
 
-    ReleaseRenderResources();
+    // Do not release D3D/GDI resources here. Present runs on Unity's render
+    // thread and may already be in-flight while WM_CLOSE arrives on the window
+    // thread. The process is exiting, so retaining these objects until process
+    // teardown is safer than racing a Release against an active Present.
     g_hookCount=0;
     g_seenGamePresent=0;
     g_installed=0;
-    PostalOverlayLog("[DX11] Present vtable hooks restored and overlay renderer released.");
+    PostalOverlayLog("[DX11] Present vtable hooks restored; render resources retained until process exit.");
 }
