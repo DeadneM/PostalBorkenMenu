@@ -228,6 +228,8 @@ static void PaintOverlay(HWND hwnd) {
     EndPaint(hwnd,&ps);
 }
 
+static BOOL HandleOverlayClickLocal(int px,int py);
+
 static void UpdateOverlayPosition() {
     if (!g_gameHwnd || !g_menuHwnd) return;
     RECT r={}; POINT p={0,0};
@@ -240,33 +242,75 @@ static void UpdateOverlayPosition() {
 
 static LRESULT __stdcall OverlayWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg==WM_PAINT) { PaintOverlay(hwnd); return 0; }
+
+    if (msg==WM_LBUTTONDOWN && g_menuVisible) {
+        int x=(short)(lp & 0xFFFF);
+        int y=(short)((lp>>16)&0xFFFF);
+        if(HandleOverlayClickLocal(x,y)) return 0;
+    }
+
     if (msg==WM_APP_SHUTDOWN) { DestroyWindow(hwnd); return 0; }
     if (msg==WM_DESTROY) { g_menuHwnd=0; PostQuitMessage(0); return 0; }
+
     if (msg==WM_CLOSE) {
         if (g_shuttingDown) { DestroyWindow(hwnd); return 0; }
-        ShowWindow(hwnd,SW_HIDE); g_menuVisible=0; g_bindIndex=-1; return 0;
+        ShowWindow(hwnd,SW_HIDE);
+        g_menuVisible=0;
+        g_bindIndex=-1;
+        if(g_gameHwnd) {
+            SetForegroundWindow(g_gameHwnd);
+            SetFocus(g_gameHwnd);
+        }
+        return 0;
     }
+
     return DefWindowProcW(hwnd,msg,wp,lp);
 }
 
 static BOOL CreateOverlayWindow() {
     if(!InitGdi()){ LogA("[ERROR] Failed to resolve GDI32 overlay functions"); return FALSE; }
-    WNDCLASSEXW wc={}; wc.cbSize=sizeof(wc); wc.lpfnWndProc=OverlayWndProc; wc.hInstance=(HINSTANCE)g_self;
+
+    WNDCLASSEXW wc={};
+    wc.cbSize=sizeof(wc);
+    wc.lpfnWndProc=OverlayWndProc;
+    wc.hInstance=(HINSTANCE)g_self;
+    wc.hCursor=LoadCursorW(0,IDC_ARROW);
     wc.lpszClassName=L"PostalBorkenMenuOverlayClass";
     RegisterClassExW(&wc);
-    g_menuHwnd=CreateWindowExW(WS_EX_TOOLWINDOW|WS_EX_TOPMOST|WS_EX_LAYERED|WS_EX_TRANSPARENT|WS_EX_NOACTIVATE,
+
+    // V2A46: interactive borderless window. No WS_EX_TRANSPARENT and no
+    // WS_EX_NOACTIVATE. Mouse input belongs to OverlayWndProc directly.
+    g_menuHwnd=CreateWindowExW(WS_EX_TOOLWINDOW|WS_EX_TOPMOST|WS_EX_LAYERED,
         wc.lpszClassName,L"PostalBorkenMenu",WS_POPUP,32,32,OVERLAY_W,OVERLAY_H,0,0,wc.hInstance,0);
-    if(!g_menuHwnd){ LogA("[ERROR] Failed to create overlay window"); return FALSE; }
+    if(!g_menuHwnd){ LogA("[ERROR] Failed to create interactive overlay window"); return FALSE; }
+
     SetLayeredWindowAttributes(g_menuHwnd,0,242,LWA_ALPHA);
-    ShowWindow(g_menuHwnd,SW_HIDE); g_menuVisible=0;
-    LogA("[OK] Borderless overlay shell created (no title bar/taskbar entry)");
+    ShowWindow(g_menuHwnd,SW_HIDE);
+    g_menuVisible=0;
+    LogA("[OK] Interactive borderless overlay created; direct mouse input enabled.");
     return TRUE;
 }
 
 static void ToggleOverlay() {
     if(!g_menuHwnd) return;
-    if(g_menuVisible){ ShowWindow(g_menuHwnd,SW_HIDE); g_menuVisible=0; g_bindIndex=-1; }
-    else { ClampScrollRow(); UpdateOverlayPosition(); ShowWindow(g_menuHwnd,SW_SHOWNOACTIVATE); g_menuVisible=1; InvalidateRect(g_menuHwnd,0,TRUE); }
+
+    if(g_menuVisible) {
+        ShowWindow(g_menuHwnd,SW_HIDE);
+        g_menuVisible=0;
+        g_bindIndex=-1;
+        if(g_gameHwnd) {
+            SetForegroundWindow(g_gameHwnd);
+            SetFocus(g_gameHwnd);
+        }
+    } else {
+        ClampScrollRow();
+        UpdateOverlayPosition();
+        ShowWindow(g_menuHwnd,SW_SHOW);
+        g_menuVisible=1;
+        SetForegroundWindow(g_menuHwnd);
+        SetFocus(g_menuHwnd);
+        InvalidateRect(g_menuHwnd,0,TRUE);
+    }
 }
 
 static void CycleTimeScaleArg(int i) {
@@ -321,8 +365,7 @@ static void CycleWeaponKeysMode(int i) {
     if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
 }
 
-static BOOL HandleOverlayClick(int x,int y) {
-    int px=x-g_overlayX, py=y-g_overlayY;
+static BOOL HandleOverlayClickLocal(int px,int py) {
     if(px<0 || py<0 || px>=OVERLAY_W || py>=OVERLAY_H) return FALSE;
 
     if(py>=59 && py<84) {
@@ -444,10 +487,6 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
     }
 
     if ((msg==WM_MOVE || msg==WM_SIZE) && g_menuVisible) UpdateOverlayPosition();
-    if (msg==WM_LBUTTONDOWN && g_menuVisible) {
-        int x=(short)(lp & 0xFFFF); int y=(short)((lp>>16)&0xFFFF);
-        if(HandleOverlayClick(x,y)) return 0;
-    }
     return g_oldGameWndProc ? CallWindowProcW(g_oldGameWndProc,hwnd,msg,wp,lp) : DefWindowProcW(hwnd,msg,wp,lp);
 }
 
@@ -455,7 +494,7 @@ static void PollHotkeys() {
     if (g_shuttingDown) return;
 
     HWND fg=GetForegroundWindow();
-    BOOL active=(fg && fg==g_gameHwnd);
+    BOOL active=(fg && (fg==g_gameHwnd || (g_menuVisible && fg==g_menuHwnd)));
 
     if (!active && g_baseWheelActive && g_gameHwnd) {
         PostMessageW(g_gameHwnd,WM_APP_BASEWHEEL,0,0);
@@ -651,7 +690,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42 CLEAN ARSENAL + FIVE TABS + SKIP INTRO TEST");
+    LogA("PostalBorkenMenu V2A46 INTERACTIVE OVERLAY WINDOW TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -665,7 +704,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] Five tabs active. Arsenal has 14 single weapons, Special has 4 non-Dong entries. Skip Intro checkbox persists in INI.");
+    LogA("[READY] V2A42 behavior preserved; overlay now owns focus and direct mouse input while F1 is open.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
