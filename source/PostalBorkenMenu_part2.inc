@@ -70,6 +70,8 @@ static const MethodInfo* g_cursorSetVisible = 0;
 // SceneManager is sampled once per second for level-start automation.
 static const MethodInfo* g_sceneManagerGetActiveScene = 0;
 
+static float GetEngineTimeScale();
+
 static BOOL IsSynthetic(const char* n) {
     return n && n[0]=='_' && n[1]=='_';
 }
