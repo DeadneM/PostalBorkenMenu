@@ -1,100 +1,62 @@
-PostalBorkenMenu V2A42
+PostalBorkenMenu V2A45
 POSTAL: Brain-Damaged
 
 BASE
-Built from V2A41 while preserving the V2A40 stable-window subclass fix that the user validated.
+Built directly from V2A42, the last build the user confirmed working.
 
-THIS BUILD
-V2A42 reconstructs the desired five-tab overlay and cleans the named weapon lists.
+PURPOSE
+Pure cleanup rollback after V2A43 and V2A44 both crashed.
 
-TABS
-- Gameplay
-- Weapons
-- Arsenal
-- Special
-- Visual
+V2A45 REMOVES ONLY THE NON-WORKING SYNTHETIC INTRO FEATURE
+- removes the Skip Intro Videos overlay row
+- removes the SkipIntroVideos INI setting
+- removes keybd_event import
+- removes the one-shot Escape pulse
+- removes all synthetic intro logs/state
 
-ARSENAL
-Only single WeaponId variants are exposed.
+NO MOUSE / PAUSE EXPERIMENTS
+V2A43 and V2A44 are rejected.
+V2A45 contains none of their cursor, pause or SceneManager experiments.
 
-Base:
-- Shovel
-- Pistol
-- Shotgun
-- Machine Gun
-- Rocket Launcher
-- Lightning Gun
-- Gatling Gun
-- Dildo Bow
-- Cat Canon
-
-These Sunny Daze / PTSD:
-- Um Drill
-- Piss Gun
-- Meat Shotgun
-- Bubble Gum Machine Gun
-- Nuclear Syringe
-
-All _Akimbo WeaponIds are intentionally removed from the overlay.
-
-SPECIAL
-Kept:
-- Hook (Add Only)
-- Cutscene Weapon DLC
-- No Weapon
-- No Weapon DLC
-
-Removed:
-- Dong
-- Dong Confusion
-- Dong Fire
-- Dong Ice
-
-The Hook path remains AddWeapon-only and is never passed through EquipWeapon.
-
-SKIP INTRO VIDEOS
-A new checkbox appears in the Gameplay tab.
-
-Default:
-SkipIntroVideos=1
-
-The value is persisted in PostalBorkenMenu.ini under [Settings].
-Changing the checkbox affects the next launch.
-
-Implementation for this test:
-- no game files are renamed or deleted
-- SAVE_DATA.cfg is not modified
-- no EXE/GameAssembly patching
-- while V2A40 qualifies the foreground game HWND, after the same HWND has remained valid for 1 second, the ASI sends exactly one synthetic Escape key pulse if Skip Intro Videos is enabled
-- the normal V2A40 WndProc subclass is still delayed until 3 seconds of HWND stability
-- no repeated key injection occurs
-
-This deliberately targets startup only and does not touch normal in-game cutscenes.
-
-STABILITY PRESERVED
-- V2A40: 3-second stable foreground HWND qualification before SetWindowLongPtrW
-- V2A8: early WM_CLOSE shutdown fencing
-- no permanent IL2CPP crosshair polling
-- V2A29 weapon-wheel behavior
-- exact-name WeaponId resolver remains targeted
+PRESERVED EXACTLY FROM V2A42
+- V2A40 stable 3-second game-window qualification
+- five tabs: Gameplay / Weapons / Arsenal / Special / Visual
+- Arsenal: 14 single WeaponIds, no Akimbo entries
+- Special: Hook / Cutscene Weapon DLC / No Weapon / No Weapon DLC
+- no Dong entries
+- V2A29 wheel behavior
+- V2A8 early shutdown fencing
+- exact-name WeaponId resolver
+- existing Give All / Give All Weapons behavior
+- No Crosshair behavior
+- TimeScale behavior
 - no broad Assembly-CSharp scans
 - no startup Hook recovery
 
+NATIVE SAVE FINDING
+The user's SAVE_DATA.cfg contains:
+GeneralSettingsData:
+- WatchedIntro = true
+- SkipIntro = true
+- SkipCutscenes = false
+
+This confirms the game has a native saved SkipIntro field.
+V2A45 deliberately does not edit SAVE_DATA.cfg.
+
+Important:
+the user's SkipIntro is already true, so the startup videos the user still sees may be controlled by a separate startup-video path rather than this saved field.
+
 TEST
-1. Launch normally with SkipIntroVideos=1.
-2. Confirm whether the intro video is skipped.
-3. Confirm the game reaches the menu and remains stable.
-4. Open F1.
-5. Check all five tabs.
-6. Confirm Arsenal contains no Akimbo entries.
-7. Confirm Special contains no Dong entries.
-8. Toggle Skip Intro Videos off and on once to verify checkbox persistence.
-9. Test one normal Arsenal weapon and, if owned, one DLC weapon.
-10. Exit normally and send PostalBorkenMenu.log.
+1. Launch normally.
+2. Confirm startup stability matches V2A42.
+3. Open F1.
+4. Confirm all five tabs behave as V2A42.
+5. Do not expect a Skip Intro row in V2A45.
+6. Exit normally and send PostalBorkenMenu.log if anything abnormal occurs.
 
 PACKAGE CONTENTS
 PostalBorkenMenu.asi
 PostalBorkenMenu.ini
 README.txt
 
-PostalBorkenMenu.log is generated at runtime and is intentionally not included.
+PostalBorkenMenu.log is runtime-generated and is intentionally not included.
