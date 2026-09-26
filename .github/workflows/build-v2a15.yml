@@ -31,7 +31,7 @@ jobs:
         shell: cmd
         run: |
           cl /nologo /c /O2 /GS- /GR- /EHs-c- /Zl /Fo:build\PostalBorkenMenu.obj source\PostalBorkenMenu.cpp
-          cl /nologo /c /O2 /GS- /GR- /EHs-c- /Zl /DWIN32_LEAN_AND_MEAN /DNOMINMAX /Fo:build\PostalBorkenMenu_dx11.obj source\PostalBorkenMenu_dx11.cpp
+          cl /nologo /c /O2 /Oi- /GS- /GR- /EHs-c- /Zl /Fo:build\PostalBorkenMenu_dx11.obj source\PostalBorkenMenu_dx11.cpp
           link /nologo /DLL /MACHINE:X64 /NODEFAULTLIB /ENTRY:DllMain /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /OUT:build\PostalBorkenMenu.asi build\PostalBorkenMenu.obj build\PostalBorkenMenu_dx11.obj build\kernel32_ext.lib build\user32_ext.lib kernel32.lib user32.lib gdi32.lib d3d11.lib dxgi.lib d3dcompiler.lib
 
       - name: SHA-256
