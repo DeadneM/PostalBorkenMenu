@@ -27,7 +27,10 @@ FillRect
 DrawTextW
 SetLayeredWindowAttributes
 GetAsyncKeyState
-keybd_event
+LoadCursorW
+GetCursor
+SetCursor
+ShowCursor
 PeekMessageW
 DestroyWindow
 PostQuitMessage
