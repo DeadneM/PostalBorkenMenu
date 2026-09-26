@@ -1,59 +1,54 @@
-PostalBorkenMenu V2A38 BISECT TEST
+PostalBorkenMenu V2A39 BISECT TEST
 POSTAL: Brain-Damaged
 
 BASE
-Built directly from V2A34 Weapon Catalog Dispatch Fix, the last version with a complete known-good run.
+Built directly from V2A38, which the user validated as working.
 
 PURPOSE
-Isolate the V2A35 exact-name weapon resolver from every other V2A35 change.
+Test only the V2A35 named-weapon dispatcher integration.
 
-V2A38 ADDS
-The V2A35 functions:
-- DecodeNamedWeaponCommand()
-- ExecuteNamedWeaponByUnityName()
+V2A39 CHANGE
+ExecuteCommandIndex() now contains the V2A35 branch:
 
-are compiled and retained in the ASI.
+DecodeNamedWeaponCommand(...)
+-> ExecuteNamedWeaponByUnityName(...)
 
-The resolver contains the same V2A35 exact-name path:
-- Resources.FindObjectsOfTypeAll(WeaponId)
-- UnityEngine.Object.get_name()
-- exact Unity name matching
-- category/slot logging
-- ownership check for category 1
-- duplicate-safe AddWeapon + EquipWeapon
-- special Hook AddWeapon-only path
+This branch runs before the legacy Weapon List decoder.
 
-BUT THEY ARE DORMANT.
+CRITICAL SAFETY OF THIS TEST
+There are still ZERO command rows beginning with:
+- __Arsenal_
+- __Special_
 
-V2A38 DOES NOT ADD
-- any __Arsenal_* command rows
-- any __Special_* command rows
-- any new tab
-- any new INI weapon entries
-- any ExecuteCommandIndex() branch for exact-name weapons
-- any automatic WeaponId scan
-- any automatic AddWeapon
-- any automatic EquipWeapon
-- any automatic Hook action
-- any startup recovery
+Therefore DecodeNamedWeaponCommand() should return FALSE for every existing command.
+ExecuteNamedWeaponByUnityName() should never be called.
 
-A volatile function pointer is read only to ensure the linker keeps the resolver in the binary.
-The resolver itself is never called.
+UNCHANGED FROM V2A38
+- original V2A34 command table
+- original four tabs
+- original INI
+- no Arsenal rows
+- no Special rows
+- no automatic WeaponId scan
+- no automatic AddWeapon
+- no automatic EquipWeapon
+- no recovery code
+- V2A34/V2A38 startup path
+- V2A8 shutdown/lifetime behavior
 
 EXPECTED LOG
-[BISECT] V2A35 exact-name resolver is linked but dormant; no named-weapon dispatch exists.
+[BISECT] V2A35 exact-name resolver linked; dispatcher branch enabled; no Arsenal/Special rows exist.
 
 TEST
-1. Launch the game normally.
-2. Do not press F1 initially.
-3. Check whether it reaches the menu.
-4. If stable, open F1 and verify the original V2A34 four-tab layout.
-5. Exit normally.
-6. Send PostalBorkenMenu.log.
+1. Launch normally.
+2. Do not press F1 at first.
+3. Confirm whether the game reaches the menu.
+4. If stable, open F1 briefly and exit normally.
+5. Send PostalBorkenMenu.log.
 
 INTERPRETATION
-- Stable: the exact-name resolver code itself is innocent; the crash is caused by its integration, command rows, or later V2A35 UI/dispatch changes.
-- Crash: the mere linked presence of the resolver changes the binary enough to reproduce the fault, so we narrow further inside this block.
+- Stable: the resolver AND dispatcher integration are both innocent. Next suspect becomes the new Arsenal/Special command rows / enlarged g_cmds table.
+- Crash: the dispatcher branch itself is implicated.
 
 PACKAGE CONTENTS
 PostalBorkenMenu.asi
