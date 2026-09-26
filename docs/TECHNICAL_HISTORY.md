@@ -840,3 +840,31 @@ Single functional change:
 - only after 30 consecutive 100 ms samples is SetWindowLongPtrW called.
 
 No weapon, UI, INI, IL2CPP or dispatcher changes versus V2A39.
+
+
+### V2A41
+
+Base:
+- V2A40 stable-window subclass test, validated working by the user.
+
+Single diagnostic change:
+- add the 26 V2A35 __Arsenal_* rows.
+- add the 8 V2A35 __Special_* rows.
+- keep every V2A40/V2A34 legacy row, including all 18 Weapon List rows.
+- CMD_COUNT becomes 76.
+
+Intentionally unchanged:
+- no five-tab UI.
+- no Arsenal/Special tab routing.
+- no INI additions.
+- no new startup logic.
+- no automatic named-weapon execution.
+- V2A40 stable 3-second HWND qualification remains frozen.
+
+Diagnostic note:
+- because CommandMenuTab() remains V2A40, named rows default to Gameplay if the overlay is opened.
+- user should test startup without F1 first.
+
+Interpretation:
+- stable => command-table expansion itself is innocent.
+- crash => investigate LoadConfig/CMD_COUNT traversal and row/table layout before any UI work.
