@@ -47,7 +47,6 @@ static void LoadConfig() {
         GetPrivateProfileStringW(L"Args",g_cmds[i].iniName,def,g_cmds[i].args,128,g_iniPath);
     }
     g_noCrosshair=(LONG)GetPrivateProfileIntW(L"Settings",L"NoCrosshair",0,g_iniPath);
-    g_skipIntroVideos=(LONG)GetPrivateProfileIntW(L"Settings",L"SkipIntroVideos",1,g_iniPath);
 }
 
 // GDI is resolved dynamically so the ASI remains linked only to kernel32/user32.
@@ -183,18 +182,6 @@ static void PaintOverlay(HWND hwnd) {
         int y=ROW_Y+vr*ROW_H;
         Fill(dc,14,y,746,y+ROW_H-2,(vr&1)?C(23,24,29):C(27,28,34));
         Text(dc,g_cmds[i].displayName,25,y,326,y+ROW_H-2,C(232,233,236),DT_LEFT);
-
-        BOOL isSkipIntro=StrEqA(g_cmds[i].className,"__SkipIntroVideos");
-        if (isSkipIntro) {
-            Fill(dc,493,y+4,585,y+ROW_H-6,C(43,46,54));
-            Fill(dc,501,y+7,517,y+ROW_H-9,C(28,30,35));
-            if(g_skipIntroVideos) Text(dc,L"X",501,y+5,517,y+ROW_H-7,C(120,230,150),DT_CENTER);
-            Text(dc,g_skipIntroVideos?L"ENABLED":L"DISABLED",522,y+4,585,y+ROW_H-6,
-                 g_skipIntroVideos?C(120,230,150):C(200,200,205),DT_CENTER);
-            Fill(dc,600,y+4,738,y+ROW_H-6,C(38,41,49));
-            Text(dc,L"NEXT LAUNCH",600,y+4,738,y+ROW_H-6,C(198,202,210),DT_CENTER);
-            continue;
-        }
 
         if (g_bindIndex==i) Fill(dc,598,y+3,738,y+ROW_H-5,C(85,54,34));
         int listCategory=0, listSlot=0;
@@ -339,10 +326,6 @@ static BOOL HandleOverlayClick(int x,int y) {
         int i=TabCommandIndex(g_scrollRow+visibleIndex);
         int ry=(py-ROW_Y)%ROW_H;
         if(i>=0 && i<CMD_COUNT && ry<ROW_H-1) {
-            if(StrEqA(g_cmds[i].className,"__SkipIntroVideos")) {
-                if(px>=493 && px<744) ToggleSkipIntroVideos();
-                return TRUE;
-            }
             if(px>=493 && px<590){ ExecuteCommandIndex(i); if(g_menuHwnd)InvalidateRect(g_menuHwnd,0,TRUE); return TRUE; }
             if(px>=600 && px<744){ g_bindIndex=i; if(g_menuHwnd)InvalidateRect(g_menuHwnd,0,TRUE); return TRUE; }
             if(px>=330 && px<480 && StrEqA(g_cmds[i].className,"TimeScale")){ CycleTimeScaleArg(i); return TRUE; }
@@ -607,17 +590,9 @@ static BOOL HookGameWindow() {
                 LogA("[WINDOW] New foreground candidate detected; stability timer restarted.");
             }
 
-            if (stableSamples==10) {
+            if (stableSamples==10)
                 LogA("[WINDOW] Candidate stable for 1 second.");
-                if (g_skipIntroVideos && !g_introSkipPulseSent && GetForegroundWindow()==candidate) {
-                    LogA("[INTRO] Skip Intro Videos enabled; sending one Escape pulse to the stable foreground game window.");
-                    keybd_event((BYTE)VK_ESCAPE,0,0,0);
-                    Sleep(30);
-                    keybd_event((BYTE)VK_ESCAPE,0,KEYEVENTF_KEYUP,0);
-                    g_introSkipPulseSent=1;
-                    LogA("[INTRO] Startup Escape pulse sent.");
-                }
-            } else if (stableSamples==20)
+            else if (stableSamples==20)
                 LogA("[WINDOW] Candidate stable for 2 seconds.");
 
             if (stableSamples>=30) {
@@ -651,7 +626,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42 CLEAN ARSENAL + FIVE TABS + SKIP INTRO TEST");
+    LogA("PostalBorkenMenu V2A45 V2A42 CLEAN INTRO ROLLBACK");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -660,12 +635,12 @@ static DWORD __stdcall ModThread(void*) {
         LogA("[OK] Exact-name WeaponId resolver linked; cleaned Arsenal/Special dispatcher active.");
     else
         LogA("[ERROR] Exact-name WeaponId resolver was not retained.");
-    LogA(g_skipIntroVideos ? "[INTRO] Skip Intro Videos config: ENABLED (default)." : "[INTRO] Skip Intro Videos config: DISABLED.");
+    LogA("[INTRO] Synthetic Escape skip removed; native SAVE_DATA SkipIntro remains game-owned.");
     if (!InitIl2Cpp()) return 0;
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] Five tabs active. Arsenal has 14 single weapons, Special has 4 non-Dong entries. Skip Intro checkbox persists in INI.");
+    LogA("[READY] V2A42 stable behavior preserved; synthetic Skip Intro controls removed.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
