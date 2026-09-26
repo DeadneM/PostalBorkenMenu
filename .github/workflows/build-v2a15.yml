@@ -1,9 +1,9 @@
-name: Build V2A42 Clean Arsenal Five Tabs Skip Intro
+name: Build V2A44 Safe Win32 Overlay Mouse
 
 on:
   push:
     branches:
-      - dev/v2a42-clean-arsenal-five-tabs-skip-intro
+      - dev/v2a44-safe-win32-overlay-mouse
   workflow_dispatch:
 
 permissions:
@@ -38,7 +38,7 @@ jobs:
         run: |
           Get-FileHash build\PostalBorkenMenu.asi -Algorithm SHA256 | Format-List
 
-      - name: Stage V2A42 package
+      - name: Stage V2A44 package
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path package | Out-Null
@@ -52,14 +52,14 @@ jobs:
           $files = Get-ChildItem package -File | Select-Object -ExpandProperty Name
           $expected = @('PostalBorkenMenu.asi','PostalBorkenMenu.ini','README.txt')
           if (Compare-Object ($files | Sort-Object) ($expected | Sort-Object)) {
-            Write-Error "Unexpected V2A42 package contents"
+            Write-Error "Unexpected V2A44 package contents"
             exit 1
           }
           Get-ChildItem package -File | Format-Table Name,Length
 
-      - name: Upload V2A42 package
+      - name: Upload V2A44 package
         uses: actions/upload-artifact@v4
         with:
-          name: POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_CLEAN_ARSENAL_FIVE_TABS_SKIP_INTRO_TEST
+          name: POSTAL_Brain_Damaged_PostalBorkenMenu_V2A44_SAFE_WIN32_OVERLAY_MOUSE_TEST
           path: package/*
           if-no-files-found: error
