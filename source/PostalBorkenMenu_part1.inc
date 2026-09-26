@@ -170,6 +170,8 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 #define WM_APP_WEAPONKEY (WM_APP + 0x35)
 #define WM_APP_BASEWHEEL (WM_APP + 0x36)
 #define WM_APP_DLCWHEEL (WM_APP + 0x37)
+#define WM_APP_OVERLAYSTATE (WM_APP + 0x38)
+#define WM_APP_OVERLAYCURSOR (WM_APP + 0x39)
 
 #define VK_BACK 0x08
 #define VK_TAB 0x09
@@ -202,9 +204,17 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 
 #define EN_CHANGE 0x0300
 #define WM_PAINT 0x000F
+#define WM_SETCURSOR 0x0020
+#define WM_INPUT 0x00FF
 #define WM_MOVE 0x0003
 #define WM_SIZE 0x0005
+#define WM_MOUSEMOVE 0x0200
 #define WM_LBUTTONDOWN 0x0201
+#define WM_LBUTTONUP 0x0202
+#define WM_RBUTTONDOWN 0x0204
+#define WM_RBUTTONUP 0x0205
+#define WM_MBUTTONDOWN 0x0207
+#define WM_MBUTTONUP 0x0208
 #define WM_MOUSEWHEEL 0x020A
 #define WM_MOUSEHWHEEL 0x020E
 #define WS_POPUP 0x80000000L
@@ -235,7 +245,28 @@ static volatile LONG g_menuVisible = 0;
 static volatile LONG g_shuttingDown = 0;
 static volatile LONG g_noCrosshair = 0;
 static volatile LONG g_skipIntroVideos = 1;
+static volatile LONG g_autoGiveAll = 0;
+static volatile LONG g_autoGiveAllWeapons = 0;
+static volatile LONG g_autoNoHud = 0;
+static volatile LONG g_autoNoHudKeepCrosshair = 0;
 static volatile LONG g_introSkipPulseSent = 0;
+
+// Overlay interaction state. V2A43 saves and restores the player's exact
+// timescale and Unity cursor state instead of requiring the game's Pause menu.
+static volatile LONG g_overlayInteractionApplied = 0;
+static float g_overlaySavedTimeScale = 1.0f;
+static int g_overlaySavedCursorLockState = 0;
+static BOOL g_overlaySavedCursorVisible = FALSE;
+static BOOL g_overlaySavedCursorValid = FALSE;
+static int g_overlayCursorKeepTicks = 0;
+
+// Level-start automation state. SceneManager is sampled only once per second.
+static int g_lastSceneHandle = -2147483647;
+static int g_scenePollTicks = 0;
+static volatile LONG g_autoLevelPending = 0;
+static int g_autoLevelDelayPolls = 0;
+static int g_autoLevelRetryPolls = 0;
+
 static DWORD g_lastCrosshairTick = 0;
 static volatile LONG g_crosshairReapplyCountdown = 0;
 static int g_scrollRow = 0;
@@ -415,14 +446,18 @@ static CommandRec g_cmds[] = {
     {"Noclip", L"Noclip", L"Noclip", VK_F3,0,0,0,0,0,0,{0}},
     {"NoTarget", L"No Target", L"NoTarget", VK_F4,0,0,0,0,0,0,{0}},
     {"NoHud", L"No HUD", L"NoHud", VK_F5,0,0,0,0,0,0,{0}},
+    {"__AutoNoHud", L"Auto No HUD on Level Start", L"AutoNoHud", 0,0,0,0,0,0,0,{0}},
     {"__NoCrosshair", L"No Crosshair", L"NoCrosshair", 0,0,0,0,0,0,0,{0}},
     {"NoHudWithCrossHair", L"No HUD (keep crosshair)", L"NoHudWithCrossHair", 0,0,0,0,0,0,0,{0}},
+    {"__AutoNoHudKeepCrosshair", L"Auto No HUD + Crosshair on Level Start", L"AutoNoHudKeepCrosshair", 0,0,0,0,0,0,0,{0}},
     {"NoModel", L"No Player Model", L"NoModel", 0,0,0,0,0,0,0,{0}},
     {"TimeScale", L"Time Scale", L"TimeScale", 0,0,0,0,0,0,0,{L'0',L'.',L'5',0}},
     {"LogTime", L"Log Time", L"LogTime", 0,0,0,0,0,0,0,{0}},
     {"GiveAll", L"Give All", L"GiveAll", VK_F6,0,0,0,0,0,0,{0}},
     {"__SkipIntroVideos", L"Skip Intro Videos", L"SkipIntroVideos", 0,0,0,0,0,0,0,{0}},
     {"__GiveAllWeapons", L"Give All Weapons", L"GiveAllWeapons", 0,0,0,0,0,0,0,{0}},
+    {"__AutoGiveAll", L"Auto Give All on Level Start", L"AutoGiveAll", 0,0,0,0,0,0,0,{0}},
+    {"__AutoGiveAllWeapons", L"Auto Give All Weapons on Level Start", L"AutoGiveAllWeapons", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_Shovel", L"Shovel", L"Arsenal_Shovel", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_Pistol", L"Pistol", L"Arsenal_Pistol", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_Shotgun", L"Shotgun", L"Arsenal_Shotgun", 0,0,0,0,0,0,0,{0}},
