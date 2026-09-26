@@ -574,20 +574,20 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A38 DORMANT EXACT-NAME RESOLVER BISECT");
+    LogA("PostalBorkenMenu V2A39 NAMED DISPATCH NO-ROWS BISECT");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
     LoadConfig();
     if (g_dormantExactNameResolver)
-        LogA("[BISECT] V2A35 exact-name resolver is linked but dormant; no named-weapon dispatch exists.");
+        LogA("[BISECT] V2A35 exact-name resolver linked; dispatcher branch enabled; no Arsenal/Special rows exist.");
     else
-        LogA("[BISECT] ERROR: dormant exact-name resolver was not retained.");
+        LogA("[BISECT] ERROR: exact-name resolver was not retained.");
     if (!InitIl2Cpp()) return 0;
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Weapon List / Visual. V2A34 behavior preserved; exact-name resolver linked but unreachable.");
+    LogA("[READY] F1 overlay tabs: Gameplay / Weapons / Weapon List / Visual. V2A38 preserved; named dispatcher branch enabled with zero matching rows.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
