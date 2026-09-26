@@ -750,3 +750,34 @@ Important Hook result from same user log:
 - _hookWeapon remained NULL.
 - get_Hook() returned the exact category0/slot99 candidate.
 - this validates the slot99 AddWeapon isolation hypothesis from V2A32.
+
+
+### V2A38
+
+Bisect target:
+- user specifically flagged the V2A35 exact-name selection system as suspicious.
+- start directly from V2A34 known-good branch.
+- transplant only the V2A35 exact-name resolver code.
+
+Added to source/PostalBorkenMenu_part2.inc:
+- DecodeNamedWeaponCommand()
+- ExecuteNamedWeaponByUnityName()
+- volatile function pointer g_dormantExactNameResolver to force linker retention under /OPT:REF
+
+Not added:
+- no __Arsenal_* or __Special_* command rows
+- no named-weapon dispatcher branch
+- no new tabs
+- no config changes
+- no runtime call to the resolver
+- no automatic WeaponId enumeration
+- no AddWeapon/EquipWeapon execution
+- no recovery path
+
+Startup:
+- reads only the volatile resolver pointer and logs whether it is retained.
+- then continues through the original V2A34 startup path unchanged.
+
+Interpretation:
+- if stable, resolver code presence is not the cause.
+- if it crashes, bisect inside ExecuteNamedWeaponByUnityName next.
