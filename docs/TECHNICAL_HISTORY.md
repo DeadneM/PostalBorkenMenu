@@ -922,3 +922,74 @@ Rationale:
 Packaging:
 - exactly PostalBorkenMenu.asi, PostalBorkenMenu.ini, README.txt.
 - never include PostalBorkenMenu.log.
+
+
+### V2A48 - Gori-style D3D11 in-swapchain overlay
+
+Base:
+- direct from the V2A42 source lineage.
+- V2A42 exact artifact remains the stable fallback.
+
+Evidence:
+- Player.log confirms POSTAL: Brain-Damaged uses Direct3D 11.0, feature level 11.1.
+
+Reason for architectural change:
+- the V2A42 UI used a persistent secondary WS_POPUP window with
+  WS_EX_TRANSPARENT | WS_EX_NOACTIVATE.
+- changing those styles destabilized startup in V2A46/V2A47B.
+- ShowCursor from the V2A47C worker-thread code cave was stable but did not make
+  the cursor visible.
+- Gori's successful architecture rendered inside the game's own swapchain and
+  routed input through the real game WndProc.
+
+V2A48 rendering path:
+- no persistent Postal menu HWND.
+- V2A40 stable 3-second game HWND qualification remains.
+- after subclassing the real game HWND, V2A48 creates transient hidden D3D11
+  probe windows.
+- a legacy D3D11 swapchain and a flip-model swapchain probe are used to locate
+  shared IDXGISwapChain Present vtable entries.
+- vtable slot 8 (Present) is patched to HookPresent.
+- transient probe windows/devices are then destroyed.
+- when the real POSTAL swapchain calls Present, OutputWindow is checked against
+  the validated game HWND.
+- the first matching Present initializes native D3D11 resources from the actual
+  swapchain/device.
+- the old Postal UI is painted to a 760x600 top-down 32-bit GDI DIB, uploaded to
+  a dynamic BGRA D3D11 texture, and composited to the backbuffer before Present.
+- the renderer saves/restores viewport, RTV/DSV, blend, depth, rasterizer,
+  input-layout/topology, VS/PS/GS/HS/DS, SRV and sampler state.
+
+V2A48 input path:
+- F1 polling remains asynchronous but no longer mutates UI state on the worker.
+- F1 posts WM_APP_TOGGLE to the validated real game HWND.
+- ToggleOverlay therefore runs on Unity's window thread.
+- ShowCursor/SetCursor are invoked from that window thread.
+- while visible, GameWndProc consumes WM_INPUT, WM_MOUSEMOVE, left/right/middle
+  mouse messages and mouse wheel.
+- left-click hit testing still uses the validated V2A42 command/tab geometry.
+
+Shutdown:
+- early V2A8 WM_CLOSE fence remains.
+- Present vtable slots are restored before the game's WndProc is restored.
+- D3D/GDI render objects are intentionally retained until process exit to avoid
+  a render-thread Release race during teardown.
+
+Frozen from V2A42:
+- IL2CPP command resolution.
+- Give All / Give All Weapons.
+- No Crosshair event-driven path.
+- TimeScale.
+- exact-name Arsenal/Special weapon dispatch.
+- V2A29 wheel behavior.
+- V2A40 HWND qualification.
+- V2A8 early shutdown fencing.
+
+Skip Intro:
+- V2A42's Escape-based implementation is confirmed ineffective.
+- its internal command record remains dormant, but V2A48 hides it from the UI.
+- no SAVE_DATA.cfg mutation is performed.
+
+Packaging:
+- exactly PostalBorkenMenu.asi + PostalBorkenMenu.ini + README.txt.
+- runtime log excluded.
