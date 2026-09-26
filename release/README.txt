@@ -1,96 +1,72 @@
-PostalBorkenMenu V2A42
+PostalBorkenMenu V2A44
 POSTAL: Brain-Damaged
 
 BASE
-Built from V2A41 while preserving the V2A40 stable-window subclass fix that the user validated.
+Built directly from V2A42, which the user validated as working.
 
-THIS BUILD
-V2A42 reconstructs the desired five-tab overlay and cleans the named weapon lists.
+WHY V2A44 EXISTS
+V2A43 crashed after adding new Unity Cursor and SceneManager IL2CPP bridges.
+V2A43 is rejected.
 
-TABS
-- Gameplay
-- Weapons
-- Arsenal
-- Special
-- Visual
+V2A44 deliberately does NOT inherit the V2A43 branch.
+It returns to V2A42 and adds only a much smaller overlay-input fix.
 
-ARSENAL
-Only single WeaponId variants are exposed.
-
-Base:
-- Shovel
-- Pistol
-- Shotgun
-- Machine Gun
-- Rocket Launcher
-- Lightning Gun
-- Gatling Gun
-- Dildo Bow
-- Cat Canon
-
-These Sunny Daze / PTSD:
-- Um Drill
-- Piss Gun
-- Meat Shotgun
-- Bubble Gum Machine Gun
-- Nuclear Syringe
-
-All _Akimbo WeaponIds are intentionally removed from the overlay.
-
-SPECIAL
-Kept:
-- Hook (Add Only)
-- Cutscene Weapon DLC
-- No Weapon
-- No Weapon DLC
-
-Removed:
-- Dong
-- Dong Confusion
-- Dong Fire
-- Dong Ice
-
-The Hook path remains AddWeapon-only and is never passed through EquipWeapon.
-
-SKIP INTRO VIDEOS
-A new checkbox appears in the Gameplay tab.
-
-Default:
-SkipIntroVideos=1
-
-The value is persisted in PostalBorkenMenu.ini under [Settings].
-Changing the checkbox affects the next launch.
-
-Implementation for this test:
-- no game files are renamed or deleted
-- SAVE_DATA.cfg is not modified
-- no EXE/GameAssembly patching
-- while V2A40 qualifies the foreground game HWND, after the same HWND has remained valid for 1 second, the ASI sends exactly one synthetic Escape key pulse if Skip Intro Videos is enabled
-- the normal V2A40 WndProc subclass is still delayed until 3 seconds of HWND stability
-- no repeated key injection occurs
-
-This deliberately targets startup only and does not touch normal in-game cutscenes.
-
-STABILITY PRESERVED
-- V2A40: 3-second stable foreground HWND qualification before SetWindowLongPtrW
-- V2A8: early WM_CLOSE shutdown fencing
-- no permanent IL2CPP crosshair polling
-- V2A29 weapon-wheel behavior
-- exact-name WeaponId resolver remains targeted
+PRESERVED FROM V2A42
+- V2A40 stable 3-second game-window qualification
+- five tabs: Gameplay / Weapons / Arsenal / Special / Visual
+- 14 single Arsenal weapons
+- no Akimbo Arsenal rows
+- 4 non-Dong Special rows
+- V2A29 wheel behavior
+- V2A8 shutdown fencing
+- exact-name WeaponId resolver
 - no broad Assembly-CSharp scans
 - no startup Hook recovery
 
+F1 OVERLAY MOUSE
+V2A44 uses Win32 cursor APIs only:
+- GetCursor
+- LoadCursorW(IDC_ARROW)
+- ShowCursor
+- SetCursor
+
+No Unity Cursor metadata bridge is added.
+
+When F1 opens:
+- the game window thread forces a visible arrow cursor
+- raw/movement/right/middle mouse messages are swallowed while the overlay is open
+- left click and wheel remain available to the overlay
+- the current game timescale is saved
+- the already-validated TimeManager.SetGameTimeScale bridge sets timescale to 0.0
+
+When F1 closes:
+- the previous timescale is restored
+- only the ShowCursor count adjustments made by the mod are unwound
+- the previous cursor handle is restored
+
+SKIP INTRO
+The V2A42 synthetic Escape implementation has been REMOVED.
+Escape does not skip this game's intro and will not be sent anymore.
+
+The game itself has a documented native -novideo launch option.
+A proper overlay checkbox will only be restored once the exact native saved-setting representation is mapped from SAVE_DATA.cfg.
+
+AUTO LEVEL ACTIONS
+Not included in V2A44.
+The V2A43 SceneManager experiment is removed completely because that build crashed.
+
+The next level-start implementation will be rebuilt independently after V2A44 overlay stability is confirmed.
+
 TEST
-1. Launch normally with SkipIntroVideos=1.
-2. Confirm whether the intro video is skipped.
-3. Confirm the game reaches the menu and remains stable.
-4. Open F1.
-5. Check all five tabs.
-6. Confirm Arsenal contains no Akimbo entries.
-7. Confirm Special contains no Dong entries.
-8. Toggle Skip Intro Videos off and on once to verify checkbox persistence.
-9. Test one normal Arsenal weapon and, if owned, one DLC weapon.
-10. Exit normally and send PostalBorkenMenu.log.
+1. Launch normally.
+2. Confirm startup remains as stable as V2A42.
+3. Enter gameplay.
+4. Press F1 without opening the game's Pause menu.
+5. Confirm a visible mouse cursor appears.
+6. Confirm gameplay pauses.
+7. Click tabs and RUN controls.
+8. Close F1 and confirm controls/timescale return normally.
+9. Exit normally and send PostalBorkenMenu.log.
 
 PACKAGE CONTENTS
 PostalBorkenMenu.asi
