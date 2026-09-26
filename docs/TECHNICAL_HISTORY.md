@@ -868,3 +868,57 @@ Diagnostic note:
 Interpretation:
 - stable => command-table expansion itself is innocent.
 - crash => investigate LoadConfig/CMD_COUNT traversal and row/table layout before any UI work.
+
+
+### V2A42
+
+Base:
+- V2A41 named-row branch.
+- Preserves V2A40 stable-window subclass behavior validated by the user.
+
+User-directed cleanup:
+- remove every __Arsenal_* row whose WeaponId ends in _Akimbo.
+- remove all four Dong special rows:
+  - WEAPON_Dong
+  - WEAPON_Dong_Confusion
+  - WEAPON_Dong_Fire
+  - WEAPON_Dong_Ice
+- remove the old generic V2A34 WeaponListBase/WeaponListDlc rows from g_cmds and INI.
+
+Final named lists in V2A42:
+- Arsenal: 14 rows
+  - 9 base single weapons
+  - 5 These Sunny Daze/PTSD single weapons
+- Special: 4 rows
+  - Hook
+  - CutsceneWeapon_DLC
+  - NoWeapon
+  - NoWeapon_DLC
+- zero _Akimbo rows
+- zero Dong rows
+- zero generic Weapon List rows.
+
+UI:
+- restore five tabs: Gameplay / Weapons / Arsenal / Special / Visual.
+- named weapon dispatcher routes __Arsenal_* to Arsenal and __Special_* to Special.
+- Visual becomes tab index 4.
+- V2A40 stable-window fix remains untouched.
+
+Skip Intro Videos:
+- synthetic __SkipIntroVideos checkbox row in Gameplay.
+- [Settings] SkipIntroVideos defaults to 1.
+- checkbox state persists to PostalBorkenMenu.ini.
+- state changes take effect on the next launch.
+- this first implementation does not modify SAVE_DATA.cfg and does not patch game binaries.
+- keybd_event is imported from user32.dll.
+- during HookGameWindow qualification, if the same valid foreground game HWND reaches 1 second of stability and skip is enabled, send one Escape key down/up pulse.
+- g_introSkipPulseSent prevents repeats.
+- WndProc subclass still waits for the full V2A40 3-second stability window.
+
+Rationale:
+- the retail game exposes a Skip Intro Video option in its General settings, but this ASI implementation deliberately avoids unknown save/config internals until the exact native storage path is verified.
+- one startup-only Escape pulse is a reversible test that does not touch saves or game files.
+
+Packaging:
+- exactly PostalBorkenMenu.asi, PostalBorkenMenu.ini, README.txt.
+- never include PostalBorkenMenu.log.
