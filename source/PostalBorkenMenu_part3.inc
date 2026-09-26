@@ -150,8 +150,8 @@ static void SelectMenuTab(int tab) {
     if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
 }
 
-static void PaintOverlay(HWND hwnd) {
-    PAINTSTRUCT ps={}; HDC dc=BeginPaint(hwnd,&ps); if(!dc) return;
+extern "C" void __stdcall PostalOverlayPaintToDC(HDC dc) {
+    if(!dc) return;
     Fill(dc,0,0,OVERLAY_W,OVERLAY_H,C(16,17,20));
     Fill(dc,0,0,OVERLAY_W,54,C(31,33,39));
     Fill(dc,0,53,OVERLAY_W,55,C(214,82,61));
@@ -225,6 +225,12 @@ static void PaintOverlay(HWND hwnd) {
 
     int fy=ROW_Y+VISIBLE_ROWS*ROW_H+4;
     Text(dc,L"Tabs: Gameplay / Weapons / Arsenal / Special / Visual  •  Mouse wheel scroll  •  F1 close",22,fy,738,fy+28,C(145,148,156),DT_LEFT);
+}
+
+static void PaintOverlay(HWND hwnd) {
+    PAINTSTRUCT ps={};
+    HDC dc=BeginPaint(hwnd,&ps);
+    if(dc) PostalOverlayPaintToDC(dc);
     EndPaint(hwnd,&ps);
 }
 
@@ -263,10 +269,32 @@ static BOOL CreateOverlayWindow() {
     return TRUE;
 }
 
+static void RestoreOverlayCursorOnGameThread() {
+    while(g_cursorShowBalance>0) {
+        ShowCursor(FALSE);
+        --g_cursorShowBalance;
+    }
+}
+
 static void ToggleOverlay() {
-    if(!g_menuHwnd) return;
-    if(g_menuVisible){ ShowWindow(g_menuHwnd,SW_HIDE); g_menuVisible=0; g_bindIndex=-1; }
-    else { ClampScrollRow(); UpdateOverlayPosition(); ShowWindow(g_menuHwnd,SW_SHOWNOACTIVATE); g_menuVisible=1; InvalidateRect(g_menuHwnd,0,TRUE); }
+    if(g_menuVisible) {
+        g_menuVisible=0;
+        g_bindIndex=-1;
+        RestoreOverlayCursorOnGameThread();
+        LogA("[OVERLAY] Gori-style DX11 overlay closed.");
+    } else {
+        ClampScrollRow();
+        g_menuVisible=1;
+
+        int count=-1;
+        do {
+            count=ShowCursor(TRUE);
+            ++g_cursorShowBalance;
+        } while(count<0 && g_cursorShowBalance<32);
+
+        SetCursor(LoadCursorW(0,IDC_ARROW));
+        LogA("[OVERLAY] Gori-style DX11 overlay opened; cursor requested on the real game window thread.");
+    }
 }
 
 static void CycleTimeScaleArg(int i) {
@@ -357,6 +385,12 @@ static BOOL HandleOverlayClick(int x,int y) {
 static WNDPROC BeginEarlyShutdown(HWND hwnd, const char* reason) {
     WNDPROC old=g_oldGameWndProc;
     if (!g_shuttingDown) {
+        if(g_menuVisible) {
+            g_menuVisible=0;
+            RestoreOverlayCursorOnGameThread();
+        }
+        PostalDx11Shutdown();
+
         // Critical V2A8 rule: fence ALL mod/IL2CPP work BEFORE Unity begins teardown.
         g_shuttingDown=1;
         g_ready=0;
@@ -402,10 +436,36 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         return g_oldGameWndProc ? CallWindowProcW(g_oldGameWndProc,hwnd,msg,wp,lp) : DefWindowProcW(hwnd,msg,wp,lp);
     }
 
+    if (msg==WM_APP_TOGGLE) {
+        ToggleOverlay();
+        return 0;
+    }
+
+    if (g_menuVisible && msg==WM_SETCURSOR) {
+        SetCursor(LoadCursorW(0,IDC_ARROW));
+        return TRUE;
+    }
+
     if (msg==WM_MOUSEWHEEL && g_menuVisible) {
         short delta=(short)((wp>>16)&0xFFFF);
         if(delta>0) ScrollOverlayRows(-3);
         else if(delta<0) ScrollOverlayRows(3);
+        return 0;
+    }
+
+    if (g_menuVisible && msg==WM_LBUTTONDOWN) {
+        int x=(short)(lp & 0xFFFF);
+        int y=(short)((lp>>16)&0xFFFF);
+        HandleOverlayClick(x,y);
+        SetCursor(LoadCursorW(0,IDC_ARROW));
+        return 0;
+    }
+
+    if (g_menuVisible &&
+        (msg==WM_INPUT || msg==WM_MOUSEMOVE || msg==WM_LBUTTONUP ||
+         msg==WM_RBUTTONDOWN || msg==WM_RBUTTONUP ||
+         msg==WM_MBUTTONDOWN || msg==WM_MBUTTONUP)) {
+        if(msg==WM_MOUSEMOVE) SetCursor(LoadCursorW(0,IDC_ARROW));
         return 0;
     }
 
@@ -443,11 +503,6 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         if (g_ready) g_crosshairReapplyCountdown=15; // ~150 ms at the 10 ms worker cadence
     }
 
-    if ((msg==WM_MOVE || msg==WM_SIZE) && g_menuVisible) UpdateOverlayPosition();
-    if (msg==WM_LBUTTONDOWN && g_menuVisible) {
-        int x=(short)(lp & 0xFFFF); int y=(short)((lp>>16)&0xFFFF);
-        if(HandleOverlayClick(x,y)) return 0;
-    }
     return g_oldGameWndProc ? CallWindowProcW(g_oldGameWndProc,hwnd,msg,wp,lp) : DefWindowProcW(hwnd,msg,wp,lp);
 }
 
@@ -486,8 +541,7 @@ static void PollHotkeys() {
             }
             if (vk==VK_F1) {
                 g_bindIndex=-1;
-                if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
-                ToggleOverlay();
+                if(g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_TOGGLE,0,0);
                 return;
             }
             if (vk==VK_BACK) g_cmds[g_bindIndex].vk=0;
@@ -551,7 +605,7 @@ static void PollHotkeys() {
             if(g_dlcWheelActive) PostMessageW(g_gameHwnd,WM_APP_DLCWHEEL,0,0);
             g_baseWheelVk=0;
             g_dlcWheelVk=0;
-            ToggleOverlay();
+            if(g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_TOGGLE,0,0);
             return;
         }
 
@@ -651,7 +705,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42 CLEAN ARSENAL + FIVE TABS + SKIP INTRO TEST");
+    LogA("PostalBorkenMenu V2A48 GORI-STYLE DX11 IN-SWAPCHAIN OVERLAY TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -662,10 +716,12 @@ static DWORD __stdcall ModThread(void*) {
         LogA("[ERROR] Exact-name WeaponId resolver was not retained.");
     LogA(g_skipIntroVideos ? "[INTRO] Skip Intro Videos config: ENABLED (default)." : "[INTRO] Skip Intro Videos config: DISABLED.");
     if (!InitIl2Cpp()) return 0;
-    if (!CreateOverlayWindow()) return 0;
+    if (!InitGdi()) { LogA("[ERROR] Failed to initialize GDI painter for DX11 overlay texture."); return 0; }
     if (!HookGameWindow()) return 0;
-    LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] Five tabs active. Arsenal has 14 single weapons, Special has 4 non-Dong entries. Skip Intro checkbox persists in INI.");
+    if (!PostalDx11Install(g_gameHwnd))
+        LogA("[WARN] DX11 Present hook installation failed; gameplay commands remain available through hotkeys.");
+    LogA("[OK] Async keyboard polling enabled; F1 is marshalled to the real game WndProc.");
+    LogA("[READY] Gori-style DX11 in-swapchain overlay path active. No persistent Postal overlay HWND is created.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
@@ -681,10 +737,8 @@ static DWORD __stdcall ModThread(void*) {
         Sleep(10);
     }
 
-    // Same-thread overlay destruction. No Unity/IL2CPP calls are made here.
-    if (g_menuHwnd && IsWindow(g_menuHwnd)) DestroyWindow(g_menuHwnd);
     g_menuHwnd=0;
-    LogA("[SHUTDOWN] V2A8 worker ended cleanly; no further IL2CPP access is possible.");
+    LogA("[SHUTDOWN] V2A8 worker ended cleanly; DX11 hook was released before Unity teardown.");
     return 0;
 }
 
