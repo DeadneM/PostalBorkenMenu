@@ -117,7 +117,10 @@ __declspec(dllimport) int __stdcall FillRect(HDC, const RECT*, HBRUSH);
 __declspec(dllimport) int __stdcall DrawTextW(HDC, LPCWSTR, int, RECT*, UINT);
 __declspec(dllimport) BOOL __stdcall SetLayeredWindowAttributes(HWND, COLORREF, BYTE, DWORD);
 __declspec(dllimport) short __stdcall GetAsyncKeyState(int);
-__declspec(dllimport) void __stdcall keybd_event(BYTE, BYTE, DWORD, ULONG_PTR);
+__declspec(dllimport) int __stdcall ShowCursor(BOOL);
+__declspec(dllimport) HCURSOR __stdcall SetCursor(HCURSOR);
+__declspec(dllimport) HCURSOR __stdcall GetCursor(void);
+__declspec(dllimport) HCURSOR __stdcall LoadCursorW(HINSTANCE, LPCWSTR);
 __declspec(dllimport) BOOL __stdcall PeekMessageW(MSG*, HWND, UINT, UINT, UINT);
 __declspec(dllimport) BOOL __stdcall DestroyWindow(HWND);
 __declspec(dllimport) void __stdcall PostQuitMessage(int);
@@ -170,6 +173,7 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 #define WM_APP_WEAPONKEY (WM_APP + 0x35)
 #define WM_APP_BASEWHEEL (WM_APP + 0x36)
 #define WM_APP_DLCWHEEL (WM_APP + 0x37)
+#define WM_APP_OVERLAYSTATE (WM_APP + 0x38)
 
 #define VK_BACK 0x08
 #define VK_TAB 0x09
@@ -202,9 +206,17 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 
 #define EN_CHANGE 0x0300
 #define WM_PAINT 0x000F
+#define WM_SETCURSOR 0x0020
+#define WM_INPUT 0x00FF
 #define WM_MOVE 0x0003
 #define WM_SIZE 0x0005
+#define WM_MOUSEMOVE 0x0200
 #define WM_LBUTTONDOWN 0x0201
+#define WM_LBUTTONUP 0x0202
+#define WM_RBUTTONDOWN 0x0204
+#define WM_RBUTTONUP 0x0205
+#define WM_MBUTTONDOWN 0x0207
+#define WM_MBUTTONUP 0x0208
 #define WM_MOUSEWHEEL 0x020A
 #define WM_MOUSEHWHEEL 0x020E
 #define WS_POPUP 0x80000000L
@@ -222,7 +234,7 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 #define DT_SINGLELINE 0x0020
 #define TRANSPARENT_BK 1
 #define PM_REMOVE 0x0001
-#define KEYEVENTF_KEYUP 0x0002
+#define IDC_ARROW ((LPCWSTR)(ULONG_PTR)32512)
 
 static HMODULE g_self = 0;
 static HWND g_menuHwnd = 0;
@@ -234,8 +246,15 @@ static volatile LONG g_ready = 0;
 static volatile LONG g_menuVisible = 0;
 static volatile LONG g_shuttingDown = 0;
 static volatile LONG g_noCrosshair = 0;
-static volatile LONG g_skipIntroVideos = 1;
-static volatile LONG g_introSkipPulseSent = 0;
+
+// V2A44 keeps the overlay interaction fix Win32-only. No new Unity Cursor or
+// SceneManager metadata bridges are introduced at startup.
+static int g_overlayCursorShowBalance = 0;
+static HCURSOR g_overlayPreviousCursor = 0;
+static HCURSOR g_overlayArrowCursor = 0;
+static volatile LONG g_overlayPauseApplied = 0;
+static float g_overlaySavedTimeScale = 1.0f;
+
 static DWORD g_lastCrosshairTick = 0;
 static volatile LONG g_crosshairReapplyCountdown = 0;
 static int g_scrollRow = 0;
@@ -421,7 +440,6 @@ static CommandRec g_cmds[] = {
     {"TimeScale", L"Time Scale", L"TimeScale", 0,0,0,0,0,0,0,{L'0',L'.',L'5',0}},
     {"LogTime", L"Log Time", L"LogTime", 0,0,0,0,0,0,0,{0}},
     {"GiveAll", L"Give All", L"GiveAll", VK_F6,0,0,0,0,0,0,{0}},
-    {"__SkipIntroVideos", L"Skip Intro Videos", L"SkipIntroVideos", 0,0,0,0,0,0,0,{0}},
     {"__GiveAllWeapons", L"Give All Weapons", L"GiveAllWeapons", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_Shovel", L"Shovel", L"Arsenal_Shovel", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_Pistol", L"Pistol", L"Arsenal_Pistol", 0,0,0,0,0,0,0,{0}},
