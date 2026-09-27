@@ -92,8 +92,6 @@ static int CommandMenuTab(int i) {
     if (StrEqA(n,"GiveAll") ||
         StrEqA(n,"__GiveAllWeapons") ||
         StrEqA(n,"__GiveAllDlcWeapons") ||
-        StrEqA(n,"__WeaponCatalog") ||
-        StrEqA(n,"__InitDlcHook") ||
         StrEqA(n,"__WeaponKeysMode") ||
         StrEqA(n,"__BaseWeaponWheel") ||
         StrEqA(n,"__DlcWeaponWheel")) return 1; // Weapons
