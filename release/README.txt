@@ -1,3 +1,58 @@
+PostalBorkenMenu V2A42-H11 DLC WHEEL NATIVE SELECTION + REAL SKIPINTRO
+POSTAL: Brain-Damaged
+
+BASE
+Wheel work resumes from H7 because H10 removed the visible wheel.
+H10 and H9 are rejected.
+
+H11 WHEEL GOAL
+Keep the H7 visible native wheel and force the game's own controller selection path only at close.
+
+WHEEL IMPLEMENTATION
+- H7 verified five exact DLC WeaponIds are mapped to the first five native WeaponWheelButton instances.
+- The visible wheel still opens through PlayerWheelView.Show(), preserving the last working visual path.
+- On close, while DLC WeaponIds are still active:
+  1. PlayerWeaponWheelComponent.GetInputAngle()
+  2. PlayerWeaponWheelComponent.UpdateSelection(angle)
+  3. verify _selectedButton
+  4. PlayerWeaponWheelComponent.SelectButton()
+- Only after native SelectButton() is allowed to commit the choice does H11 hide the wheel and restore every original vanilla WeaponId.
+
+DLC MAP
+1 -> WEAPON_UmDrill
+2 -> WEAPON_PissGun
+3 -> WEAPON_MeatShotgun
+4 -> WEAPON_BubbleGumMachineGun
+5 -> WEAPON_NuclearSyringe
+
+SKIP INTRO
+H11 also contains the J1 loader-side real -skipintro command-line injection.
+No Escape, SendInput, keybd_event, mouse event, or other simulated user input is used for Skip Intro.
+
+TEST
+1. Enable Skip Intro Videos, restart, and confirm the real intro bypass.
+2. In gameplay HOLD DLC Weapon Wheel.
+3. Move the wheel pointer to several of the first five sectors and release.
+4. Check whether the corresponding DLC weapon is actually selected.
+5. Open Base Weapon Wheel afterwards and confirm vanilla contents are restored.
+6. Send PostalBorkenMenu.log.
+
+UNCHANGED
+- Grappling Hook validated AddWeapon -> InitHook fix
+- H4 menu cleanup
+- TimeScale / No Crosshair / hotkeys / shutdown stability
+- minimal dxgi.dll ASI loader architecture
+
+PACKAGE
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+H4 / PRIOR TECHNICAL HISTORY
+======================================================================
+
 PostalBorkenMenu V2A42-H7 DLC WHEEL OBJECT FIELD + DXGI
 POSTAL: Brain-Damaged
 
