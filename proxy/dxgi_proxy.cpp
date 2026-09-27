@@ -9,6 +9,20 @@
 #include <windows.h>
 #include <dxgi1_6.h>
 
+#pragma function(memset)
+#pragma function(memcpy)
+extern "C" void* memset(void* dst, int v, size_t n) {
+    unsigned char* d=(unsigned char*)dst;
+    while(n--) *d++=(unsigned char)v;
+    return dst;
+}
+extern "C" void* memcpy(void* dst, const void* src, size_t n) {
+    unsigned char* d=(unsigned char*)dst;
+    const unsigned char* s=(const unsigned char*)src;
+    while(n--) *d++=*s++;
+    return dst;
+}
+
 static HMODULE g_self = 0;
 static HMODULE g_realDxgi = 0;
 static volatile LONG g_initState = 0;
