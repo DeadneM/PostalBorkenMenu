@@ -168,6 +168,50 @@ static BOOL InvokeNativeCommand(int i) {
     return TRUE;
 }
 
+static BOOL IsTargetedHookInventoryName(const char* name) {
+    if (!name) return FALSE;
+    return StrContainsNoCaseA(name,"hook") ||
+           StrContainsNoCaseA(name,"weapon") ||
+           StrContainsNoCaseA(name,"collect") ||
+           StrContainsNoCaseA(name,"give") ||
+           StrContainsNoCaseA(name,"equip") ||
+           StrContainsNoCaseA(name,"init") ||
+           StrContainsNoCaseA(name,"cooldown") ||
+           StrContainsNoCaseA(name,"inventory");
+}
+
+static void LogTargetedHookInventoryMembers(Il2CppClass* klass, const char* header) {
+    if (!klass) return;
+    if (header) LogA(header);
+
+    void* mi=0;
+    const MethodInfo* m=0;
+    int methodCount=0;
+    while ((m=g_il2cpp.class_get_methods(klass,&mi))!=0 && methodCount<128) {
+        const char* name=g_il2cpp.method_get_name(m);
+        if (!name || !IsTargetedHookInventoryName(name)) continue;
+        LogA("[HOOK H2 METHOD]");
+        LogA(name);
+        LogIntA("[HOOK H2] parameter count: ",(int)g_il2cpp.method_get_param_count(m));
+        ++methodCount;
+    }
+    LogIntA("[HOOK H2] matching methods: ",methodCount);
+
+    if (g_il2cpp.class_get_fields && g_il2cpp.field_get_name) {
+        void* fi=0;
+        const FieldInfo* fld=0;
+        int fieldCount=0;
+        while ((fld=g_il2cpp.class_get_fields(klass,&fi))!=0 && fieldCount<128) {
+            const char* name=g_il2cpp.field_get_name(fld);
+            if (!name || !IsTargetedHookInventoryName(name)) continue;
+            LogA("[HOOK H2 FIELD]");
+            LogA(name);
+            ++fieldCount;
+        }
+        LogIntA("[HOOK H2] matching fields: ",fieldCount);
+    }
+}
+
 static void LogCurrentHookState(const char* phase);
 
 static BOOL GiveAllWeaponsOnly() {
@@ -175,16 +219,28 @@ static BOOL GiveAllWeaponsOnly() {
     Il2CppObject* inv=FindLiveObject(g_inventoryClass);
     if (!inv) { LogA("[ERROR] PlayerInventoryComponent instance not found"); return FALSE; }
 
-    // V2A31: observation only. Snapshot the known hook state immediately
-    // before and after the validated native GiveAllWeapons() call.
-    LogCurrentHookState("[GIVEALL HOOK] BEFORE GiveAllWeapons");
+    // V2A42-H2: targeted diagnostic only.
+    // NEVER scan Assembly-CSharp globally. Inspect only the two known inventory
+    // classes that V2A42 already resolves safely, then run the validated native
+    // GiveAllWeapons() path unchanged.
+    Il2CppClass* weaponsInventoryClass=g_assemblyCSharp
+        ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.Inventory","WeaponsInventory")
+        : 0;
+
+    LogA("[HOOK H2] ===== BEGIN targeted inventory audit =====");
+    LogTargetedHookInventoryMembers(g_inventoryClass,
+        "[HOOK H2] PlayerInventoryComponent targeted members:");
+    LogTargetedHookInventoryMembers(weaponsInventoryClass,
+        "[HOOK H2] WeaponsInventory targeted members:");
+    LogCurrentHookState("[HOOK H2] RUNTIME STATE BEFORE GiveAllWeapons");
 
     Il2CppException* ex=0;
     g_il2cpp.runtime_invoke(g_giveAllWeapons,inv,0,&ex);
     if (ex) { LogA("[ERROR] GiveAllWeapons() threw:"); FormatExceptionToLog(ex); return FALSE; }
     LogA("[OK] Give All Weapons executed (quest items untouched)");
 
-    LogCurrentHookState("[GIVEALL HOOK] AFTER GiveAllWeapons");
+    LogCurrentHookState("[HOOK H2] RUNTIME STATE AFTER GiveAllWeapons");
+    LogA("[HOOK H2] ===== END targeted inventory audit =====");
     return TRUE;
 }
 
