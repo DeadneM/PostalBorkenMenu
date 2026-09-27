@@ -1,0 +1,74 @@
+name: Build V2A42-J2 Real NoVideo + DXGI Loader
+
+on:
+  push:
+    branches:
+      - dev/v2a42-j2-real-novideo-dxgi
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up MSVC x64
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build ASI import libraries
+        shell: cmd
+        run: |
+          lib /nologo /machine:x64 /def:build\kernel32_ext.def /out:build\kernel32_ext.lib
+          lib /nologo /machine:x64 /def:build\user32_ext.def /out:build\user32_ext.lib
+
+      - name: Compile PostalBorkenMenu ASI
+        shell: cmd
+        run: |
+          cl /nologo /c /O2 /GS- /GR- /EHs-c- /Zl /Fo:build\PostalBorkenMenu.obj source\PostalBorkenMenu.cpp
+          link /nologo /DLL /MACHINE:X64 /NODEFAULTLIB /ENTRY:DllMain /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /OUT:build\PostalBorkenMenu.asi build\PostalBorkenMenu.obj build\kernel32_ext.lib build\user32_ext.lib
+
+      - name: Compile DXGI ASI loader
+        shell: cmd
+        run: |
+          cl /nologo /c /O2 /Oi- /GS- /GR- /EHs-c- /Zl /Fo:build\dxgi_asi_loader.obj proxy\dxgi_asi_loader.cpp
+          ml64 /nologo /c /Fo build\dxgi_thunks.obj proxy\dxgi_thunks.asm
+          link /nologo /DLL /MACHINE:X64 /NODEFAULTLIB /ENTRY:DllMain /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /DEF:proxy\dxgi_proxy.def /OUT:build\dxgi.dll build\dxgi_asi_loader.obj build\dxgi_thunks.obj kernel32.lib
+
+      - name: SHA-256
+        shell: powershell
+        run: |
+          Get-FileHash build\PostalBorkenMenu.asi -Algorithm SHA256 | Format-List
+          Get-FileHash build\dxgi.dll -Algorithm SHA256 | Format-List
+
+      - name: Stage V2A42-J2 package
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          Copy-Item build\dxgi.dll package\dxgi.dll
+          Copy-Item build\PostalBorkenMenu.asi package\PostalBorkenMenu.asi
+          Copy-Item config\PostalBorkenMenu.ini package\PostalBorkenMenu.ini
+          Copy-Item release\README.txt package\README.txt
+
+      - name: Verify package contents
+        shell: powershell
+        run: |
+          $files = Get-ChildItem package -File | Select-Object -ExpandProperty Name
+          $expected = @('dxgi.dll','PostalBorkenMenu.asi','PostalBorkenMenu.ini','README.txt')
+          if (Compare-Object ($files | Sort-Object) ($expected | Sort-Object)) {
+            Write-Error "Unexpected V2A42-J2 package contents"
+            exit 1
+          }
+          Get-ChildItem package -File | Format-Table Name,Length
+
+      - name: Upload V2A42-J2 package
+        uses: actions/upload-artifact@v4
+        with:
+          name: POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_J2_REAL_NOVIDEO_DXGI_TEST
+          path: package/*
+          if-no-files-found: error
