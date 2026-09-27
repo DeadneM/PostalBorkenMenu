@@ -1,13 +1,14 @@
-// PostalBorkenMenu V2A49A
-// Safe DXGI proxy architecture probe.
-// Exact V2A42 ASI remains untouched. This module only proxies system DXGI and
-// installs per-object private vtables on the *real* factory/swapchain objects.
-// No renderer, no menu mirroring, no cursor work in this probe.
+// PostalBorkenMenu V2A49B
+// Empty DX11 overlay on top of the validated V2A49A true DXGI proxy.
+// Exact V2A42 ASI remains untouched.
+// This build adds only one thing: a blank dark rectangle drawn directly into
+// the REAL game swapchain before Present. No input, no cursor, no options.
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
 #include <dxgi1_6.h>
+#include <d3d11_1.h>
 
 #pragma function(memset)
 #pragma function(memcpy)
@@ -118,7 +119,7 @@ extern "C" void __stdcall EnsureRealDxgi() {
     AppendW(sys,512,L"\\dxgi.dll");
     g_realDxgi=LoadLibraryW(sys);
     if(!g_realDxgi) {
-        Log("[DXGI49A] ERROR: failed to load system32\\dxgi.dll");
+        Log("[DXGI49B] ERROR: failed to load system32\\dxgi.dll");
         InterlockedExchange(&g_initState,-1);
         return;
     }
@@ -143,7 +144,7 @@ extern "C" void __stdcall EnsureRealDxgi() {
     g_real_CompatString=Resolve("CompatString");
     g_real_CompatValue=Resolve("CompatValue");
 
-    Log("[DXGI49A] System DXGI loaded lazily; proxy forwarding active.");
+    Log("[DXGI49B] System DXGI loaded lazily; proxy forwarding active.");
     InterlockedExchange(&g_initState,2);
 }
 
@@ -180,6 +181,13 @@ struct SwapRec {
     unsigned count;
     PFN_SwapPresent present;
     volatile LONG logged;
+
+    ID3D11Device* device;
+    ID3D11DeviceContext1* context1;
+    ID3D11Texture2D* backBuffer;
+    ID3D11RenderTargetView* rtv;
+    volatile LONG overlayReadyLogged;
+    volatile LONG overlayErrorLogged;
 };
 
 static FactoryRec g_factories[16] = {};
@@ -231,11 +239,103 @@ static SwapRec* FindSwap(void* self) {
     return 0;
 }
 
+static void ReleaseOverlayTarget(SwapRec* r) {
+    if(!r) return;
+    if(r->rtv) { r->rtv->Release(); r->rtv=0; }
+    if(r->backBuffer) { r->backBuffer->Release(); r->backBuffer=0; }
+}
+
+static BOOL EnsureOverlayRenderer(IDXGISwapChain* self, SwapRec* r) {
+    if(!self || !r) return FALSE;
+
+    if(!r->device || !r->context1) {
+        ID3D11Device* dev=0;
+        HRESULT hr=self->GetDevice(__uuidof(ID3D11Device),(void**)&dev);
+        if(FAILED(hr) || !dev) {
+            if(InterlockedCompareExchange(&r->overlayErrorLogged,1,0)==0)
+                Log("[DXGI49B] ERROR: real swapchain did not expose an ID3D11Device.");
+            return FALSE;
+        }
+
+        ID3D11DeviceContext* baseCtx=0;
+        dev->GetImmediateContext(&baseCtx);
+        if(!baseCtx) {
+            dev->Release();
+            if(InterlockedCompareExchange(&r->overlayErrorLogged,1,0)==0)
+                Log("[DXGI49B] ERROR: failed to get D3D11 immediate context.");
+            return FALSE;
+        }
+
+        ID3D11DeviceContext1* ctx1=0;
+        hr=baseCtx->QueryInterface(__uuidof(ID3D11DeviceContext1),(void**)&ctx1);
+        baseCtx->Release();
+        if(FAILED(hr) || !ctx1) {
+            dev->Release();
+            if(InterlockedCompareExchange(&r->overlayErrorLogged,1,0)==0)
+                Log("[DXGI49B] ERROR: ID3D11DeviceContext1 unavailable; empty overlay disabled.");
+            return FALSE;
+        }
+
+        r->device=dev;
+        r->context1=ctx1;
+    }
+
+    ID3D11Texture2D* current=0;
+    HRESULT hr=self->GetBuffer(0,__uuidof(ID3D11Texture2D),(void**)&current);
+    if(FAILED(hr) || !current) return FALSE;
+
+    if(current==r->backBuffer && r->rtv) {
+        current->Release();
+        return TRUE;
+    }
+
+    ReleaseOverlayTarget(r);
+    r->backBuffer=current;
+
+    hr=r->device->CreateRenderTargetView(r->backBuffer,0,&r->rtv);
+    if(FAILED(hr) || !r->rtv) {
+        ReleaseOverlayTarget(r);
+        if(InterlockedCompareExchange(&r->overlayErrorLogged,1,0)==0)
+            Log("[DXGI49B] ERROR: failed to create backbuffer RTV for empty overlay.");
+        return FALSE;
+    }
+
+    if(InterlockedCompareExchange(&r->overlayReadyLogged,1,0)==0)
+        Log("[DXGI49B] Empty DX11 overlay renderer attached to the real game backbuffer.");
+    return TRUE;
+}
+
+static void DrawEmptyOverlay(IDXGISwapChain* self, SwapRec* r) {
+    if(!EnsureOverlayRenderer(self,r)) return;
+
+    D3D11_TEXTURE2D_DESC td={};
+    r->backBuffer->GetDesc(&td);
+
+    LONG left=32;
+    LONG top=32;
+    LONG right=(LONG)(32+760);
+    LONG bottom=(LONG)(32+600);
+
+    if(right>(LONG)td.Width-16) right=(LONG)td.Width-16;
+    if(bottom>(LONG)td.Height-16) bottom=(LONG)td.Height-16;
+    if(right<=left || bottom<=top) return;
+
+    D3D11_RECT rect={left,top,right,bottom};
+    const FLOAT panel[4]={0.035f,0.038f,0.045f,1.0f};
+
+    // ClearView draws only this rectangle and does not require us to replace
+    // the game's pipeline state with our own shaders/blend/rasterizer state.
+    r->context1->ClearView(r->rtv,panel,&rect,1);
+}
+
 static HRESULT STDMETHODCALLTYPE HookPresent(IDXGISwapChain* self, UINT sync, UINT flags) {
     SwapRec* r=FindSwap(self);
     if(!r || !r->present) return DXGI_ERROR_INVALID_CALL;
+
     if(InterlockedCompareExchange(&r->logged,1,0)==0)
-        Log("[DXGI49A] Real game swapchain Present reached through private per-object vtable.");
+        Log("[DXGI49B] Real game swapchain Present reached through private per-object vtable.");
+
+    DrawEmptyOverlay(self,r);
     return r->present(self,sync,flags);
 }
 
@@ -249,7 +349,7 @@ static BOOL PatchSwapchain(IUnknown* unk) {
 
     unsigned slot=32;
     for(unsigned i=0;i<32;i++) if(!g_swaps[i].object) { slot=i; break; }
-    if(slot==32) { Unlock(&g_swapLock); Log("[DXGI49A] WARN: swapchain record table full."); return FALSE; }
+    if(slot==32) { Unlock(&g_swapLock); Log("[DXGI49B] WARN: swapchain record table full."); return FALSE; }
 
     unsigned count=SwapVtableCount(unk);
     void** original=*(void***)unk;
@@ -265,12 +365,18 @@ static BOOL PatchSwapchain(IUnknown* unk) {
     r.count=count;
     r.present=(PFN_SwapPresent)original[8];
     r.logged=0;
+    r.device=0;
+    r.context1=0;
+    r.backBuffer=0;
+    r.rtv=0;
+    r.overlayReadyLogged=0;
+    r.overlayErrorLogged=0;
 
     clone[8]=(void*)&HookPresent;
     *(void***)unk=clone;
 
     Unlock(&g_swapLock);
-    Log("[DXGI49A] Real swapchain patched with a private vtable clone; no global DXGI vtable was modified.");
+    Log("[DXGI49B] Real swapchain patched with a private vtable clone; no global DXGI vtable was modified.");
     return TRUE;
 }
 
@@ -320,7 +426,7 @@ static BOOL PatchFactory(IUnknown* unk) {
 
     unsigned slot=16;
     for(unsigned i=0;i<16;i++) if(!g_factories[i].object) { slot=i; break; }
-    if(slot==16) { Unlock(&g_factoryLock); Log("[DXGI49A] WARN: factory record table full."); return FALSE; }
+    if(slot==16) { Unlock(&g_factoryLock); Log("[DXGI49B] WARN: factory record table full."); return FALSE; }
 
     unsigned count=FactoryVtableCount(unk);
     void** original=*(void***)unk;
@@ -347,7 +453,7 @@ static BOOL PatchFactory(IUnknown* unk) {
     *(void***)unk=clone;
 
     Unlock(&g_factoryLock);
-    Log("[DXGI49A] Real DXGI factory patched with a private vtable clone.");
+    Log("[DXGI49B] Real DXGI factory patched with a private vtable clone.");
     return TRUE;
 }
 
