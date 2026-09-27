@@ -41,7 +41,7 @@ static void LogResolvedCommand(const char* className, BOOL ok) {
     b[p]=0; LogA(b);
 }
 
-static void FormatExceptionToLog(Il2CppException* ex) {
+__declspec(noinline) static void FormatExceptionToLog(Il2CppException* ex) {
     if (!ex) return;
     char b[1024]; b[0]=0;
     g_il2cpp.format_exception(ex,b,1024);
