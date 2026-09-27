@@ -1,3 +1,57 @@
+PostalBorkenMenu V2A52 HOOK-ONLY TEST
+POSTAL: Brain-Damaged
+
+IMPORTANT
+This candidate is built DIRECTLY from the user-validated V2A44 branch.
+It does not inherit V2A50 or V2A51.
+
+SCOPE
+Only the exact WEAPON_Hook execution path is changed.
+
+Unchanged from V2A44:
+- F1 overlay/menu and all mouse behavior
+- Weapon Catalog
+- Gameplay / Weapons / Arsenal / Special / Visual tabs
+- Arsenal and Special lists
+- weapon wheels
+- hotkeys and bindings
+- No Crosshair
+- TimeScale
+- Give All Weapons
+- shutdown handling
+- all other IL2CPP bridges
+
+HOOK TEST CHANGE
+V2A44 proved that AddWeapon(WEAPON_Hook) alone could add the Hook WeaponId but
+user testing shows the grappling hook is still not actually available until
+native GiveAllWeapons() is used.
+
+V2A52 tests the smallest missing native sequence:
+1. resolve exact Unity WeaponId name WEAPON_Hook
+2. AddWeapon only if it is not already collected
+3. DO NOT call EquipWeapon
+4. call native WeaponsInventory.InitHook()
+5. verify WeaponsInventory.get_Hook() returns the exact WEAPON_Hook
+6. never call GiveAllWeapons as fallback
+
+TEST
+1. Install this package exactly like V2A44.
+2. Launch and confirm the familiar V2A44 menu/Weapon Catalog is unchanged.
+3. Do NOT press Give All Weapons.
+4. Run Hook (Add Only) from Special.
+5. Try using the grappling hook.
+6. If it does not work, send PostalBorkenMenu.log.
+7. Then, only as a comparison, use Give All Weapons and tell us whether the hook becomes available.
+
+PACKAGE CONTENTS
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+VALIDATED V2A44 BASE NOTES
+======================================================================
+
 PostalBorkenMenu V2A44
 POSTAL: Brain-Damaged
 
