@@ -698,7 +698,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A44 SAFE WIN32 OVERLAY MOUSE TEST");
+    LogA("PostalBorkenMenu V2A50 DLC WHEEL + GRAPPLING HOOK TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -712,7 +712,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] V2A42 stable base preserved. F1 uses Win32 cursor visibility + validated TimeManager pause only.");
+    LogA("[READY] V2A44 validated base preserved. DXGI loader is external; DLC wheel remap + proven Grappling Hook path are the only gameplay experiments.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
