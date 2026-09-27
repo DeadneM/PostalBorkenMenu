@@ -457,7 +457,7 @@ static CommandRec g_cmds[] = {
     {"__Arsenal_WEAPON_BubbleGumMachineGun", L"Bubble Gum MG [DLC]", L"Arsenal_BubbleGumMachineGun", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_NuclearSyringe", L"Nuclear Syringe [DLC]", L"Arsenal_NuclearSyringe", 0,0,0,0,0,0,0,{0}},
 
-    {"__Special_WEAPON_Hook", L"Hook (Add Only)", L"Special_Hook", 0,0,0,0,0,0,0,{0}},
+    {"__Special_WEAPON_Hook", L"Grappling Hook", L"Special_Hook", 0,0,0,0,0,0,0,{0}},
     {"__Special_WEAPON_CutsceneWeapon_DLC", L"Cutscene Weapon DLC", L"Special_CutsceneWeapon_DLC", 0,0,0,0,0,0,0,{0}},
     {"__Special_WEAPON_NoWeapon", L"No Weapon", L"Special_NoWeapon", 0,0,0,0,0,0,0,{0}},
     {"__Special_WEAPON_NoWeapon_DLC", L"No Weapon DLC", L"Special_NoWeapon_DLC", 0,0,0,0,0,0,0,{0}},
