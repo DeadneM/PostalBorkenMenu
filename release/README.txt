@@ -1,3 +1,58 @@
+PostalBorkenMenu V2A42-H1 HOOK GIVEALL AUDIT
+POSTAL: Brain-Damaged
+
+BASE
+Built DIRECTLY from the user-validated V2A42 branch.
+
+IMPORTANT
+V2A42 remains the canonical validated base.
+This H1 build is diagnostic only.
+
+UNCHANGED FROM V2A42
+- F1 menu and mouse behavior
+- five tabs
+- Weapon Catalog
+- Arsenal / Special
+- hotkeys
+- weapon wheels
+- TimeScale
+- No Crosshair
+- shutdown handling
+- all existing commands and layout
+
+ONLY CHANGE
+When the existing validated Give All Weapons command is executed, H1 now logs:
+- current Hook state before GiveAllWeapons
+- all Assembly-CSharp classes/methods/fields whose names contain:
+  Hook / Grap / Rope / Cable / Tether
+- current Hook state after GiveAllWeapons
+
+The native GiveAllWeapons implementation itself is NOT altered.
+
+PURPOSE
+The user confirmed that the grappling hook becomes available after Give All Weapons,
+while AddWeapon(WEAPON_Hook) and InitHook alone are insufficient.
+This audit is intended to identify the additional native Hook subsystem involved.
+
+TEST
+1. Launch normally.
+2. Confirm V2A42 menu and Weapon Catalog behave exactly as before.
+3. Enter gameplay.
+4. Do NOT run Hook tests first.
+5. Run Give All Weapons once.
+6. Confirm the grappling hook becomes available as usual.
+7. Exit normally.
+8. Send PostalBorkenMenu.log.
+
+PACKAGE CONTENTS
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+ORIGINAL V2A42 README
+======================================================================
+
 PostalBorkenMenu V2A42
 POSTAL: Brain-Damaged
 
