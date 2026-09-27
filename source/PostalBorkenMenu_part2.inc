@@ -2229,11 +2229,65 @@ static BOOL HideNativeDlcWeaponWheel() {
     const MethodInfo* hideMethod=wheelViewClass ? g_il2cpp.class_get_method_from_name(wheelViewClass,"Hide",0) : 0;
     const MethodInfo* restoreMethod=wheelClass ? g_il2cpp.class_get_method_from_name(wheelClass,"EnableButtons",0) : 0;
     const MethodInfo* buttonGetWeapon=wheelButtonClass ? g_il2cpp.class_get_method_from_name(wheelButtonClass,"get_WeaponId",0) : 0;
+    const MethodInfo* getInputAngle=wheelClass ? g_il2cpp.class_get_method_from_name(wheelClass,"GetInputAngle",0) : 0;
+    const MethodInfo* updateSelection=wheelClass ? g_il2cpp.class_get_method_from_name(wheelClass,"UpdateSelection",1) : 0;
+    const MethodInfo* selectButton=wheelClass ? g_il2cpp.class_get_method_from_name(wheelClass,"SelectButton",0) : 0;
+    const FieldInfo* selectedButtonField=wheelClass ? g_il2cpp.class_get_field_from_name(wheelClass,"_selectedButton") : 0;
 
     Il2CppObject* wheel=wheelClass ? FindLiveObject(wheelClass) : 0;
     Il2CppObject* view=wheelViewClass ? FindLiveObject(wheelViewClass) : 0;
 
     BOOL ok=TRUE;
+
+    // H11: H7 opens the visible wheel correctly, but H9 showed that _selectedButton
+    // stays null when we simply Hide(). Force one native selection update from the
+    // controller's own current input angle, then let its own SelectButton() commit
+    // the choice while our temporary DLC WeaponIds are still installed.
+    if (wheel && getInputAngle && updateSelection && selectButton) {
+        Il2CppException* ex=0;
+        Il2CppObject* angleBox=g_il2cpp.runtime_invoke(getInputAngle,wheel,0,&ex);
+        if (ex) {
+            LogA("[WHEEL H11] GetInputAngle() threw:");
+            FormatExceptionToLog(ex);
+            ok=FALSE;
+        } else if (angleBox && g_il2cpp.object_unbox(angleBox)) {
+            float angle=*(float*)g_il2cpp.object_unbox(angleBox);
+            void* up[1]; up[0]=&angle;
+            ex=0;
+            g_il2cpp.runtime_invoke(updateSelection,wheel,up,&ex);
+            if (ex) {
+                LogA("[WHEEL H11] UpdateSelection(angle) threw:");
+                FormatExceptionToLog(ex);
+                ok=FALSE;
+            } else {
+                Il2CppObject* selected=0;
+                if (selectedButtonField)
+                    g_il2cpp.field_get_value(wheel,selectedButtonField,&selected);
+
+                if (selected) {
+                    LogA("[WHEEL H11] Native _selectedButton resolved after forced UpdateSelection.");
+                    ex=0;
+                    g_il2cpp.runtime_invoke(selectButton,wheel,0,&ex);
+                    if (ex) {
+                        LogA("[WHEEL H11] SelectButton() threw:");
+                        FormatExceptionToLog(ex);
+                        ok=FALSE;
+                    } else {
+                        LogA("[WHEEL H11] Native SelectButton() committed while DLC WeaponIds were active.");
+                    }
+                } else {
+                    LogA("[WHEEL H11] _selectedButton still NULL after UpdateSelection.");
+                }
+            }
+        } else {
+            LogA("[WHEEL H11] GetInputAngle() returned no usable float.");
+            ok=FALSE;
+        }
+    } else {
+        LogA("[WHEEL H11] Native selection methods unresolved.");
+        ok=FALSE;
+    }
+
     Il2CppException* ex=0;
     if (view && hideMethod) {
         g_il2cpp.runtime_invoke(hideMethod,view,0,&ex);
@@ -2245,7 +2299,7 @@ static BOOL HideNativeDlcWeaponWheel() {
         ok=FALSE;
 
     g_dlcWheelActive=0;
-    LogA("[WHEEL H7] DLC bank closed; original native WeaponIds restored.");
+    LogA("[WHEEL H11] DLC bank closed; original native WeaponIds restored.");
     return ok;
 }
 
