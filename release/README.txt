@@ -1,3 +1,44 @@
+PostalBorkenMenu V2A42-J1 REAL SKIPINTRO CMDLINE + DXGI
+POSTAL: Brain-Damaged
+
+BASE
+Built directly from H4 clean grappling/menu base.
+
+J1 GOAL
+Make the menu option Skip Intro Videos reproduce the real game launch option instead of simulating user input.
+
+IMPLEMENTATION
+- dxgi.dll reads [Settings] SkipIntroVideos from PostalBorkenMenu.ini extremely early.
+- If enabled, dxgi.dll appends -skipintro to the process command line before normal game startup.
+- If -skipintro is already present, it is left unchanged.
+- The ASI no longer emits Escape or any other keyboard/mouse input for Skip Intro.
+- The Gameplay-tab checkbox and INI persistence remain unchanged.
+- A change in the menu applies on the NEXT LAUNCH, exactly as before.
+
+TEST
+1. Enable Skip Intro Videos in the menu.
+2. Exit the game completely.
+3. Launch again with NO manual Steam -skipintro option.
+4. Confirm the intro videos are skipped exactly like a manual -skipintro launch.
+5. Disable Skip Intro Videos, restart, and confirm normal intro behavior returns.
+6. Send PostalBorkenMenu.log if either direction fails.
+
+UNCHANGED
+- Grappling Hook validated AddWeapon -> InitHook fix
+- H4 menu cleanup
+- TimeScale / No Crosshair / hotkeys / shutdown stability
+- minimal dxgi.dll ASI loader architecture
+
+PACKAGE
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+H4 / PRIOR TECHNICAL HISTORY
+======================================================================
+
 PostalBorkenMenu V2A42-H4 CLEAN GRAPPLING MENU + DXGI LOADER
 POSTAL: Brain-Damaged
 
