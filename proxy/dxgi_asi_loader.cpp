@@ -100,7 +100,7 @@ static BOOL ReadNoVideoSettingEarly() {
     WCHAR ini[1024]={};
     if(!ModuleDirectory(ini,1024)) return TRUE; // preserve H4 default=enabled
     AppendW(ini,1024,L"PostalBorkenMenu.ini");
-    return GetPrivateProfileIntW(L"Settings",L"NoVideoVideos",1,ini)!=0;
+    return GetPrivateProfileIntW(L"Settings",L"SkipIntroVideos",1,ini)!=0;
 }
 static BOOL InjectNoVideoCommandLineEarly() {
     if(!ReadNoVideoSettingEarly()) {
@@ -284,11 +284,11 @@ extern "C" void __stdcall EnsureRealDxgi() {
 
     Log("[DXGI LOADER] OK: System32 DXGI forwarding initialized.");
     if(g_noVideoCmdlineState==1)
-        Log("[INTRO J1] OK: -novideo injected into process command line before game startup.");
+        Log("[INTRO J2] OK: -novideo injected into process command line before game startup.");
     else if(g_noVideoCmdlineState==2)
-        Log("[INTRO J1] OK: -novideo already present in process command line.");
+        Log("[INTRO J2] OK: -novideo already present in process command line.");
     else
-        Log("[INTRO J1] Skip Intro launch argument not injected.");
+        Log("[INTRO J2] Skip Intro launch argument not injected.");
     InterlockedExchange(&g_dxgiState,2);
 
     // Load the ASI only after the proxy is fully initialized, outside DllMain.
