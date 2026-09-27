@@ -1,3 +1,63 @@
+PostalBorkenMenu V2A42-H5 DLC WEAPON WHEEL REMAP + DXGI LOADER
+POSTAL: Brain-Damaged
+
+BASE
+Built from V2A42-H4 clean grappling menu.
+The validated Grappling Hook fix remains unchanged.
+
+H5 GOAL
+Make the DLC Weapon Wheel actually contain the five gameplay DLC weapons instead of
+opening an empty native wheel shell.
+
+DLC WHEEL WEAPONS
+- WEAPON_UmDrill
+- WEAPON_PissGun
+- WEAPON_MeatShotgun
+- WEAPON_BubbleGumMachineGun
+- WEAPON_NuclearSyringe
+
+IMPLEMENTATION
+- Reuses the game's native PlayerWeaponWheelComponent and PlayerWheelView.
+- Finds the five exact DLC WeaponId objects by Unity name.
+- Ensures each selected DLC weapon is collected before exposing it on the wheel.
+- Temporarily remaps native WeaponWheelButton WeaponIds to those DLC WeaponIds.
+- Enables only the mapped DLC buttons while the DLC wheel is held.
+- On wheel close, restores every original native WeaponId and calls EnableButtons().
+- The base/native weapon wheel is therefore not permanently modified.
+- No custom overlay wheel is introduced.
+
+UNCHANGED
+- Grappling Hook AddWeapon -> InitHook fix
+- menu layout
+- mouse/cursor handling
+- Base Weapon Wheel
+- Weapon Keys Mode
+- TimeScale
+- No Crosshair
+- Skip Intro
+- DXGI ASI loader architecture
+
+TEST
+1. Copy all four package files next to the game executable.
+2. Launch and enter gameplay.
+3. Bind DLC Weapon Wheel to a key if needed.
+4. HOLD the DLC Weapon Wheel key.
+5. Confirm the native wheel opens with DLC weapons instead of an empty shell.
+6. Select several DLC weapons and verify they equip correctly.
+7. Release/close the DLC wheel.
+8. Open the normal Base Weapon Wheel and confirm its original weapons are restored.
+9. Send PostalBorkenMenu.log if anything is wrong.
+
+PACKAGE CONTENTS
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+H4 BASE NOTES
+======================================================================
+
 PostalBorkenMenu V2A42-H4 CLEAN GRAPPLING MENU + DXGI LOADER
 POSTAL: Brain-Damaged
 
