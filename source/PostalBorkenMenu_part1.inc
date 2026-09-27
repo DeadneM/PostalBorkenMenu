@@ -117,7 +117,6 @@ __declspec(dllimport) int __stdcall FillRect(HDC, const RECT*, HBRUSH);
 __declspec(dllimport) int __stdcall DrawTextW(HDC, LPCWSTR, int, RECT*, UINT);
 __declspec(dllimport) BOOL __stdcall SetLayeredWindowAttributes(HWND, COLORREF, BYTE, DWORD);
 __declspec(dllimport) short __stdcall GetAsyncKeyState(int);
-__declspec(dllimport) void __stdcall keybd_event(BYTE, BYTE, DWORD, ULONG_PTR);
 __declspec(dllimport) BOOL __stdcall PeekMessageW(MSG*, HWND, UINT, UINT, UINT);
 __declspec(dllimport) BOOL __stdcall DestroyWindow(HWND);
 __declspec(dllimport) void __stdcall PostQuitMessage(int);
@@ -222,7 +221,6 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 #define DT_SINGLELINE 0x0020
 #define TRANSPARENT_BK 1
 #define PM_REMOVE 0x0001
-#define KEYEVENTF_KEYUP 0x0002
 
 static HMODULE g_self = 0;
 static HWND g_menuHwnd = 0;
