@@ -1,0 +1,104 @@
+name: Publish V2A42-H13 Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/publish-v2a42-h13.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out canonical source
+        uses: actions/checkout@v4
+
+      - name: Set up MSVC x64
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build ASI import libraries
+        shell: cmd
+        run: |
+          lib /nologo /machine:x64 /def:build\kernel32_ext.def /out:build\kernel32_ext.lib
+          lib /nologo /machine:x64 /def:build\user32_ext.def /out:build\user32_ext.lib
+
+      - name: Compile PostalBorkenMenu ASI
+        shell: cmd
+        run: |
+          cl /nologo /c /O2 /GS- /GR- /EHs-c- /Zl /Fo:build\PostalBorkenMenu.obj source\PostalBorkenMenu.cpp
+          link /nologo /DLL /MACHINE:X64 /NODEFAULTLIB /ENTRY:DllMain /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /OUT:build\PostalBorkenMenu.asi build\PostalBorkenMenu.obj build\kernel32_ext.lib build\user32_ext.lib
+
+      - name: Compile DXGI ASI loader
+        shell: cmd
+        run: |
+          cl /nologo /c /O2 /Oi- /GS- /GR- /EHs-c- /Zl /Fo:build\dxgi_asi_loader.obj proxy\dxgi_asi_loader.cpp
+          ml64 /nologo /c /Fo build\dxgi_thunks.obj proxy\dxgi_thunks.asm
+          link /nologo /DLL /MACHINE:X64 /NODEFAULTLIB /ENTRY:DllMain /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /DEF:proxy\dxgi_proxy.def /OUT:build\dxgi.dll build\dxgi_asi_loader.obj build\dxgi_thunks.obj kernel32.lib
+
+      - name: Stage canonical package
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          Copy-Item build\dxgi.dll package\dxgi.dll
+          Copy-Item build\PostalBorkenMenu.asi package\PostalBorkenMenu.asi
+          Copy-Item config\PostalBorkenMenu.ini package\PostalBorkenMenu.ini
+          Copy-Item release\README.txt package\README.txt
+
+          $files = Get-ChildItem package -File | Select-Object -ExpandProperty Name
+          $expected = @('dxgi.dll','PostalBorkenMenu.asi','PostalBorkenMenu.ini','README.txt')
+          if (Compare-Object ($files | Sort-Object) ($expected | Sort-Object)) {
+            throw 'Unexpected V2A42-H13 package contents'
+          }
+
+          Compress-Archive -Path package\* -DestinationPath POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H13.zip -Force
+
+      - name: Generate SHA-256 and runtime release notes
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $asi = (Get-FileHash build\PostalBorkenMenu.asi -Algorithm SHA256).Hash.ToLower()
+          $dxgi = (Get-FileHash build\dxgi.dll -Algorithm SHA256).Hash.ToLower()
+          $zip = (Get-FileHash POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H13.zip -Algorithm SHA256).Hash.ToLower()
+
+          Copy-Item release_payload\V2A42-H13\RELEASE_NOTES.md RELEASE_NOTES_RUNTIME.md
+          Add-Content RELEASE_NOTES_RUNTIME.md ""
+          Add-Content RELEASE_NOTES_RUNTIME.md "## SHA-256"
+          Add-Content RELEASE_NOTES_RUNTIME.md ""
+          Add-Content RELEASE_NOTES_RUNTIME.md "- PostalBorkenMenu.asi: $asi"
+          Add-Content RELEASE_NOTES_RUNTIME.md "- dxgi.dll: $dxgi"
+          Add-Content RELEASE_NOTES_RUNTIME.md "- POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H13.zip: $zip"
+
+          "### V2A42-H13 release hashes" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "- PostalBorkenMenu.asi: $asi" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "- dxgi.dll: $dxgi" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "- ZIP: $zip" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+
+      - name: Publish V2A42-H13 GitHub Release
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = 'V2A42-H13'
+          $asset = 'POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H13.zip'
+
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $asset --repo $env:GITHUB_REPOSITORY --clobber
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            gh release edit $tag --repo $env:GITHUB_REPOSITORY --title 'PostalBorkenMenu V2A42-H13' --notes-file RELEASE_NOTES_RUNTIME.md
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } else {
+            gh release create $tag $asset --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title 'PostalBorkenMenu V2A42-H13' --notes-file RELEASE_NOTES_RUNTIME.md
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
