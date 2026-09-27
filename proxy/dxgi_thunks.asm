@@ -23,6 +23,8 @@ EXTERN g_real_ApplyCompatResolutionQuirking:QWORD
 EXTERN g_real_CompatString:QWORD
 EXTERN g_real_CompatValue:QWORD
 
+.code
+
 THUNK MACRO name:req, target:req
 PUBLIC name
 name PROC
