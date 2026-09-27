@@ -1,3 +1,61 @@
+PostalBorkenMenu V2A42-H2 TARGETED HOOK AUDIT + DXGI LOADER
+POSTAL: Brain-Damaged
+
+BASE
+Built DIRECTLY from the user-validated V2A42 branch.
+V2A42 remains the canonical validated base.
+
+DXGI ASI LOADER
+This package now includes dxgi.dll as the standard ASI loader.
+The loader:
+- forwards the real System32 DXGI exports
+- loads PostalBorkenMenu.asi
+- does NOT hook Present
+- does NOT render anything
+- does NOT patch swapchains or vtables
+- does NOT touch the menu, mouse, cursor, or gameplay
+
+H2 SCOPE
+No menu/UI behavior is changed.
+No global Assembly-CSharp scan is performed.
+No experimental Hook method is invoked.
+
+When the existing Give All Weapons command is used, H2 only enumerates matching
+method/field NAMES on these two already-known classes:
+- Hyperstrange.PBD.PlayerComponents.PlayerInventoryComponent
+- Hyperstrange.PBD.PlayerComponents.Inventory.WeaponsInventory
+
+Filters are limited to:
+Hook / Weapon / Collect / Give / Equip / Init / Cooldown / Inventory
+
+Then the original validated GiveAllWeapons() call runs unchanged, with the
+existing Hook runtime snapshot before and after it.
+
+WHY
+The previous H1 global scan crashed before GiveAllWeapons was even called.
+Historical logs also prove get_Hook() can already be non-null before GiveAllWeapons,
+so the missing behavior is likely a separate player/inventory initialization path.
+
+TEST
+1. Copy all four package files next to the game executable.
+2. Launch normally.
+3. Confirm the V2A42 menu and Weapon Catalog behave normally.
+4. Enter gameplay.
+5. Run Give All Weapons ONCE.
+6. Confirm the grappling hook becomes usable as usual.
+7. Exit normally.
+8. Send PostalBorkenMenu.log.
+
+PACKAGE CONTENTS
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+ORIGINAL V2A42 README
+======================================================================
+
 PostalBorkenMenu V2A42
 POSTAL: Brain-Damaged
 
