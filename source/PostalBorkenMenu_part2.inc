@@ -169,22 +169,28 @@ static BOOL InvokeNativeCommand(int i) {
 }
 
 static void LogCurrentHookState(const char* phase);
+static void LogGlobalHookDiscovery();
 
 static BOOL GiveAllWeaponsOnly() {
     if (!g_inventoryClass || !g_giveAllWeapons) { LogA("[ERROR] Give All Weapons bridge unresolved"); return FALSE; }
     Il2CppObject* inv=FindLiveObject(g_inventoryClass);
     if (!inv) { LogA("[ERROR] PlayerInventoryComponent instance not found"); return FALSE; }
 
-    // V2A31: observation only. Snapshot the known hook state immediately
-    // before and after the validated native GiveAllWeapons() call.
-    LogCurrentHookState("[GIVEALL HOOK] BEFORE GiveAllWeapons");
+    // V2A42-H1 diagnostic only. Do not alter the validated GiveAllWeapons path.
+    // We only log Hook-related metadata/state around the native call that the
+    // user confirmed makes the grappling hook become available.
+    LogA("[HOOK AUDIT H1] ===== BEGIN GiveAllWeapons Hook audit =====");
+    LogA("[HOOK AUDIT H1] Hook/Grap/Rope/Cable/Tether metadata discovery BEFORE native GiveAllWeapons.");
+    LogGlobalHookDiscovery();
+    LogCurrentHookState("[HOOK AUDIT H1] RUNTIME STATE BEFORE GiveAllWeapons");
 
     Il2CppException* ex=0;
     g_il2cpp.runtime_invoke(g_giveAllWeapons,inv,0,&ex);
     if (ex) { LogA("[ERROR] GiveAllWeapons() threw:"); FormatExceptionToLog(ex); return FALSE; }
     LogA("[OK] Give All Weapons executed (quest items untouched)");
 
-    LogCurrentHookState("[GIVEALL HOOK] AFTER GiveAllWeapons");
+    LogCurrentHookState("[HOOK AUDIT H1] RUNTIME STATE AFTER GiveAllWeapons");
+    LogA("[HOOK AUDIT H1] ===== END GiveAllWeapons Hook audit =====");
     return TRUE;
 }
 
