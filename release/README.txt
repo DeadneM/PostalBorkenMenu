@@ -1,3 +1,72 @@
+PostalBorkenMenu V2A42-H13 RECOVERY + DLC CROSSHAIR AUDIT
+POSTAL: Brain-Damaged
+
+STATUS
+Recovery candidate built directly from H4.
+H9 / H10 / H11 / H12 wheel experiments are rejected and are NOT inherited.
+
+PRIMARY GOAL
+Restore the stable H4 behavior first, then isolate the two remaining issues:
+- No Crosshair in DLC.
+- Native Skip Intro / NO_VIDEO mechanism.
+
+WEAPON WHEELS
+- Base Weapon Wheel is exactly the H4 implementation again.
+- No H7-H12 controller Show/Hide/UpdateSelection/SelectButton experiments are present.
+- DLC Weapon Wheel is back to the H4 research implementation only.
+- This build is NOT a new DLC-wheel experiment.
+
+NO CROSSHAIR H13
+H4 targeted only the first PlayerCrosshairController returned by FindObjectOfType.
+H13 additionally resolves Resources.FindObjectsOfTypeAll(PlayerCrosshairController).
+
+When No Crosshair is applied:
+- every loaded PlayerCrosshairController is inspected,
+- only each controller's current Crosshair object is used,
+- only CanvasRenderer alpha is changed,
+- aim logic / target position / current crosshair object are never cleared or replaced,
+- the validated H4 single-controller path remains as fallback.
+
+The log records:
+- PlayerCrosshairController object count,
+- how many expose a current Crosshair,
+- how many CanvasRenderers were actually updated.
+
+SKIP INTRO H13
+- NO simulated keyboard or mouse input exists.
+- The old Escape implementation is removed.
+- H13 does NOT claim Skip Intro is fixed yet.
+- The existing menu preference is still stored in the INI.
+- H13 performs a targeted metadata audit of:
+  - Hyperstrange.PBD.DebugManager
+  - NO_VIDEO class if present
+  - PlayerCrosshairController
+This is intended to reveal the real internal NO_VIDEO path used by the game's working launch option.
+
+TEST
+1. Install all four files.
+2. Enter normal gameplay.
+3. Test Base Weapon Wheel first and confirm it behaves like H4.
+4. Enable No Crosshair and confirm the base-game reticle disappears.
+5. Enter the DLC / use DLC weapons and confirm whether the reticle remains hidden.
+6. Switch several weapons in the DLC.
+7. Exit normally.
+8. Send PostalBorkenMenu.log so the NO_VIDEO and DLC crosshair metadata can be read.
+
+IMPORTANT
+Skip Intro is intentionally diagnostic in H13. Do not use H13 to judge a new Skip Intro implementation.
+The priority is restoring the stable wheel and identifying the exact internal NO_VIDEO mechanism.
+
+PACKAGE
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+H4 BASE TECHNICAL HISTORY
+======================================================================
+
 PostalBorkenMenu V2A42-H4 CLEAN GRAPPLING MENU + DXGI LOADER
 POSTAL: Brain-Damaged
 
