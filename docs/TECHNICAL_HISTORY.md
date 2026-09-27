@@ -1042,3 +1042,31 @@ Build:
 Canonical rule:
 - future gameplay/source changes start from V2A42-H13.
 - Skip Intro remains an open item and must be solved without simulated keyboard/mouse input.
+
+
+#### V2A42-H13 GitHub Release
+
+Published release:
+- tag: `V2A42-H13`
+- release title: `PostalBorkenMenu V2A42-H13`
+- asset: `POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H13.zip`
+- GitHub Actions publish run: `36346565155`
+
+Release-build SHA-256:
+- `PostalBorkenMenu.asi`
+  `2eb2f49f0ef3a1823a9c5a739f321dbc6f129e5ebd2c2e614f5f9a015683c92c`
+- `dxgi.dll`
+  `a71a24368479620ea93e58b35a7291ee175ec894ad85ab3122510eff580d52ef`
+- release ZIP
+  `2b3c4f233a0a706714b7f198be5867506b62e7e21b4491f401079f7efb8513f0`
+
+The release ZIP contains exactly:
+- `dxgi.dll`
+- `PostalBorkenMenu.asi`
+- `PostalBorkenMenu.ini`
+- `README.txt`
+
+Note:
+- these hashes are for the canonical GitHub Release rebuild.
+- they intentionally supersede the earlier H13 validation-artifact hashes for public distribution.
+- Skip Intro remains an open item and is not claimed fixed by this release.
