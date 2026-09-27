@@ -1,9 +1,9 @@
-name: Build V2A49A DXGI Proxy Safe Probe
+name: Build V2A49B Empty DX11 Overlay
 
 on:
   push:
     branches:
-      - dev/v2a49a-dxgi-proxy-safe-probe
+      - dev/v2a49b-empty-dx11-overlay
   workflow_dispatch:
 
 permissions:
@@ -39,22 +39,24 @@ jobs:
           New-Item -ItemType Directory -Force -Path package | Out-Null
           Copy-Item build\dxgi.dll package\dxgi.dll
           @"
-          PostalBorkenMenu V2A49A - DXGI PROXY SAFE PROBE
+          PostalBorkenMenu V2A49B - EMPTY DX11 OVERLAY
 
           This artifact contains only the newly built dxgi.dll proxy.
           The user-facing test ZIP must combine it with the exact validated V2A42
           PostalBorkenMenu.asi and INI. Do not rebuild or replace that ASI.
 
-          Probe behavior:
-          - lazy load of System32\dxgi.dll outside DllMain
-          - real CreateDXGIFactory/CreateDXGIFactory1/CreateDXGIFactory2 forwarding
-          - private vtable clone per real DXGI factory object
-          - private vtable clone per real game swapchain object
-          - Present hook only logs first use and immediately calls original
-          - no rendering
-          - no cursor change
-          - no second UI implementation
+          Behavior:
+          - V2A49A true DXGI proxy architecture preserved
+          - private factory vtable
+          - private real-game-swapchain vtable
           - no global DXGI vtable modification
+          - Present draws ONE empty 760x600 dark rectangle at x=32 y=32
+          - rendering uses ID3D11DeviceContext1::ClearView
+          - no shaders
+          - no cursor code
+          - no input code
+          - no menu options
+          - no interaction with V2A42 ASI
           "@ | Set-Content -Encoding ASCII package\PROXY_README.txt
 
       - name: Verify artifact
@@ -65,6 +67,6 @@ jobs:
       - name: Upload proxy artifact
         uses: actions/upload-artifact@v4
         with:
-          name: POSTAL_Brain_Damaged_V2A49A_DXGI_PROXY_SAFE_PROBE
+          name: POSTAL_Brain_Damaged_V2A49B_EMPTY_DX11_OVERLAY
           path: package/*
           if-no-files-found: error
