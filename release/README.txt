@@ -1,3 +1,62 @@
+PostalBorkenMenu V2A42-H7 DLC WHEEL OBJECT FIELD + DXGI
+POSTAL: Brain-Damaged
+
+BASE
+Built directly from H4 clean gameplay base.
+H5 rejected. H6 diagnostic proved the real WeaponWheelButton field.
+
+H6 DISCOVERY
+WeaponWheelButton exposes:
+- get_WeaponId()
+- no set_WeaponId()
+- field _weaponId : Hyperstrange.PBD.WeaponId
+
+H7 FIX
+- Finds the five exact gameplay DLC WeaponIds.
+- Ensures they are collected.
+- Reuses native WeaponWheelButton instances.
+- Writes ONLY WeaponWheelButton._weaponId.
+- Uses il2cpp_field_set_value_object for the managed object reference.
+- Verifies each write immediately with get_WeaponId().
+- Opens the native wheel only after successful verified remaps.
+- Restores original WeaponId object references on close using the same object-field API.
+- Calls native EnableButtons() after restoration.
+
+DLC WHEEL CONTENT
+- Um Drill
+- Piss Gun
+- Meat Shotgun
+- Bubble Gum Machine Gun
+- Nuclear Syringe
+
+UNCHANGED
+- Grappling Hook validated AddWeapon -> InitHook sequence
+- H4 menu cleanup
+- Base Weapon Wheel logic
+- Weapon Keys Mode
+- DXGI ASI loader
+
+TEST
+1. Install all four files.
+2. Enter gameplay.
+3. HOLD DLC Weapon Wheel.
+4. Check that five DLC entries appear.
+5. Select at least two different DLC weapons.
+6. Release the key.
+7. Open Base Weapon Wheel and confirm normal weapons are restored.
+8. Test Grappling Hook once.
+9. Send PostalBorkenMenu.log if anything is wrong.
+
+PACKAGE
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+H4 BASE README
+======================================================================
+
 PostalBorkenMenu V2A42-H4 CLEAN GRAPPLING MENU + DXGI LOADER
 POSTAL: Brain-Damaged
 
