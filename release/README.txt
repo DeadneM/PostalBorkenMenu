@@ -2,7 +2,9 @@ PostalBorkenMenu V2A42-H13 RECOVERY + DLC CROSSHAIR AUDIT
 POSTAL: Brain-Damaged
 
 STATUS
-Recovery candidate built directly from H4.
+VALIDATED by user.
+V2A42-H13 is the current canonical source/gameplay base.
+Built directly from H4.
 H9 / H10 / H11 / H12 wheel experiments are rejected and are NOT inherited.
 
 PRIMARY GOAL
@@ -53,9 +55,16 @@ TEST
 7. Exit normally.
 8. Send PostalBorkenMenu.log so the NO_VIDEO and DLC crosshair metadata can be read.
 
-IMPORTANT
-Skip Intro is intentionally diagnostic in H13. Do not use H13 to judge a new Skip Intro implementation.
-The priority is restoring the stable wheel and identifying the exact internal NO_VIDEO mechanism.
+VALIDATION RESULT
+- Base Weapon Wheel restored and validated.
+- No Crosshair behavior validated, including the DLC path tested by the user.
+- Grappling Hook validated behavior preserved.
+- H13 promoted to canonical base.
+
+KNOWN OPEN ITEM
+Skip Intro is NOT fixed in H13.
+The old Escape/input approach is permanently rejected.
+Future work must reproduce the game's native NO_VIDEO behavior without simulated user input.
 
 PACKAGE
 dxgi.dll
