@@ -1,3 +1,60 @@
+PostalBorkenMenu V2A42-H10 DLC WHEEL NATIVE DOWN/UP + DXGI
+POSTAL: Brain-Damaged
+
+BASE
+Built directly from H4 clean grappling/menu base.
+H5/H7/H8/H9 remain research branches only.
+
+WHY H10
+H8 proved that the first five native WeaponWheelButton._weaponId references can be
+successfully remapped to the five exact DLC WeaponIds.
+H9 proved that directly calling PlayerWheelView.Show()/Hide() leaves
+PlayerWeaponWheelComponent._selectedButton empty.
+
+H10 CHANGE
+Use the game's real wheel lifecycle instead of directly calling Show()/Hide():
+- PlayerWheelView.OnWheelDown() to enter the wheel.
+- PlayerWheelView.OnWheelUp() to leave the wheel.
+- Keep the five verified DLC _weaponId remaps active during the full native selection lifecycle.
+- Reapply the five-button enabled mask after OnWheelDown() in case the game's normal callbacks call EnableButtons().
+- Only restore the original vanilla WeaponIds AFTER OnWheelUp() has completed.
+
+DLC BUTTON MAP
+1 -> WEAPON_UmDrill
+2 -> WEAPON_PissGun
+3 -> WEAPON_MeatShotgun
+4 -> WEAPON_BubbleGumMachineGun
+5 -> WEAPON_NuclearSyringe
+
+UNCHANGED
+- Grappling Hook AddWeapon -> InitHook fix.
+- H4 menu cleanup.
+- Base Weapon Wheel.
+- Weapon Keys Mode.
+- Skip Intro implementation remains exactly H4 in this build.
+- DXGI ASI loader.
+
+TEST
+1. Install the four files.
+2. Enter gameplay.
+3. HOLD DLC Weapon Wheel.
+4. Move the selection pointer across the first five sectors.
+5. Release the key.
+6. Check whether the selected DLC weapon is equipped by the game's native wheel path.
+7. Repeat with several sectors.
+8. Check Base Weapon Wheel afterwards.
+9. Send PostalBorkenMenu.log if selection is still wrong.
+
+PACKAGE
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+H4 BASE README
+======================================================================
+
 PostalBorkenMenu V2A42-H4 CLEAN GRAPPLING MENU + DXGI LOADER
 POSTAL: Brain-Damaged
 
