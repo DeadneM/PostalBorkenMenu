@@ -117,10 +117,6 @@ __declspec(dllimport) int __stdcall FillRect(HDC, const RECT*, HBRUSH);
 __declspec(dllimport) int __stdcall DrawTextW(HDC, LPCWSTR, int, RECT*, UINT);
 __declspec(dllimport) BOOL __stdcall SetLayeredWindowAttributes(HWND, COLORREF, BYTE, DWORD);
 __declspec(dllimport) short __stdcall GetAsyncKeyState(int);
-__declspec(dllimport) int __stdcall ShowCursor(BOOL);
-__declspec(dllimport) HCURSOR __stdcall SetCursor(HCURSOR);
-__declspec(dllimport) HCURSOR __stdcall GetCursor(void);
-__declspec(dllimport) HCURSOR __stdcall LoadCursorW(HINSTANCE, LPCWSTR);
 __declspec(dllimport) BOOL __stdcall PeekMessageW(MSG*, HWND, UINT, UINT, UINT);
 __declspec(dllimport) BOOL __stdcall DestroyWindow(HWND);
 __declspec(dllimport) void __stdcall PostQuitMessage(int);
@@ -234,7 +230,6 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 #define DT_SINGLELINE 0x0020
 #define TRANSPARENT_BK 1
 #define PM_REMOVE 0x0001
-#define IDC_ARROW ((LPCWSTR)(ULONG_PTR)32512)
 
 static HMODULE g_self = 0;
 static HWND g_menuHwnd = 0;
@@ -247,11 +242,8 @@ static volatile LONG g_menuVisible = 0;
 static volatile LONG g_shuttingDown = 0;
 static volatile LONG g_noCrosshair = 0;
 
-// V2A44 keeps the overlay interaction fix Win32-only. No new Unity Cursor or
-// SceneManager metadata bridges are introduced at startup.
-static int g_overlayCursorShowBalance = 0;
-static HCURSOR g_overlayPreviousCursor = 0;
-static HCURSOR g_overlayArrowCursor = 0;
+// V2A51 deliberately removes all menu cursor ownership/manipulation.
+// The validated TimeManager pause bridge is retained independently.
 static volatile LONG g_overlayPauseApplied = 0;
 static float g_overlaySavedTimeScale = 1.0f;
 
