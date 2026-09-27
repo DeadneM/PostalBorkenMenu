@@ -1887,75 +1887,85 @@ static int FilterNativeWheelForCategory(Il2CppObject* wheel,
     return enabledCount;
 }
 
+static void LogWeaponWheelButtonMetadata(Il2CppClass* wheelButtonClass) {
+    if (!wheelButtonClass) return;
+
+    LogA("[WHEEL H6] ===== WeaponWheelButton targeted metadata begin =====");
+
+    void* mi=0;
+    const MethodInfo* m=0;
+    int methodCount=0;
+    while ((m=g_il2cpp.class_get_methods(wheelButtonClass,&mi))!=0 && methodCount<96) {
+        const char* name=g_il2cpp.method_get_name(m);
+        if (!name) continue;
+        LogA("[WHEEL H6 METHOD]");
+        LogA(name);
+        int pc=(int)g_il2cpp.method_get_param_count(m);
+        LogIntA("[WHEEL H6] parameter count: ",pc);
+
+        for (int p=0;p<pc && p<8;p++) {
+            const Il2CppType* pt=g_il2cpp.method_get_param(m,p);
+            Il2CppClass* pcClass=pt ? g_il2cpp.class_from_type(pt) : 0;
+            if (!pcClass) continue;
+            const char* pns=g_il2cpp.class_get_namespace(pcClass);
+            const char* pn=g_il2cpp.class_get_name(pcClass);
+            LogA("[WHEEL H6 PARAM TYPE]");
+            if (pns && pns[0]) LogA(pns);
+            if (pn) LogA(pn);
+        }
+        ++methodCount;
+    }
+    LogIntA("[WHEEL H6] methods logged: ",methodCount);
+
+    typedef const Il2CppType* (*FnFieldGetType)(const FieldInfo*);
+    FnFieldGetType fieldGetType=(FnFieldGetType)Proc("il2cpp_field_get_type");
+
+    void* fi=0;
+    const FieldInfo* fld=0;
+    int fieldCount=0;
+    while ((fld=g_il2cpp.class_get_fields(wheelButtonClass,&fi))!=0 && fieldCount<96) {
+        const char* name=g_il2cpp.field_get_name(fld);
+        if (!name) continue;
+        LogA("[WHEEL H6 FIELD]");
+        LogA(name);
+
+        if (fieldGetType) {
+            const Il2CppType* ft=fieldGetType(fld);
+            Il2CppClass* fc=ft ? g_il2cpp.class_from_type(ft) : 0;
+            if (fc) {
+                const char* ns=g_il2cpp.class_get_namespace(fc);
+                const char* tn=g_il2cpp.class_get_name(fc);
+                LogA("[WHEEL H6 FIELD TYPE]");
+                if (ns && ns[0]) LogA(ns);
+                if (tn) LogA(tn);
+            }
+        }
+        ++fieldCount;
+    }
+    LogIntA("[WHEEL H6] fields logged: ",fieldCount);
+    LogA("[WHEEL H6] ===== WeaponWheelButton targeted metadata end =====");
+}
+
 static BOOL ShowNativeDlcWeaponWheel() {
     if (!IsTheseSunnyDazeOwned()) {
-        LogA("[WHEEL] DLC wheel blocked: These Sunny Daze ownership not confirmed.");
+        LogA("[WHEEL H6] DLC wheel probe blocked: These Sunny Daze ownership not confirmed.");
         return FALSE;
     }
 
-    // V2A29 deliberately follows the V2A20 Base Weapon Wheel architecture:
-    // use the already-live native PlayerWeaponWheelComponent / PlayerWheelView,
-    // filter what can be filtered, but still show the wheel even when the DLC
-    // category currently has zero live buttons.
-    Il2CppClass* wheelClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent") : 0;
-    Il2CppClass* wheelButtonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
-    Il2CppClass* wheelViewClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerView","PlayerWheelView") : 0;
-    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
-    if (!wheelClass || !wheelButtonClass || !wheelViewClass || !weaponIdClass) {
-        LogA("[ERROR] DLC weapon wheel metadata classes unresolved");
+    // H6 is metadata-only. No button Enable(), no WeaponId mutation, no Show().
+    // This deliberately starts again from H4 after the H5 remap crash.
+    Il2CppClass* wheelButtonClass=g_assemblyCSharp
+        ? g_il2cpp.class_from_name(g_assemblyCSharp,
+            "Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton")
+        : 0;
+    if (!wheelButtonClass) {
+        LogA("[WHEEL H6] WeaponWheelButton class unresolved.");
         return FALSE;
     }
 
-    const FieldInfo* buttonsField=g_il2cpp.class_get_field_from_name(wheelClass,"_weaponWheelButtons");
-    const MethodInfo* buttonGetWeapon=g_il2cpp.class_get_method_from_name(wheelButtonClass,"get_WeaponId",0);
-    const MethodInfo* buttonEnable=g_il2cpp.class_get_method_from_name(wheelButtonClass,"Enable",1);
-    const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Category",0);
-    const MethodInfo* showMethod=g_il2cpp.class_get_method_from_name(wheelViewClass,"Show",0);
-    const MethodInfo* restoreMethod=g_il2cpp.class_get_method_from_name(wheelClass,"EnableButtons",0);
-    if (!buttonsField || !buttonGetWeapon || !buttonEnable || !getCategory || !showMethod || !restoreMethod) {
-        LogA("[ERROR] DLC weapon wheel native bridge unresolved");
-        return FALSE;
-    }
-
-    Il2CppObject* wheel=FindLiveObject(wheelClass);
-    Il2CppObject* view=FindLiveObject(wheelViewClass);
-    if (!wheel || !view) {
-        LogA("[ERROR] Live DLC weapon wheel/view not found");
-        return FALSE;
-    }
-
-    // Begin from the game's own button state exactly as the V2A20 wheel does.
-    Il2CppException* ex=0;
-    g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&ex);
-    if (ex) {
-        LogA("[WARN] EnableButtons() pre-refresh threw before DLC wheel scan:");
-        FormatExceptionToLog(ex);
-    }
-
-    int enabled=FilterNativeWheelForCategory(
-        wheel,buttonsField,buttonGetWeapon,buttonEnable,getCategory,1,
-        "[WHEEL] V2A20-style DLC wheel scan");
-
-    // Important difference from V2A22/V2A27:
-    // zero DLC buttons is NOT an error. Show PlayerWheelView anyway so the
-    // wheel shell remains visible, matching the useful V2A20 behavior.
-    if (enabled<=0)
-        LogA("[WHEEL] No live DLC/PTSD buttons found; showing empty native wheel shell (V2A20-style behavior).");
-
-    ex=0;
-    g_il2cpp.runtime_invoke(showMethod,view,0,&ex);
-    if (ex) {
-        LogA("[ERROR] PlayerWheelView.Show() threw for DLC wheel:");
-        FormatExceptionToLog(ex);
-        ex=0;
-        g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&ex);
-        return FALSE;
-    }
-
-    g_dlcWheelActive=1;
-    LogA(enabled>0 ? "[WHEEL] DLC native weapon wheel opened"
-                   : "[WHEEL] EMPTY DLC native weapon wheel opened");
-    return TRUE;
+    LogWeaponWheelButtonMetadata(wheelButtonClass);
+    LogA("[WHEEL H6] Probe complete. No wheel/button state was modified.");
+    return FALSE;
 }
 
 static BOOL HideNativeDlcWeaponWheel() {
