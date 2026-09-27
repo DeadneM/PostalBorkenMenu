@@ -605,18 +605,26 @@ static BOOL HookGameWindow() {
                 LogA("[WINDOW] New foreground candidate detected; stability timer restarted.");
             }
 
-            if (stableSamples==10) {
+            if (stableSamples==10)
                 LogA("[WINDOW] Candidate stable for 1 second.");
-                if (g_skipIntroVideos && !g_introSkipPulseSent && GetForegroundWindow()==candidate) {
-                    LogA("[INTRO] Skip Intro Videos enabled; sending one Escape pulse to the stable foreground game window.");
-                    keybd_event((BYTE)VK_ESCAPE,0,0,0);
-                    Sleep(30);
-                    keybd_event((BYTE)VK_ESCAPE,0,KEYEVENTF_KEYUP,0);
-                    g_introSkipPulseSent=1;
-                    LogA("[INTRO] Startup Escape pulse sent.");
-                }
-            } else if (stableSamples==20)
+            else if (stableSamples==20)
                 LogA("[WINDOW] Candidate stable for 2 seconds.");
+
+            // I1: the old V2A42 implementation sent exactly one Escape pulse.
+            // That pulse could easily land before a logo/video became skippable.
+            // Retry a small, bounded sequence while the startup window is still
+            // the foreground window. All retries finish BEFORE the 3-second
+            // subclass point, so no Escape spam can leak into normal menu/gameplay.
+            if (g_skipIntroVideos &&
+                (stableSamples==10 || stableSamples==16 || stableSamples==22 || stableSamples==28) &&
+                GetForegroundWindow()==candidate) {
+                LogA("[INTRO I1] Sending bounded startup Escape retry.");
+                keybd_event((BYTE)VK_ESCAPE,0,0,0);
+                Sleep(30);
+                keybd_event((BYTE)VK_ESCAPE,0,KEYEVENTF_KEYUP,0);
+                ++g_introSkipPulseSent;
+                LogIntA("[INTRO I1] Escape pulses sent this launch: ",(int)g_introSkipPulseSent);
+            }
 
             if (stableSamples>=30) {
                 LogA("[WINDOW] Candidate stable for 3 seconds; installing WndProc subclass now.");
