@@ -1,47 +1,29 @@
-PostalBorkenMenu V2A42-H3 HOOK ADD -> INITHOOK + DXGI LOADER
+PostalBorkenMenu V2A42-H4 CLEAN GRAPPLING MENU + DXGI LOADER
 POSTAL: Brain-Damaged
 
 BASE
-Built DIRECTLY from the user-validated V2A42 branch.
-V2A42 remains the canonical validated base.
+Built from the user-validated V2A42-H3 grappling-hook fix.
+H3 is the validated gameplay basis for this cleanup build.
+
+VALIDATED GRAPPLING FIX PRESERVED
+Special -> Grappling Hook uses the validated sequence:
+1. Resolve exact WEAPON_Hook.
+2. AddWeapon(WEAPON_Hook) only if required.
+3. Never use ordinary EquipWeapon for the Hook.
+4. Always call WeaponsInventory.InitHook() AFTER the AddWeapon/collected state.
+5. Verify get_Hook().
+
+MENU CLEANUP ONLY
+- "Hook (Add Only)" renamed to "Grappling Hook".
+- Weapon Catalog menu entry removed.
+- DLC Hook Slot99 Test / InitHook menu entry removed.
+- Their command dispatch/menu routing entries are removed.
+- No other menu layout or behavior is changed.
 
 DXGI ASI LOADER
-This package includes dxgi.dll as the standard ASI loader.
-The loader only forwards the real System32 DXGI exports and loads PostalBorkenMenu.asi.
-It does NOT hook Present, render anything, patch swapchains/vtables, or touch menu/mouse/gameplay.
-
-H3 SCOPE
-No menu/UI/mouse/wheel/Weapon Catalog behavior is changed.
-No global Assembly-CSharp scan is performed.
-Give All Weapons is unchanged.
-
-ONLY GAMEPLAY CHANGE
-The existing Special -> WEAPON_Hook action now tests this exact sequence:
-1. Resolve exact WEAPON_Hook.
-2. AddWeapon(WEAPON_Hook) only if not already collected.
-3. NEVER ordinary EquipWeapon.
-4. Read get_Hook() for logging.
-5. ALWAYS call native WeaponsInventory.InitHook() AFTER the AddWeapon/collected state.
-6. Verify get_Hook() again.
-
-WHY H3
-Previous tests did NOT actually test this order:
-- older tests called InitHook before AddWeapon
-- V2A52 called AddWeapon first, but if get_Hook() was already the exact WeaponId it returned early and skipped InitHook
-
-H2 also proved twice that native GiveAllWeapons changes get_Hook() from NULL to NON-NULL.
-The remaining question is whether the post-Add InitHook side effect is what makes the grappling hook usable.
-
-TEST
-1. Copy all four files next to the game executable.
-2. Launch normally and confirm the V2A42 menu behaves normally.
-3. Enter gameplay.
-4. DO NOT use Give All Weapons first.
-5. Open Special and activate Hook once.
-6. Test the grappling hook in gameplay.
-7. If it does not work, DO NOT run Hook repeatedly.
-8. Then run Give All Weapons once as the known-good comparison and test again.
-9. Exit normally and send PostalBorkenMenu.log.
+dxgi.dll remains the standard ASI loader.
+It forwards the real System32 DXGI exports and loads PostalBorkenMenu.asi.
+It does not hook Present, render anything, patch swapchains/vtables, or alter gameplay.
 
 PACKAGE CONTENTS
 dxgi.dll
