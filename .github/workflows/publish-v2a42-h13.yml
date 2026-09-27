@@ -89,16 +89,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $tag = 'V2A42-H13'
-          $asset = 'POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H13.zip'
-
-          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -eq 0) {
-            gh release upload $tag $asset --repo $env:GITHUB_REPOSITORY --clobber
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            gh release edit $tag --repo $env:GITHUB_REPOSITORY --title 'PostalBorkenMenu V2A42-H13' --notes-file RELEASE_NOTES_RUNTIME.md
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          } else {
-            gh release create $tag $asset --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title 'PostalBorkenMenu V2A42-H13' --notes-file RELEASE_NOTES_RUNTIME.md
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          }
+          gh release create V2A42-H13 POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H13.zip --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title 'PostalBorkenMenu V2A42-H13' --notes-file RELEASE_NOTES_RUNTIME.md
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
