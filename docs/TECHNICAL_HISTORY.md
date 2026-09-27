@@ -922,3 +922,123 @@ Rationale:
 Packaging:
 - exactly PostalBorkenMenu.asi, PostalBorkenMenu.ini, README.txt.
 - never include PostalBorkenMenu.log.
+
+
+### V2A42-H3 / H4
+
+H3 validation:
+- exact `WEAPON_Hook` path validated by the user.
+- required sequence is:
+  1. resolve exact `WEAPON_Hook`
+  2. `AddWeapon` only when required
+  3. always call `WeaponsInventory.InitHook()` after the AddWeapon/collected state
+  4. verify `get_Hook()`
+- the previous early-return implementation was wrong because `AddWeapon` could make `get_Hook()` non-null before `InitHook()` ran.
+
+H4 cleanup:
+- renamed the menu entry to `Grappling Hook`.
+- removed Weapon Catalog and the temporary DLC Hook Slot99 / InitHook menu rows.
+- preserved the validated H3 internal Hook sequence.
+- kept the standard minimal DXGI ASI loader.
+
+
+### V2A42-H5 through H12
+
+DLC Weapon Wheel research only. None of these builds became canonical.
+
+H5:
+- attempted temporary native `WeaponWheelButton` WeaponId remapping.
+- crashed because the guessed setter/field write path was invalid.
+- rejected.
+
+H6:
+- safe metadata-only probe.
+- established the real `WeaponWheelButton` field:
+  - `_weaponId : Hyperstrange.PBD.WeaponId`
+- established that no public `set_WeaponId` method exists.
+
+H7 / H8:
+- used the exact `_weaponId` object field.
+- native wheel became visible.
+- H8 proved the five first button WeaponIds really changed to:
+  - `WEAPON_UmDrill`
+  - `WEAPON_PissGun`
+  - `WEAPON_MeatShotgun`
+  - `WEAPON_BubbleGumMachineGun`
+  - `WEAPON_NuclearSyringe`
+- however the wheel still behaved visually/logically like vanilla slots.
+
+H9:
+- attempted to consume `PlayerWeaponWheelComponent._selectedButton` at close.
+- `_selectedButton` remained null.
+- rejected.
+
+H10:
+- attempted the native `OnWheelDown/OnWheelUp` path.
+- wheel no longer became visible.
+- rejected.
+
+H11:
+- attempted native selection while preserving additional experimental state.
+- wheel remained invisible although time slowdown activated.
+- rejected.
+
+H12:
+- attempted to return to visible H7 behavior while explicitly activating the native controller.
+- user reported regressions:
+  - Base Weapon Wheel broken
+  - No Crosshair regressed / failed in DLC
+- rejected completely.
+
+Rule established:
+- do not build future work from H9-H12.
+- Base Weapon Wheel must remain on the H4 path unless a new isolated test proves otherwise.
+
+
+### V2A42-H13
+
+Base:
+- built directly from H4, explicitly excluding H9-H12 wheel experiments.
+
+Recovery goals:
+- restore Base Weapon Wheel to H4 behavior.
+- recover/extend No Crosshair for DLC.
+- remove the obsolete synthetic Escape Skip Intro behavior.
+- audit the real internal NO_VIDEO / DebugManager path without mutating it.
+
+No Crosshair change:
+- H4 used a single `PlayerCrosshairController` returned by `FindObjectOfType`.
+- H13 additionally resolves `Resources.FindObjectsOfTypeAll(PlayerCrosshairController)`.
+- each loaded controller is inspected.
+- only the controller's current Crosshair object is traversed.
+- only child `CanvasRenderer.SetAlpha()` is changed.
+- the native Crosshair object is never cleared or replaced.
+- aim/target logic remains untouched.
+- H4 single-controller behavior remains as fallback.
+
+Skip Intro:
+- all synthetic keyboard input was removed.
+- the old Escape-based implementation is permanently rejected.
+- H13 does not claim Skip Intro is fixed.
+- a targeted metadata audit logs `DebugManager`, a `NO_VIDEO` class if present, and `PlayerCrosshairController` to identify the native path.
+
+Validation:
+- user explicitly reported H13 validated.
+- H13 is promoted to the current canonical source/gameplay base.
+- Base Weapon Wheel recovery validated.
+- No Crosshair recovery / DLC behavior validated.
+- validated Grappling Hook sequence preserved.
+
+Build:
+- GitHub Actions run: `36344321616`
+- artifact: `POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H13_RECOVERY_DLC_CROSSHAIR_AUDIT_TEST`
+- PostalBorkenMenu.asi SHA-256:
+  `7A34F32BDD282BDAFE2F6B8032D5ED0A46C7617BB3B1BDA850BAD0408959A052`
+- dxgi.dll SHA-256:
+  `B28B7DDAE1E37AA60DBF5246ECCC12403006A3A1115442B4B33EC1D664245AF1`
+- artifact ZIP SHA-256:
+  `9062aac35196afa7ed4f4c21585ab759e9cd366bc5cf288b275fbccb7acafb61`
+
+Canonical rule:
+- future gameplay/source changes start from V2A42-H13.
+- Skip Intro remains an open item and must be solved without simulated keyboard/mouse input.
