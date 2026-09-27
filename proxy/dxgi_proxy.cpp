@@ -23,6 +23,7 @@ extern "C" void* memcpy(void* dst, const void* src, size_t n) {
     while(n--) *d++=*s++;
     return dst;
 }
+extern "C" int _fltused = 0;
 
 static HMODULE g_self = 0;
 static HMODULE g_realDxgi = 0;
