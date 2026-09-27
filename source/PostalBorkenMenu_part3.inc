@@ -608,7 +608,7 @@ static BOOL HookGameWindow() {
             if (stableSamples==10) {
                 LogA("[WINDOW] Candidate stable for 1 second.");
                 if (g_skipIntroVideos)
-                    LogA("[INTRO] H11 wheel-only candidate emits no keyboard input for Skip Intro.");
+                    LogA("[INTRO J1] Skip Intro is handled by the early DXGI -skipintro launch argument. No input is emitted.");
             } else if (stableSamples==20)
                 LogA("[WINDOW] Candidate stable for 2 seconds.");
 
