@@ -1,3 +1,48 @@
+PostalBorkenMenu V2A42-J2 REAL NOVIDEO + DXGI
+POSTAL: Brain-Damaged
+
+BASE
+Built directly from H4 clean grappling/menu base.
+
+J2 GOAL
+Reproduce the game's real intro-video bypass instead of simulating input.
+
+OFFICIAL GAME OPTION
+The game officially supports the launch option:
+-novideo
+
+J2 IMPLEMENTATION
+- dxgi.dll reads [Settings] SkipIntroVideos from PostalBorkenMenu.ini during process startup.
+- If enabled, dxgi.dll appends -novideo to the process command line before normal game startup.
+- If -novideo is already present, it is left unchanged.
+- No Escape, SendInput, keybd_event, mouse input or other simulated user input is used.
+- The existing Gameplay-tab checkbox and INI key remain unchanged.
+- Changing the checkbox applies on the NEXT LAUNCH.
+
+TEST
+1. Remove any manual Steam -novideo launch option.
+2. Enable Skip Intro Videos in PostalBorkenMenu.
+3. Exit the game completely.
+4. Launch again and check that intro videos are skipped.
+5. Disable Skip Intro Videos, restart again, and confirm normal videos return.
+6. Send PostalBorkenMenu.log if either direction fails.
+
+UNCHANGED
+- validated Grappling Hook AddWeapon -> InitHook fix
+- H4 menu cleanup
+- TimeScale / No Crosshair / hotkeys / V2A8 shutdown stability
+- minimal dxgi.dll loader architecture
+
+PACKAGE
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+PRIOR TECHNICAL HISTORY
+======================================================================
+
 PostalBorkenMenu V2A42-H4 CLEAN GRAPPLING MENU + DXGI LOADER
 POSTAL: Brain-Damaged
 
