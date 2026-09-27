@@ -607,14 +607,8 @@ static BOOL HookGameWindow() {
 
             if (stableSamples==10) {
                 LogA("[WINDOW] Candidate stable for 1 second.");
-                if (g_skipIntroVideos && !g_introSkipPulseSent && GetForegroundWindow()==candidate) {
-                    LogA("[INTRO] Skip Intro Videos enabled; sending one Escape pulse to the stable foreground game window.");
-                    keybd_event((BYTE)VK_ESCAPE,0,0,0);
-                    Sleep(30);
-                    keybd_event((BYTE)VK_ESCAPE,0,KEYEVENTF_KEYUP,0);
-                    g_introSkipPulseSent=1;
-                    LogA("[INTRO] Startup Escape pulse sent.");
-                }
+                if (g_skipIntroVideos)
+                    LogA("[INTRO] H11 wheel-only candidate emits no keyboard input for Skip Intro.");
             } else if (stableSamples==20)
                 LogA("[WINDOW] Candidate stable for 2 seconds.");
 
