@@ -53,6 +53,7 @@ static const MethodInfo* g_giveAllWeapons = 0;
 static Il2CppClass* g_crosshairControllerClass = 0;
 static const FieldInfo* g_currentCrosshairField = 0;
 static const MethodInfo* g_findObjectOfType2 = 0;
+static const MethodInfo* g_findObjectsOfTypeAll1 = 0;
 static const MethodInfo* g_componentGetGameObject = 0;
 static const MethodInfo* g_gameObjectGetComponentsInChildren = 0;
 static const MethodInfo* g_canvasRendererSetAlpha = 0;
@@ -2013,40 +2014,136 @@ static BOOL SetCrosshairVisualAlpha(float alpha) {
         return FALSE;
     }
 
-    Il2CppObject* controller=FindLiveObject(g_crosshairControllerClass);
-    if (!controller) { LogA("[WARN] PlayerCrosshairController instance not found"); return FALSE; }
-
-    // IMPORTANT: read the currently assigned Crosshair component, but NEVER clear or replace it.
-    // Weapon aim logic continues to use the native crosshair object and its target position.
-    Il2CppObject* crosshair=0;
-    g_il2cpp.field_get_value(controller,g_currentCrosshairField,&crosshair);
-    if (!crosshair) { LogA("[WARN] Current Crosshair object unavailable"); return FALSE; }
-
-    Il2CppException* ex=0;
-    Il2CppObject* go=g_il2cpp.runtime_invoke(g_componentGetGameObject,crosshair,0,&ex);
-    if (ex || !go) { if(ex)FormatExceptionToLog(ex); return FALSE; }
-
-    BOOL includeInactive=TRUE;
-    void* pars[2]; pars[0]=g_canvasRendererTypeObject; pars[1]=&includeInactive;
-    ex=0;
-    Il2CppObject* boxedArr=g_il2cpp.runtime_invoke(g_gameObjectGetComponentsInChildren,go,pars,&ex);
-    if (ex || !boxedArr) { if(ex)FormatExceptionToLog(ex); return FALSE; }
-
-    Il2CppArray* arr=(Il2CppArray*)boxedArr;
-    SIZE_T n=g_il2cpp.array_length(arr);
-    unsigned int hdr=g_il2cpp.array_object_header_size();
-    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+    int controllerCount=0;
+    int controllersWithCrosshair=0;
     int changed=0;
-    for (SIZE_T i=0;i<n;i++) {
-        Il2CppObject* renderer=elems[i];
-        if (!renderer) continue;
-        void* alphaPars[1]; alphaPars[0]=&alpha;
-        ex=0;
-        g_il2cpp.runtime_invoke(g_canvasRendererSetAlpha,renderer,alphaPars,&ex);
-        if (ex) { FormatExceptionToLog(ex); continue; }
-        ++changed;
+
+    // H13: DLC may load/retain more than one PlayerCrosshairController.
+    // Prefer Resources.FindObjectsOfTypeAll(Type) so we do not silently target
+    // only the first controller returned by FindObjectOfType.
+    if (g_findObjectsOfTypeAll1) {
+        const Il2CppType* ct=g_il2cpp.class_get_type(g_crosshairControllerClass);
+        Il2CppObject* typeObj=ct ? g_il2cpp.type_get_object(ct) : 0;
+        if (typeObj) {
+            void* fp[1]; fp[0]=typeObj;
+            Il2CppException* ex=0;
+            Il2CppObject* arrObj=g_il2cpp.runtime_invoke(g_findObjectsOfTypeAll1,0,fp,&ex);
+            if (ex) {
+                LogA("[CROSSHAIR H13] Resources.FindObjectsOfTypeAll(PlayerCrosshairController) threw:");
+                FormatExceptionToLog(ex);
+            } else if (arrObj) {
+                Il2CppArray* controllers=(Il2CppArray*)arrObj;
+                SIZE_T count=g_il2cpp.array_length(controllers);
+                if (count>64) count=64;
+                unsigned int hdr=g_il2cpp.array_object_header_size();
+                Il2CppObject** elems=(Il2CppObject**)(((BYTE*)controllers)+hdr);
+
+                for (SIZE_T ci=0;ci<count;ci++) {
+                    Il2CppObject* controller=elems[ci];
+                    if (!controller) continue;
+                    ++controllerCount;
+
+                    Il2CppObject* crosshair=0;
+                    g_il2cpp.field_get_value(controller,g_currentCrosshairField,&crosshair);
+                    if (!crosshair) continue;
+                    ++controllersWithCrosshair;
+
+                    ex=0;
+                    Il2CppObject* go=g_il2cpp.runtime_invoke(g_componentGetGameObject,crosshair,0,&ex);
+                    if (ex || !go) {
+                        if (ex) FormatExceptionToLog(ex);
+                        continue;
+                    }
+
+                    BOOL includeInactive=TRUE;
+                    void* pars[2]; pars[0]=g_canvasRendererTypeObject; pars[1]=&includeInactive;
+                    ex=0;
+                    Il2CppObject* boxedArr=g_il2cpp.runtime_invoke(g_gameObjectGetComponentsInChildren,go,pars,&ex);
+                    if (ex || !boxedArr) {
+                        if (ex) FormatExceptionToLog(ex);
+                        continue;
+                    }
+
+                    Il2CppArray* arr=(Il2CppArray*)boxedArr;
+                    SIZE_T n=g_il2cpp.array_length(arr);
+                    unsigned int ah=g_il2cpp.array_object_header_size();
+                    Il2CppObject** renderers=(Il2CppObject**)(((BYTE*)arr)+ah);
+                    for (SIZE_T i=0;i<n;i++) {
+                        Il2CppObject* renderer=renderers[i];
+                        if (!renderer) continue;
+                        void* alphaPars[1]; alphaPars[0]=&alpha;
+                        ex=0;
+                        g_il2cpp.runtime_invoke(g_canvasRendererSetAlpha,renderer,alphaPars,&ex);
+                        if (ex) {
+                            FormatExceptionToLog(ex);
+                            continue;
+                        }
+                        ++changed;
+                    }
+                }
+            }
+        }
     }
-    if (!changed) { LogA("[WARN] No CanvasRenderer found under current Crosshair"); return FALSE; }
+
+    // Conservative fallback retains the validated H4 single-controller path.
+    if (controllerCount==0) {
+        Il2CppObject* controller=FindLiveObject(g_crosshairControllerClass);
+        if (!controller) {
+            LogA("[WARN] PlayerCrosshairController instance not found");
+            return FALSE;
+        }
+        controllerCount=1;
+
+        Il2CppObject* crosshair=0;
+        g_il2cpp.field_get_value(controller,g_currentCrosshairField,&crosshair);
+        if (!crosshair) {
+            LogA("[WARN] Current Crosshair object unavailable");
+            return FALSE;
+        }
+        controllersWithCrosshair=1;
+
+        Il2CppException* ex=0;
+        Il2CppObject* go=g_il2cpp.runtime_invoke(g_componentGetGameObject,crosshair,0,&ex);
+        if (ex || !go) {
+            if(ex) FormatExceptionToLog(ex);
+            return FALSE;
+        }
+
+        BOOL includeInactive=TRUE;
+        void* pars[2]; pars[0]=g_canvasRendererTypeObject; pars[1]=&includeInactive;
+        ex=0;
+        Il2CppObject* boxedArr=g_il2cpp.runtime_invoke(g_gameObjectGetComponentsInChildren,go,pars,&ex);
+        if (ex || !boxedArr) {
+            if(ex) FormatExceptionToLog(ex);
+            return FALSE;
+        }
+
+        Il2CppArray* arr=(Il2CppArray*)boxedArr;
+        SIZE_T n=g_il2cpp.array_length(arr);
+        unsigned int hdr=g_il2cpp.array_object_header_size();
+        Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+        for (SIZE_T i=0;i<n;i++) {
+            Il2CppObject* renderer=elems[i];
+            if (!renderer) continue;
+            void* alphaPars[1]; alphaPars[0]=&alpha;
+            ex=0;
+            g_il2cpp.runtime_invoke(g_canvasRendererSetAlpha,renderer,alphaPars,&ex);
+            if (ex) {
+                FormatExceptionToLog(ex);
+                continue;
+            }
+            ++changed;
+        }
+    }
+
+    LogIntA("[CROSSHAIR H13] PlayerCrosshairController objects seen: ",controllerCount);
+    LogIntA("[CROSSHAIR H13] Controllers with current Crosshair: ",controllersWithCrosshair);
+    LogIntA("[CROSSHAIR H13] CanvasRenderers alpha-updated: ",changed);
+
+    if (!changed) {
+        LogA("[WARN] No CanvasRenderer found under any current Crosshair");
+        return FALSE;
+    }
     return TRUE;
 }
 
@@ -2185,8 +2282,10 @@ static BOOL InitIl2Cpp() {
     Il2CppClass* objectClass=g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Object");
     Il2CppClass* componentClass=g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Component");
     Il2CppClass* gameObjectClass=g_il2cpp.class_from_name(g_coreImage,"UnityEngine","GameObject");
+    Il2CppClass* resourcesClass=g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Resources");
     Il2CppClass* canvasRendererClass=g_uiImage ? g_il2cpp.class_from_name(g_uiImage,"UnityEngine","CanvasRenderer") : 0;
     g_findObjectOfType2=objectClass ? FindMethodExact(objectClass,"FindObjectOfType",2,g_systemTypeClass,g_boolClass) : 0;
+    g_findObjectsOfTypeAll1=resourcesClass ? FindMethodExact(resourcesClass,"FindObjectsOfTypeAll",1,g_systemTypeClass) : 0;
     g_componentGetGameObject=componentClass ? FindMethodExact(componentClass,"get_gameObject",0) : 0;
     g_gameObjectGetComponentsInChildren=gameObjectClass ? FindMethodExact(gameObjectClass,"GetComponentsInChildren",2,g_systemTypeClass,g_boolClass) : 0;
     g_canvasRendererSetAlpha=canvasRendererClass ? FindMethodExact(canvasRendererClass,"SetAlpha",1,g_floatClass) : 0;
