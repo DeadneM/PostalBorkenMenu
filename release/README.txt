@@ -1,3 +1,47 @@
+PostalBorkenMenu V2A42-I1 SKIP INTRO RETRY + DXGI
+POSTAL: Brain-Damaged
+
+BASE
+Built directly from H4 clean grappling/menu base.
+This build is ONLY for Skip Intro validation. Weapon Wheel DLC research is not included.
+
+PROBLEM IN CURRENT SKIP INTRO
+The existing implementation sends exactly one Escape pulse when the foreground game
+window has been stable for one second. If that pulse happens before a startup
+logo/video accepts input, nothing else is attempted.
+
+I1 CHANGE
+- Keep Skip Intro as the same Win32-only approach.
+- Send a bounded sequence of four Escape pulses while the same game window remains foreground.
+- Pulses occur around 1.0s, 1.6s, 2.2s and 2.8s of stable-window time.
+- All pulses finish before the existing 3-second WndProc subclass point.
+- No Escape retries continue into the normal menu or gameplay.
+- The checkbox and INI persistence are unchanged.
+
+UNCHANGED
+- Grappling Hook validated fix.
+- H4 menu cleanup.
+- Base Weapon Wheel.
+- DLC Weapon Wheel remains the H4 implementation in this isolated build.
+- DXGI ASI loader.
+
+TEST
+1. Enable Skip Intro Videos.
+2. Close the game completely.
+3. Launch again.
+4. Check whether the startup logos/videos are skipped more reliably.
+5. If a logo/video still remains, send PostalBorkenMenu.log and note which screen remained.
+
+PACKAGE
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+H4 BASE README
+======================================================================
+
 PostalBorkenMenu V2A42-H4 CLEAN GRAPPLING MENU + DXGI LOADER
 POSTAL: Brain-Damaged
 
