@@ -168,6 +168,8 @@ static BOOL InvokeNativeCommand(int i) {
     return TRUE;
 }
 
+static void LogIntA(const char* prefix, int v);
+
 static BOOL IsTargetedHookInventoryName(const char* name) {
     if (!name) return FALSE;
     return StrContainsNoCaseA(name,"hook") ||
