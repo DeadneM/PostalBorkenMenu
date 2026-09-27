@@ -6,6 +6,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include <winternl.h>
 #include <dxgi.h>
 
 #pragma function(memset)
@@ -28,6 +29,8 @@ static HMODULE g_asi=0;
 static volatile LONG g_dxgiState=0;
 static volatile LONG g_asiState=0;
 static WCHAR g_logPath[1024]={};
+static WCHAR g_augmentedCmdLine[16384]={};
+static volatile LONG g_skipIntroCmdlineState=0; // 1 injected, 2 already present, -1 failed/disabled
 
 extern "C" FARPROC g_real_DXGID3D10CreateDevice=0;
 extern "C" FARPROC g_real_DXGID3D10CreateLayeredDevice=0;
@@ -80,6 +83,78 @@ static BOOL ModuleDirectory(WCHAR* out, unsigned cap) {
     out[0]=0;
     return FALSE;
 }
+static WCHAR LowerW(WCHAR c) {
+    return (c>=L'A' && c<=L'Z') ? (WCHAR)(c-L'A'+L'a') : c;
+}
+static BOOL ContainsNoCaseW(const WCHAR* haystack, const WCHAR* needle) {
+    if(!haystack || !needle || !needle[0]) return FALSE;
+    for(unsigned i=0;haystack[i];++i) {
+        unsigned j=0;
+        while(needle[j] && haystack[i+j] &&
+              LowerW(haystack[i+j])==LowerW(needle[j])) ++j;
+        if(!needle[j]) return TRUE;
+    }
+    return FALSE;
+}
+static BOOL ReadSkipIntroSettingEarly() {
+    WCHAR ini[1024]={};
+    if(!ModuleDirectory(ini,1024)) return TRUE; // preserve H4 default=enabled
+    AppendW(ini,1024,L"PostalBorkenMenu.ini");
+    return GetPrivateProfileIntW(L"Settings",L"SkipIntroVideos",1,ini)!=0;
+}
+static BOOL InjectSkipIntroCommandLineEarly() {
+    if(!ReadSkipIntroSettingEarly()) {
+        g_skipIntroCmdlineState=-1;
+        return FALSE;
+    }
+
+    const WCHAR* current=GetCommandLineW();
+    if(!current || !current[0]) {
+        g_skipIntroCmdlineState=-1;
+        return FALSE;
+    }
+
+    if(ContainsNoCaseW(current,L"-skipintro")) {
+        g_skipIntroCmdlineState=2;
+        return TRUE;
+    }
+
+    unsigned n=0;
+    while(current[n] && n+16<16384) {
+        g_augmentedCmdLine[n]=current[n];
+        ++n;
+    }
+    if(current[n]) {
+        g_skipIntroCmdlineState=-1;
+        return FALSE;
+    }
+
+    if(n && g_augmentedCmdLine[n-1]!=L' ' && g_augmentedCmdLine[n-1]!=L'\t')
+        g_augmentedCmdLine[n++]=L' ';
+    const WCHAR arg[]=L"-skipintro";
+    for(unsigned j=0;arg[j] && n+1<16384;++j)
+        g_augmentedCmdLine[n++]=arg[j];
+    g_augmentedCmdLine[n]=0;
+
+    PTEB teb=NtCurrentTeb();
+    PPEB peb=teb ? teb->ProcessEnvironmentBlock : 0;
+    PRTL_USER_PROCESS_PARAMETERS pp=peb ? peb->ProcessParameters : 0;
+    if(!pp) {
+        g_skipIntroCmdlineState=-1;
+        return FALSE;
+    }
+
+    // dxgi.dll is loaded by the process loader before normal game startup.
+    // Point the process command-line UNICODE_STRING at our process-lifetime
+    // static buffer so Unity sees the same "-skipintro" launch argument the
+    // user would normally place in Steam launch options.
+    pp->CommandLine.Buffer=g_augmentedCmdLine;
+    pp->CommandLine.Length=(USHORT)(n*sizeof(WCHAR));
+    pp->CommandLine.MaximumLength=(USHORT)((n+1)*sizeof(WCHAR));
+    g_skipIntroCmdlineState=1;
+    return TRUE;
+}
+
 static void BuildLogPath() {
     if(g_logPath[0]) return;
     WCHAR dir[1024]={};
@@ -208,6 +283,12 @@ extern "C" void __stdcall EnsureRealDxgi() {
     g_real_CompatValue=Resolve("CompatValue");
 
     Log("[DXGI LOADER] OK: System32 DXGI forwarding initialized.");
+    if(g_skipIntroCmdlineState==1)
+        Log("[INTRO J1] OK: -skipintro injected into process command line before game startup.");
+    else if(g_skipIntroCmdlineState==2)
+        Log("[INTRO J1] OK: -skipintro already present in process command line.");
+    else
+        Log("[INTRO J1] Skip Intro launch argument not injected.");
     InterlockedExchange(&g_dxgiState,2);
 
     // Load the ASI only after the proxy is fully initialized, outside DllMain.
@@ -240,6 +321,7 @@ extern "C" BOOL WINAPI DllMain(HMODULE module, DWORD reason, void*) {
     if(reason==DLL_PROCESS_ATTACH) {
         g_self=module;
         DisableThreadLibraryCalls(module);
+        InjectSkipIntroCommandLineEarly();
     }
     return TRUE;
 }
