@@ -211,7 +211,7 @@ static void PaintOverlay(HWND hwnd) {
     }
 
     int fy=ROW_Y+VISIBLE_ROWS*ROW_H+4;
-    Text(dc,L"Tabs: Gameplay / Weapons / Arsenal / Special / Visual  •  Mouse wheel scroll  •  F1 close",22,fy,738,fy+28,C(145,148,156),DT_LEFT);
+    Text(dc,L"Mouse input temporarily disabled  •  F1 close",22,fy,738,fy+28,C(145,148,156),DT_LEFT);
     EndPaint(hwnd,&ps);
 }
 
@@ -248,48 +248,6 @@ static BOOL CreateOverlayWindow() {
     ShowWindow(g_menuHwnd,SW_HIDE); g_menuVisible=0;
     LogA("[OK] Borderless overlay shell created (no title bar/taskbar entry)");
     return TRUE;
-}
-
-static void EnsureOverlayCursorVisibleWin32() {
-    if (!g_overlayArrowCursor) g_overlayArrowCursor=LoadCursorW(0,IDC_ARROW);
-
-    // ShowCursor uses a per-thread display count. This code executes from the
-    // game's WndProc thread. Only retain increments that were actually needed
-    // to cross from hidden to visible; undo no-op probing immediately.
-    int count=ShowCursor(TRUE);
-    if (count>0) {
-        ShowCursor(FALSE);
-    } else {
-        ++g_overlayCursorShowBalance;
-        while(count<0 && g_overlayCursorShowBalance<32) {
-            count=ShowCursor(TRUE);
-            ++g_overlayCursorShowBalance;
-        }
-    }
-
-    if (g_overlayArrowCursor) SetCursor(g_overlayArrowCursor);
-}
-
-static void RestoreOverlayCursorWin32() {
-    while(g_overlayCursorShowBalance>0) {
-        ShowCursor(FALSE);
-        --g_overlayCursorShowBalance;
-    }
-    if (g_overlayPreviousCursor) SetCursor(g_overlayPreviousCursor);
-    g_overlayPreviousCursor=0;
-}
-
-static void ApplyOverlayWin32State(BOOL open) {
-    if (open) {
-        if (!g_overlayPreviousCursor) g_overlayPreviousCursor=GetCursor();
-        EnsureOverlayCursorVisibleWin32();
-        ApplyOverlayPauseState(TRUE);
-        LogA("[OVERLAY] Win32 cursor forced visible; gameplay paused with validated TimeManager bridge.");
-    } else {
-        ApplyOverlayPauseState(FALSE);
-        RestoreOverlayCursorWin32();
-        LogA("[OVERLAY] Win32 cursor state released.");
-    }
 }
 
 static void ToggleOverlay() {
@@ -394,7 +352,6 @@ static BOOL HandleOverlayClick(int x,int y) {
 static WNDPROC BeginEarlyShutdown(HWND hwnd, const char* reason) {
     WNDPROC old=g_oldGameWndProc;
     if (!g_shuttingDown) {
-        if (g_menuVisible) RestoreOverlayCursorWin32();
         // Critical V2A8 rule: fence ALL mod/IL2CPP work BEFORE Unity begins teardown.
         g_shuttingDown=1;
         g_ready=0;
@@ -440,13 +397,6 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         return g_oldGameWndProc ? CallWindowProcW(g_oldGameWndProc,hwnd,msg,wp,lp) : DefWindowProcW(hwnd,msg,wp,lp);
     }
 
-    if (msg==WM_MOUSEWHEEL && g_menuVisible) {
-        short delta=(short)((wp>>16)&0xFFFF);
-        if(delta>0) ScrollOverlayRows(-3);
-        else if(delta<0) ScrollOverlayRows(3);
-        return 0;
-    }
-
     if (msg==WM_APP_EXEC) { ExecuteCommandIndex((int)wp); return 0; }
     if (msg==WM_APP_WEAPONKEY) {
         int slot=(int)(wp & 0xFF);
@@ -463,20 +413,9 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         return 0;
     }
     if (msg==WM_APP_OVERLAYSTATE) {
-        ApplyOverlayWin32State(wp ? TRUE : FALSE);
+        // V2A51: pause only. No cursor API and no mouse-message filtering.
+        ApplyOverlayPauseState(wp ? TRUE : FALSE);
         return 0;
-    }
-    if (g_menuVisible && msg==WM_SETCURSOR) {
-        EnsureOverlayCursorVisibleWin32();
-        return TRUE;
-    }
-
-    if (g_menuVisible) {
-        if (msg==WM_INPUT || msg==WM_MOUSEMOVE ||
-            msg==WM_LBUTTONUP ||
-            msg==WM_RBUTTONDOWN || msg==WM_RBUTTONUP ||
-            msg==WM_MBUTTONDOWN || msg==WM_MBUTTONUP)
-            return 0;
     }
 
     if (msg==WM_APP_CROSSHAIR) {
@@ -499,10 +438,7 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
     }
 
     if ((msg==WM_MOVE || msg==WM_SIZE) && g_menuVisible) UpdateOverlayPosition();
-    if (msg==WM_LBUTTONDOWN && g_menuVisible) {
-        int x=(short)(lp & 0xFFFF); int y=(short)((lp>>16)&0xFFFF);
-        if(HandleOverlayClick(x,y)) return 0;
-    }
+    // V2A51: every mouse message now falls through untouched to the game.
     return g_oldGameWndProc ? CallWindowProcW(g_oldGameWndProc,hwnd,msg,wp,lp) : DefWindowProcW(hwnd,msg,wp,lp);
 }
 
@@ -698,7 +634,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A50 DLC WHEEL + GRAPPLING HOOK TEST");
+    LogA("PostalBorkenMenu V2A51 NO MENU MOUSE TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -712,7 +648,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] V2A44 validated base preserved. DXGI loader is external; DLC wheel remap + proven Grappling Hook path are the only gameplay experiments.");
+    LogA("[READY] V2A50 gameplay tests preserved. Menu mouse/cursor handling is fully disabled in V2A51; F1 display + pause only.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
