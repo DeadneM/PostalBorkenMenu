@@ -1,3 +1,59 @@
+PostalBorkenMenu V2A42-H9 DLC WHEEL SELECTED EQUIP + DXGI
+POSTAL: Brain-Damaged
+
+BASE
+Built from H7. H8 proved that the five native buttons really do receive the five exact DLC WeaponIds, but the native wheel still behaves/looks like its vanilla slots.
+
+H9 GOAL
+Separate wheel selection logic from wheel visuals.
+
+H9 BEHAVIOR
+- Keeps H7's verified _weaponId remap for five native buttons.
+- When the DLC wheel closes, reads PlayerWeaponWheelComponent._selectedButton BEFORE restoration.
+- If that selected button is one of the five remapped buttons, captures its remapped DLC WeaponId.
+- Hides the wheel.
+- Restores every original vanilla WeaponId on the native buttons.
+- Explicitly equips the captured DLC WeaponId with the already-validated safe AddWeapon/EquipWeapon path.
+- The base wheel remains restored before the DLC weapon is equipped.
+
+WHY
+H8 proved:
+button 1 -> WEAPON_UmDrill
+button 2 -> WEAPON_PissGun
+button 3 -> WEAPON_MeatShotgun
+button 4 -> WEAPON_BubbleGumMachineGun
+button 5 -> WEAPON_NuclearSyringe
+while the native button IDs remain 1..5.
+H9 tests whether the selected remapped button can drive the correct DLC weapon even if the native wheel's visuals remain vanilla.
+
+UNCHANGED
+- Grappling Hook validated fix
+- H4 menu cleanup
+- Base Weapon Wheel
+- DXGI loader
+- H7 remap/restoration logic
+
+TEST
+1. Install all four files.
+2. Enter gameplay.
+3. HOLD DLC Weapon Wheel.
+4. Aim at one of the first five sectors.
+5. Release the wheel key.
+6. Check which weapon is actually equipped.
+7. Repeat with two or three different sectors.
+8. Then open Base Weapon Wheel and confirm it is still vanilla.
+9. Send PostalBorkenMenu.log.
+
+PACKAGE
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+H7 BASE README
+======================================================================
+
 PostalBorkenMenu V2A42-H7 DLC WHEEL OBJECT FIELD + DXGI
 POSTAL: Brain-Damaged
 
