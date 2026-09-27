@@ -2007,6 +2007,54 @@ static void ExecuteNativeDlcWheel(BOOL show) {
     ReleaseIl2CppThread(attached,thread);
 }
 
+static void LogTargetClassMetadataH13(Il2CppClass* klass, const char* label) {
+    if (!klass) {
+        if (label) {
+            LogA(label);
+            LogA("[H13 META] class unresolved");
+        }
+        return;
+    }
+
+    if (label) LogA(label);
+
+    void* mi=0;
+    const MethodInfo* m=0;
+    int mc=0;
+    while ((m=g_il2cpp.class_get_methods(klass,&mi))!=0 && mc<96) {
+        const char* n=g_il2cpp.method_get_name(m);
+        if (!n) continue;
+        LogA("[H13 META METHOD]");
+        LogA(n);
+        LogIntA("[H13 META] parameter count: ",(int)g_il2cpp.method_get_param_count(m));
+        ++mc;
+    }
+    LogIntA("[H13 META] methods logged: ",mc);
+
+    void* fi=0;
+    const FieldInfo* fld=0;
+    int fc=0;
+    while ((fld=g_il2cpp.class_get_fields(klass,&fi))!=0 && fc<96) {
+        const char* n=g_il2cpp.field_get_name(fld);
+        if (!n) continue;
+        LogA("[H13 META FIELD]");
+        LogA(n);
+        ++fc;
+    }
+    LogIntA("[H13 META] fields logged: ",fc);
+}
+
+static void RunTargetedNoVideoAndCrosshairAuditH13() {
+    LogA("[H13 META] ===== targeted DebugManager / NO_VIDEO audit =====");
+    Il2CppClass* debugManager=FindClassBySimpleName("DebugManager");
+    Il2CppClass* noVideoClass=FindClassBySimpleName("NO_VIDEO");
+    LogTargetClassMetadataH13(debugManager,"[H13 META] DebugManager");
+    LogTargetClassMetadataH13(noVideoClass,"[H13 META] NO_VIDEO class");
+    LogA("[H13 META] ===== targeted PlayerCrosshairController audit =====");
+    LogTargetClassMetadataH13(g_crosshairControllerClass,"[H13 META] PlayerCrosshairController");
+    LogA("[H13 META] ===== audit end =====");
+}
+
 static BOOL SetCrosshairVisualAlpha(float alpha) {
     if (!g_crosshairControllerClass || !g_currentCrosshairField || !g_componentGetGameObject ||
         !g_gameObjectGetComponentsInChildren || !g_canvasRendererSetAlpha || !g_canvasRendererTypeObject) {
@@ -2163,8 +2211,8 @@ static BOOL ToggleSkipIntroVideos() {
     WritePrivateProfileStringW(L"Settings",L"SkipIntroVideos",g_skipIntroVideos?L"1":L"0",g_iniPath);
     WritePrivateProfileStringW(0,0,0,g_iniPath);
     LogA(g_skipIntroVideos
-        ? "[INTRO] Skip Intro Videos enabled. It will apply on the next launch."
-        : "[INTRO] Skip Intro Videos disabled. Intro playback will be left untouched on the next launch.");
+        ? "[INTRO H13] Skip Intro preference stored. Native NO_VIDEO mechanism is under targeted audit; no simulated input is used."
+        : "[INTRO H13] Skip Intro preference disabled. No simulated input is used.");
     if (g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
     return TRUE;
 }
@@ -2299,6 +2347,8 @@ static BOOL InitIl2Cpp() {
 
     g_crosshairControllerClass=FindClassBySimpleName("PlayerCrosshairController");
     g_currentCrosshairField=g_crosshairControllerClass ? g_il2cpp.class_get_field_from_name(g_crosshairControllerClass,"_currentCrosshair") : 0;
+
+    RunTargetedNoVideoAndCrosshairAuditH13();
 
     g_timeManagerClass=FindClassBySimpleName("TimeManager");
     g_timeScaleSetter=g_timeManagerClass ? FindMethodExact(g_timeManagerClass,"SetGameTimeScale",1,g_floatClass) : 0;
