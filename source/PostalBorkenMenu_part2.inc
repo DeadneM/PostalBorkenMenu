@@ -2123,8 +2123,6 @@ static void ExecuteCommandIndex(int i) {
     else if (StrEqA(g_cmds[i].className,"__SkipIntroVideos")) ToggleSkipIntroVideos();
     else if (StrEqA(g_cmds[i].className,"__GiveAllWeapons")) GiveAllWeaponsOnly();
     else if (StrEqA(g_cmds[i].className,"__GiveAllDlcWeapons")) GiveAllOwnedDlcWeapons();
-    else if (StrEqA(g_cmds[i].className,"__WeaponCatalog")) RunWeaponCatalog();
-    else if (StrEqA(g_cmds[i].className,"__InitDlcHook")) InitOwnedDlcHook();
     else if (StrEqA(g_cmds[i].className,"__WeaponKeysMode")) LogA("[KEYMAP] Weapon Keys Mode changed through its Argument field");
     else if (StrEqA(g_cmds[i].className,"__BaseWeaponWheel")) LogA("[WHEEL] Bind Base Weapon Wheel to a key, then HOLD that key to open it.");
     else if (StrEqA(g_cmds[i].className,"__DlcWeaponWheel")) LogA("[WHEEL] Bind DLC Weapon Wheel to a key, then HOLD it. V2A20-style wheel shell opens even when no DLC button is live.");
