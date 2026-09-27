@@ -37,7 +37,7 @@ jobs:
         shell: cmd
         run: |
           cl /nologo /c /O2 /Oi- /GS- /GR- /EHs-c- /Zl /Fo:build\dxgi_asi_loader.obj proxy\dxgi_asi_loader.cpp
-          ml64 /nologo /c /Fo:build\dxgi_thunks.obj proxy\dxgi_thunks.asm
+          ml64 /nologo /c /Fo build\dxgi_thunks.obj proxy\dxgi_thunks.asm
           link /nologo /DLL /MACHINE:X64 /NODEFAULTLIB /ENTRY:DllMain /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /DEF:proxy\dxgi_proxy.def /OUT:build\dxgi.dll build\dxgi_asi_loader.obj build\dxgi_thunks.obj kernel32.lib
 
       - name: SHA-256
