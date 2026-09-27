@@ -1,76 +1,132 @@
-PostalBorkenMenu V2A44
+PostalBorkenMenu V2A50 TEST
 POSTAL: Brain-Damaged
 
 BASE
-Built directly from V2A42, which the user validated as working.
+Built directly from the user-validated V2A44 branch:
+dev/v2a44-safe-win32-overlay-mouse
 
-WHY V2A44 EXISTS
-V2A43 crashed after adding new Unity Cursor and SceneManager IL2CPP bridges.
-V2A43 is rejected.
+V2A43 remains rejected because of its crash.
+The later V2A48 / V2A49 overlay experiments are NOT used as the gameplay base.
 
-V2A44 deliberately does NOT inherit the V2A43 branch.
-It returns to V2A42 and adds only a much smaller overlay-input fix.
+V2A50 deliberately changes only three areas:
+1. restore a bundled DXGI ASI loader
+2. test a real native DLC weapon wheel
+3. keep the proven safe Grappling Hook path
 
-PRESERVED FROM V2A42
-- V2A40 stable 3-second game-window qualification
-- five tabs: Gameplay / Weapons / Arsenal / Special / Visual
-- 14 single Arsenal weapons
-- no Akimbo Arsenal rows
-- 4 non-Dong Special rows
-- V2A29 wheel behavior
-- V2A8 shutdown fencing
-- exact-name WeaponId resolver
-- no broad Assembly-CSharp scans
-- no startup Hook recovery
+The debug-command cleanup and visual redesign are intentionally postponed until
+the DLC wheel and Grappling Hook are validated.
 
-F1 OVERLAY MOUSE
-V2A44 uses Win32 cursor APIs only:
-- GetCursor
-- LoadCursorW(IDC_ARROW)
-- ShowCursor
-- SetCursor
+PRESERVED FROM V2A44
+- V2A42/V2A44 stable IL2CPP lifetime and shutdown fencing
+- five-tab menu
+- Win32-only F1 cursor handling
+- validated TimeManager pause/restore path
+- Give All Weapons
+- No Crosshair
+- TimeScale
+- Arsenal / Special exact-name WeaponId resolver
+- base native weapon wheel
+- existing hotkeys and INI persistence
+- no EXE, GameAssembly.dll or UnityPlayer.dll patching
 
-No Unity Cursor metadata bridge is added.
+DXGI ASI LOADER
+V2A50 includes dxgi.dll again.
 
-When F1 opens:
-- the game window thread forces a visible arrow cursor
-- raw/movement/right/middle mouse messages are swallowed while the overlay is open
-- left click and wheel remain available to the overlay
-- the current game timescale is saved
-- the already-validated TimeManager.SetGameTimeScale bridge sets timescale to 0.0
+The loader is intentionally minimal:
+- forwards the real Windows System32\dxgi.dll
+- loads PostalBorkenMenu.asi from the game directory
+- initializes outside DllMain
+- no Present hook
+- no swap-chain vtable patching
+- no renderer
+- no second overlay
+- no cursor implementation inside dxgi.dll
 
-When F1 closes:
-- the previous timescale is restored
-- only the ShowCursor count adjustments made by the mod are unwound
-- the previous cursor handle is restored
+Expected log entries:
+[DXGI LOADER] OK: System32 DXGI forwarding initialized.
+[DXGI LOADER] OK: PostalBorkenMenu.asi loaded.
 
-SKIP INTRO
-The V2A42 synthetic Escape implementation has been REMOVED.
-Escape does not skip this game's intro and will not be sent anymore.
+DLC WEAPON WHEEL TEST
+The old V2A29 DLC wheel could display the game's native wheel shell, but the
+live native button collection normally contained base-game WeaponIds rather
+than the five gameplay DLC weapons.
 
-The game itself has a documented native -novideo launch option.
-A proper overlay checkbox will only be restored once the exact native saved-setting representation is mapped from SAVE_DATA.cfg.
+V2A50 keeps the game's real PlayerWeaponWheelComponent and PlayerWheelView.
 
-AUTO LEVEL ACTIONS
-Not included in V2A44.
-The V2A43 SceneManager experiment is removed completely because that build crashed.
+When the DLC wheel is opened, the mod:
+1. verifies These Sunny Daze ownership
+2. resolves only the five exact normal DLC WeaponIds
+3. adds only DLC weapons that are not already collected
+4. temporarily maps existing native WeaponWheelButton entries to those DLC WeaponIds
+5. shows the game's own native wheel
+6. restores every original WeaponId when the DLC wheel closes
+7. calls the game's normal EnableButtons path after restoration
 
-The next level-start implementation will be rebuilt independently after V2A44 overlay stability is confirmed.
+The five DLC wheel candidates are:
+- WEAPON_UmDrill
+- WEAPON_PissGun
+- WEAPON_MeatShotgun
+- WEAPON_BubbleGumMachineGun
+- WEAPON_NuclearSyringe
 
-TEST
-1. Launch normally.
-2. Confirm startup remains as stable as V2A42.
-3. Enter gameplay.
-4. Press F1 without opening the game's Pause menu.
-5. Confirm a visible mouse cursor appears.
-6. Confirm gameplay pauses.
-7. Click tabs and RUN controls.
-8. Close F1 and confirm controls/timescale return normally.
-9. Exit normally and send PostalBorkenMenu.log.
+Cutscene / NoWeapon special objects are deliberately excluded.
+
+If the WeaponWheelButton class exposes a managed set_WeaponId method, V2A50
+uses it. Otherwise it tries the corresponding managed IL2CPP field and verifies
+the change again through get_WeaponId.
+
+If no safe writable WeaponId target is found, V2A50 aborts the remap and restores
+the native wheel instead of intentionally leaving a half-modified wheel.
+
+GRAPPLING HOOK
+The Special-menu entry is now displayed as:
+
+Grappling Hook
+
+Its underlying exact Unity WeaponId remains:
+WEAPON_Hook
+
+This preserves the V2A32-proven behavior:
+- use the exact category 0 / slot 99 Hook WeaponId
+- AddWeapon only when it is not already collected
+- DO NOT call GiveAllWeapons as a Hook fallback
+- DO NOT call EquipWeapon on WEAPON_Hook
+- verify through WeaponsInventory.get_Hook()
+
+The goal is to initialize the game's dedicated grappling-hook slot without
+treating it as an ordinary gun.
+
+TEST ORDER
+1. Remove any other dxgi.dll / ASI loader from the game directory before this test.
+2. Put the four V2A50 files next to the game EXE.
+3. Launch the game normally without -debug.
+4. Confirm the game reaches the menu and gameplay normally.
+5. Open F1 and confirm V2A44 menu behavior is unchanged.
+6. Run "Grappling Hook".
+7. Confirm the grappling hook becomes usable without Give All Weapons and without
+   forcing a normal weapon equip.
+8. Bind "DLC Weapon Wheel" to a free key if it is not already bound.
+9. Hold that key and inspect the native wheel.
+10. Confirm DLC weapons appear in the wheel and can be selected normally.
+11. Close/reopen the DLC wheel several times.
+12. Open the normal Base Weapon Wheel afterward and confirm its original weapons
+    were restored.
+13. Change level once if practical and repeat the wheel/grappling tests.
+14. Exit the game normally.
+15. Keep PostalBorkenMenu.log if anything behaves unexpectedly.
 
 PACKAGE CONTENTS
+dxgi.dll
 PostalBorkenMenu.asi
 PostalBorkenMenu.ini
 README.txt
 
-PostalBorkenMenu.log is generated at runtime and is intentionally not included.
+PostalBorkenMenu.log is generated at runtime and is intentionally not packaged.
+
+NEXT PHASE AFTER VALIDATION
+Once DLC wheel + Grappling Hook are stable:
+- audit all exposed native/debug commands
+- remove obsolete probes and test-only rows
+- keep only useful player-facing features
+- redesign the menu from a clean feature list instead of styling the current
+  debug-heavy layout
