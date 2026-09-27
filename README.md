@@ -10,24 +10,42 @@
 
 ## Current canonical base
 
-**V2A8** is the current validated base.
+**V2A42-H13** is the current user-validated source/gameplay base.
 
-### Download
+It supersedes the older V2A8 public baseline while preserving the validated V2A8 shutdown/lifetime model.
 
-**[Download PostalBorkenMenu V2A8](https://github.com/DeadneM/PostalBorkenMenu/releases/download/V2A8/POSTAL_Brain_Damaged_PostalBorkenMenu_V2A8.zip)**  
-[View release notes](https://github.com/DeadneM/PostalBorkenMenu/releases/tag/V2A8)
+Validated H13 behavior:
 
-Validated behavior:
-
-- native developer-command bridge through Unity IL2CPP
-- reliable configurable hotkeys
-- persistent `PostalBorkenMenu.ini`
-- `Give All Weapons` without giving quest items
-- `TimeScale` with **0.5x selected by default**
-- clicking the same non-1.0 TimeScale value again returns the game to **1.0x**
-- visual-only `No Crosshair` without breaking weapon aim
-- clean shutdown without the exit crash seen in earlier builds
+- five-tab in-game menu
+- reliable configurable hotkeys and persistent INI
+- validated Grappling Hook path using exact `WEAPON_Hook` -> `AddWeapon` when required -> `WeaponsInventory.InitHook()`
+- Base Weapon Wheel restored to the H4 path after rejecting H9-H12 wheel experiments
+- visual-only `No Crosshair` preserved without clearing/replacing the native crosshair object
+- H13 extends No Crosshair across all loaded `PlayerCrosshairController` instances so the DLC path is covered
+- Give All Weapons / named Arsenal and Special entries
+- TimeScale toggle behavior
+- V2A8 early shutdown fencing
+- x64 `dxgi.dll` proxy/ASI loader included in the current package
 - no on-disk patching of the game EXE, `GameAssembly.dll`, or `UnityPlayer.dll`
+
+Current package contents:
+
+```text
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+```
+
+### Open work
+
+- **Skip Intro is not fixed in H13.** The old synthetic Escape/input method is rejected and must not return.
+- The next implementation must reproduce the game's native intro-skip / NO_VIDEO behavior without simulating keyboard or mouse input.
+- DLC Weapon Wheel research remains noncanonical. H9, H10, H11 and H12 are rejected.
+
+### Public release note
+
+The older V2A8 GitHub Release remains historical/public packaging. The repository source on `main` is now advanced to the validated **V2A42-H13** base.
 
 ## Important launch rule
 
@@ -111,7 +129,7 @@ PostalBorkenMenu dynamically resolves IL2CPP exports and metadata names at runti
 
 The V2A8 shutdown model fences IL2CPP work early during game shutdown and removes the permanent crosshair polling loop that caused an exit-race regression in V2A7.
 
-## V2A8 frozen behavior
+## Stable behavior inherited from V2A8
 
 The following rules are considered stable unless a later test explicitly proves otherwise:
 
@@ -124,7 +142,7 @@ The following rules are considered stable unless a later test explicitly proves 
 7. `No Crosshair` must be visual-only and must never use `SetCurrentCrosshair(NULL)`.
 8. TimeScale defaults to 0.5x; second click on the same non-1 value returns to 1.0x.
 9. Avoid permanent 250 ms IL2CPP polling for crosshair refresh.
-10. Future work starts from V2A8.
+10. V2A8 lifetime/shutdown rules remain frozen; current feature work starts from validated V2A42-H13.
 
 ## Audited game-file hashes
 
@@ -162,7 +180,9 @@ Development progressed through:
 - **V2A5**: rejected logical crosshair-null method because it altered weapon aim
 - **V2A6**: reliable hotkey polling and TimeScale toggle validation
 - **V2A7**: CanvasRenderer visual crosshair method validated in-game, but exit regression remained
-- **V2A8**: early shutdown fencing + event-driven crosshair refresh; current canonical base
+- **V2A8**: early shutdown fencing + event-driven crosshair refresh; stable lifetime foundation
+- **V2A42-H3/H4**: validated Grappling Hook path and menu cleanup
+- **V2A42-H13**: validated recovery base; Base Weapon Wheel restored and No Crosshair extended across DLC crosshair controllers; current canonical base
 
 The detailed engineering notebook is kept under `docs/`.
 
