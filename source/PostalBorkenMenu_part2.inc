@@ -685,21 +685,28 @@ static BOOL ExecuteNamedWeaponByUnityName(const char* exactName, BOOL special) {
         return FALSE;
     }
 
-    // V2A32 proved that Hook must be added to CollectedWeapons, but must not
-    // be passed through the ordinary EquipWeapon path.
+    // V2A52: surgical Hook-only test built directly from the validated V2A44 base.
+    // User feedback proved that AddWeapon(WEAPON_Hook) alone does not make the
+    // grappling hook usable; native GiveAllWeapons() performs additional hook
+    // initialization. Reproduce only that missing initialization step here.
+    // No menu, catalog, wheel, cursor, overlay, or other gameplay code is changed.
     if (StrEqA(exactName,"WEAPON_Hook")) {
+        LogA("[HOOK V2A52] Exact WEAPON_Hook path: AddWeapon -> InitHook -> verify.");
+
+        const MethodInfo* addWeapon=FindMethodExact(weaponsInventoryClass,"AddWeapon",1,weaponIdClass);
+        const MethodInfo* initHook=g_il2cpp.class_get_method_from_name(weaponsInventoryClass,"InitHook",0);
+        const MethodInfo* getHook=g_il2cpp.class_get_method_from_name(weaponsInventoryClass,"get_Hook",0);
+        if (!addWeapon || !initHook || !getHook) {
+            LogA("[HOOK V2A52] AddWeapon/InitHook/get_Hook bridge unresolved.");
+            return FALSE;
+        }
+
         int collected=IsWeaponCollected(playerInv,inventoryClass,selected);
         if (collected==1) {
-            LogA("[SPECIAL] WEAPON_Hook already collected; AddWeapon skipped.");
+            LogA("[HOOK V2A52] WEAPON_Hook already collected; AddWeapon skipped.");
         } else {
             if (collected<0) {
-                LogA("[SPECIAL] Could not inspect CollectedWeapons; refusing Hook mutation.");
-                return FALSE;
-            }
-
-            const MethodInfo* addWeapon=FindMethodExact(weaponsInventoryClass,"AddWeapon",1,weaponIdClass);
-            if (!addWeapon) {
-                LogA("[SPECIAL] Hook AddWeapon bridge unresolved.");
+                LogA("[HOOK V2A52] Could not inspect CollectedWeapons; refusing Hook mutation.");
                 return FALSE;
             }
 
@@ -707,23 +714,53 @@ static BOOL ExecuteNamedWeaponByUnityName(const char* exactName, BOOL special) {
             ex=0;
             g_il2cpp.runtime_invoke(addWeapon,weaponsInv,pars,&ex);
             if (ex) {
-                LogA("[SPECIAL] AddWeapon(WEAPON_Hook) threw:");
+                LogA("[HOOK V2A52] AddWeapon(WEAPON_Hook) threw:");
                 FormatExceptionToLog(ex);
                 return FALSE;
             }
-            LogA("[SPECIAL] WEAPON_Hook added with native AddWeapon only; EquipWeapon intentionally skipped.");
+            LogA("[HOOK V2A52] Native AddWeapon(WEAPON_Hook) completed; EquipWeapon intentionally skipped.");
         }
 
-        const MethodInfo* getHook=g_il2cpp.class_get_method_from_name(weaponsInventoryClass,"get_Hook",0);
-        if (getHook) {
-            ex=0;
-            Il2CppObject* hook=g_il2cpp.runtime_invoke(getHook,weaponsInv,0,&ex);
-            if (!ex)
-                LogA(hook==selected ? "[SPECIAL] Hook verified: get_Hook() returns exact WEAPON_Hook."
-                                    : hook ? "[SPECIAL] get_Hook() is non-null but points to a different WeaponId."
-                                           : "[SPECIAL] get_Hook() remains null.");
+        ex=0;
+        Il2CppObject* hookBeforeInit=g_il2cpp.runtime_invoke(getHook,weaponsInv,0,&ex);
+        if (ex) {
+            LogA("[HOOK V2A52] get_Hook() before InitHook threw:");
+            FormatExceptionToLog(ex);
+            return FALSE;
         }
-        return TRUE;
+
+        if (hookBeforeInit==selected) {
+            LogA("[HOOK V2A52] Hook already initialized after AddWeapon; InitHook not needed.");
+            return TRUE;
+        }
+
+        LogA(hookBeforeInit ? "[HOOK V2A52] get_Hook() is non-null but not exact WEAPON_Hook; invoking InitHook."
+                            : "[HOOK V2A52] get_Hook() is still null; invoking native InitHook().");
+
+        ex=0;
+        g_il2cpp.runtime_invoke(initHook,weaponsInv,0,&ex);
+        if (ex) {
+            LogA("[HOOK V2A52] WeaponsInventory.InitHook() threw:");
+            FormatExceptionToLog(ex);
+            return FALSE;
+        }
+
+        ex=0;
+        Il2CppObject* hookAfterInit=g_il2cpp.runtime_invoke(getHook,weaponsInv,0,&ex);
+        if (ex) {
+            LogA("[HOOK V2A52] get_Hook() after InitHook threw:");
+            FormatExceptionToLog(ex);
+            return FALSE;
+        }
+
+        if (hookAfterInit==selected) {
+            LogA("[HOOK V2A52] SUCCESS: get_Hook() returns exact WEAPON_Hook after InitHook.");
+            return TRUE;
+        }
+
+        LogA(hookAfterInit ? "[HOOK V2A52] InitHook completed, but get_Hook() points to a different WeaponId."
+                           : "[HOOK V2A52] InitHook completed, but get_Hook() remains null.");
+        return FALSE;
     }
 
     BOOL ok=SafeAddAndEquipWeaponId(playerInv,weaponsInv,inventoryClass,weaponsInventoryClass,weaponIdClass,selected,
