@@ -1,3 +1,53 @@
+PostalBorkenMenu V2A42-H12 VISIBLE DLC WHEEL CONTROLLER TEST
+POSTAL: Brain-Damaged
+
+BASE
+Built from H7 because H7/H8 were the last branches with a visible DLC weapon wheel.
+H9, H10 and H11 are rejected.
+
+H12 GOAL
+Preserve the visible H7 wheel while enabling the native wheel controller selection path.
+
+H12 WHEEL BEHAVIOR
+- Keeps H7 PlayerWheelView.Show() opening path unchanged.
+- Keeps the five verified DLC WeaponId remaps:
+  1 -> WEAPON_UmDrill
+  2 -> WEAPON_PissGun
+  3 -> WEAPON_MeatShotgun
+  4 -> WEAPON_BubbleGumMachineGun
+  5 -> WEAPON_NuclearSyringe
+- Explicitly calls PlayerWeaponWheelComponent.OnPlayerWheelViewShow() after Show().
+- On release, uses the game's own GetInputAngle() and UpdateSelection(angle).
+- If _selectedButton resolves, calls native SelectButton() while DLC WeaponIds are still active.
+- Then hides the wheel and restores all original vanilla WeaponIds.
+- This build does NOT test Skip Intro.
+- No simulated keyboard or mouse input exists in this build.
+
+TEST
+1. Enter gameplay.
+2. HOLD DLC Weapon Wheel.
+3. First confirm the wheel is visible again.
+4. Move the wheel pointer onto several of the first five sectors.
+5. Release the key and note which weapon equips.
+6. Check Base Weapon Wheel afterwards.
+7. Send PostalBorkenMenu.log.
+
+UNCHANGED
+- validated Grappling Hook AddWeapon -> InitHook fix
+- H4 menu cleanup
+- TimeScale / No Crosshair / hotkeys / V2A8 shutdown stability
+- minimal dxgi.dll loader architecture
+
+PACKAGE
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+PRIOR TECHNICAL HISTORY
+======================================================================
+
 PostalBorkenMenu V2A42-H7 DLC WHEEL OBJECT FIELD + DXGI
 POSTAL: Brain-Damaged
 
