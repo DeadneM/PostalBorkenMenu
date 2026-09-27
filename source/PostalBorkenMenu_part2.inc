@@ -2225,13 +2225,51 @@ static BOOL HideNativeDlcWeaponWheel() {
     Il2CppClass* wheelButtonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
     Il2CppClass* wheelViewClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerView","PlayerWheelView") : 0;
     Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    Il2CppClass* inventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerInventoryComponent") : 0;
+    Il2CppClass* weaponsInventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.Inventory","WeaponsInventory") : 0;
 
     const MethodInfo* hideMethod=wheelViewClass ? g_il2cpp.class_get_method_from_name(wheelViewClass,"Hide",0) : 0;
     const MethodInfo* restoreMethod=wheelClass ? g_il2cpp.class_get_method_from_name(wheelClass,"EnableButtons",0) : 0;
     const MethodInfo* buttonGetWeapon=wheelButtonClass ? g_il2cpp.class_get_method_from_name(wheelButtonClass,"get_WeaponId",0) : 0;
+    const FieldInfo* selectedButtonField=wheelClass ? g_il2cpp.class_get_field_from_name(wheelClass,"_selectedButton") : 0;
+    const FieldInfo* weaponsControllerField=inventoryClass ? g_il2cpp.class_get_field_from_name(inventoryClass,"_weaponsController") : 0;
 
     Il2CppObject* wheel=wheelClass ? FindLiveObject(wheelClass) : 0;
     Il2CppObject* view=wheelViewClass ? FindLiveObject(wheelViewClass) : 0;
+
+    // H9: snapshot the native wheel's selected button BEFORE Hide() and BEFORE
+    // restoring our temporary WeaponIds. If it is one of the five remapped
+    // buttons, keep its remapped DLC WeaponId and equip that exact object after
+    // the visual wheel has been closed/restored.
+    Il2CppObject* selectedButton=0;
+    Il2CppObject* selectedDlcWeapon=0;
+    int selectedMappedIndex=-1;
+
+    if (wheel && selectedButtonField)
+        g_il2cpp.field_get_value(wheel,selectedButtonField,&selectedButton);
+
+    if (selectedButton && buttonGetWeapon) {
+        for (int i=0;i<g_dlcWheelMappedCount;i++) {
+            if (g_dlcWheelMappedButtons[i]!=selectedButton) continue;
+            Il2CppException* ex=0;
+            Il2CppObject* candidate=g_il2cpp.runtime_invoke(buttonGetWeapon,selectedButton,0,&ex);
+            if (!ex && candidate) {
+                selectedDlcWeapon=candidate;
+                selectedMappedIndex=i;
+            } else if (ex) {
+                LogA("[WHEEL H9] get_WeaponId() on selected button threw:");
+                FormatExceptionToLog(ex);
+            }
+            break;
+        }
+    }
+
+    if (selectedDlcWeapon) {
+        LogIntA("[WHEEL H9] Native selected remapped button index: ",selectedMappedIndex);
+        LogA("[WHEEL H9] Captured remapped DLC WeaponId before restoration.");
+    } else {
+        LogA("[WHEEL H9] No remapped DLC button selected at wheel close.");
+    }
 
     BOOL ok=TRUE;
     Il2CppException* ex=0;
@@ -2244,8 +2282,31 @@ static BOOL HideNativeDlcWeaponWheel() {
         !RestoreNativeDlcWheelMapping(wheel,wheelClass,wheelButtonClass,weaponIdClass,buttonGetWeapon,restoreMethod))
         ok=FALSE;
 
+    // Equip the saved DLC WeaponId only AFTER the native button identities have
+    // been restored, so the permanent base wheel stays pristine.
+    if (selectedDlcWeapon && inventoryClass && weaponsInventoryClass && weaponsControllerField) {
+        Il2CppObject* playerInv=FindLiveObject(inventoryClass);
+        Il2CppObject* weaponsInv=0;
+        if (playerInv)
+            g_il2cpp.field_get_value(playerInv,weaponsControllerField,&weaponsInv);
+
+        if (playerInv && weaponsInv) {
+            if (SafeAddAndEquipWeaponId(playerInv,weaponsInv,inventoryClass,weaponsInventoryClass,weaponIdClass,
+                                        selectedDlcWeapon,
+                                        "[WHEEL H9] AddWeapon(selected DLC) completed")) {
+                LogA("[WHEEL H9] Selected DLC WeaponId equipped explicitly on wheel close.");
+            } else {
+                LogA("[WHEEL H9] Failed to equip selected DLC WeaponId.");
+                ok=FALSE;
+            }
+        } else {
+            LogA("[WHEEL H9] Player inventory unavailable while equipping selected DLC WeaponId.");
+            ok=FALSE;
+        }
+    }
+
     g_dlcWheelActive=0;
-    LogA("[WHEEL H7] DLC bank closed; original native WeaponIds restored.");
+    LogA("[WHEEL H9] DLC bank closed; original native WeaponIds restored.");
     return ok;
 }
 
