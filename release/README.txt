@@ -1,3 +1,52 @@
+PostalBorkenMenu V2A42-H8 WHEEL CONTROLLER AUDIT + DXGI
+POSTAL: Brain-Damaged
+
+BASE
+Built from H7, which opens the native DLC wheel without crashing but still shows incorrect/base content.
+
+H8 PURPOSE
+Identify the second binding used by the native wheel after WeaponWheelButton._weaponId.
+
+H8 ADDS LOGGING ONLY AROUND THE H7 WHEEL PATH
+- targeted methods/fields of PlayerWeaponWheelComponent
+- targeted methods/fields of PlayerWheelView
+- each WeaponWheelButton index
+- each button _id value
+- WeaponId Unity name BEFORE remap
+- WeaponId Unity name AFTER the verified _weaponId remap
+
+H7 BEHAVIOR REMAINS
+- exact five DLC WeaponIds
+- _weaponId object-field write
+- immediate get_WeaponId verification
+- native wheel Show()
+- original WeaponId restoration on close
+
+UNCHANGED
+- Grappling Hook
+- H4 menu cleanup
+- Base Weapon Wheel
+- DXGI ASI loader
+
+TEST
+1. Install all four files.
+2. Enter gameplay.
+3. HOLD DLC Weapon Wheel once.
+4. Observe the incorrect wheel as before.
+5. Release it.
+6. Exit normally.
+7. Send PostalBorkenMenu.log.
+
+PACKAGE
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+H7 BASE README
+======================================================================
+
 PostalBorkenMenu V2A42-H7 DLC WHEEL OBJECT FIELD + DXGI
 POSTAL: Brain-Damaged
 
