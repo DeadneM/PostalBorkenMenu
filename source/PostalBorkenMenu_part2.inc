@@ -2097,6 +2097,85 @@ static BOOL RestoreNativeDlcWheelMapping(Il2CppObject* wheel,
     return ok;
 }
 
+static void LogWheelClassMetadataH8(Il2CppClass* klass, const char* label) {
+    if (!klass) return;
+    if (label) LogA(label);
+
+    void* mi=0;
+    const MethodInfo* m=0;
+    int mc=0;
+    while ((m=g_il2cpp.class_get_methods(klass,&mi))!=0 && mc<128) {
+        const char* n=g_il2cpp.method_get_name(m);
+        if (!n) continue;
+        LogA("[WHEEL H8 METHOD]");
+        LogA(n);
+        LogIntA("[WHEEL H8] parameter count: ",(int)g_il2cpp.method_get_param_count(m));
+        ++mc;
+    }
+    LogIntA("[WHEEL H8] methods logged: ",mc);
+
+    void* fi=0;
+    const FieldInfo* fld=0;
+    int fc=0;
+    while ((fld=g_il2cpp.class_get_fields(klass,&fi))!=0 && fc<128) {
+        const char* n=g_il2cpp.field_get_name(fld);
+        if (!n) continue;
+        LogA("[WHEEL H8 FIELD]");
+        LogA(n);
+        ++fc;
+    }
+    LogIntA("[WHEEL H8] fields logged: ",fc);
+}
+
+static void LogWheelButtonStateH8(Il2CppObject* button,
+                                  Il2CppClass* buttonClass,
+                                  const MethodInfo* buttonGetWeapon,
+                                  const char* phase,
+                                  int index) {
+    if (!button || !buttonClass || !buttonGetWeapon) return;
+    if (phase) LogA(phase);
+    LogIntA("[WHEEL H8] button index: ",index);
+
+    const FieldInfo* idField=g_il2cpp.class_get_field_from_name(buttonClass,"_id");
+    if (idField) {
+        int id=-1;
+        g_il2cpp.field_get_value(button,idField,&id);
+        LogIntA("[WHEEL H8] button _id: ",id);
+    }
+
+    Il2CppException* ex=0;
+    Il2CppObject* weapon=g_il2cpp.runtime_invoke(buttonGetWeapon,button,0,&ex);
+    if (ex) {
+        LogA("[WHEEL H8] get_WeaponId threw while logging button state.");
+        FormatExceptionToLog(ex);
+        return;
+    }
+    if (!weapon) {
+        LogA("[WHEEL H8] button WeaponId: NULL");
+        return;
+    }
+
+    Il2CppClass* unityObjectClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Object") : 0;
+    const MethodInfo* getName=unityObjectClass ? g_il2cpp.class_get_method_from_name(unityObjectClass,"get_name",0) : 0;
+    if (!getName) {
+        LogA("[WHEEL H8] UnityEngine.Object.get_name unresolved.");
+        return;
+    }
+
+    ex=0;
+    Il2CppObject* nameObj=g_il2cpp.runtime_invoke(getName,weapon,0,&ex);
+    if (ex || !nameObj) {
+        if (ex) FormatExceptionToLog(ex);
+        LogA("[WHEEL H8] WeaponId name unavailable.");
+        return;
+    }
+
+    char name[256]; name[0]=0;
+    CatalogManagedStringToAscii((Il2CppString*)nameObj,name,256);
+    LogA("[WHEEL H8] WeaponId name:");
+    LogA(name);
+}
+
 static BOOL ShowNativeDlcWeaponWheel() {
     if (!IsTheseSunnyDazeOwned()) {
         LogA("[WHEEL H7] Blocked: These Sunny Daze ownership not confirmed.");
@@ -2111,6 +2190,11 @@ static BOOL ShowNativeDlcWeaponWheel() {
         LogA("[ERROR] DLC native wheel metadata classes unresolved.");
         return FALSE;
     }
+
+    LogA("[WHEEL H8] ===== TARGETED CONTROLLER METADATA BEGIN =====");
+    LogWheelClassMetadataH8(wheelClass,"[WHEEL H8] PlayerWeaponWheelComponent:");
+    LogWheelClassMetadataH8(wheelViewClass,"[WHEEL H8] PlayerWheelView:");
+    LogA("[WHEEL H8] ===== TARGETED CONTROLLER METADATA END =====");
 
     const FieldInfo* buttonsField=g_il2cpp.class_get_field_from_name(wheelClass,"_weaponWheelButtons");
     const MethodInfo* buttonGetWeapon=g_il2cpp.class_get_method_from_name(wheelButtonClass,"get_WeaponId",0);
@@ -2175,8 +2259,12 @@ static BOOL ShowNativeDlcWeaponWheel() {
         if (getEx || !original) continue;
 
         BOOL enable=FALSE;
+        LogWheelButtonStateH8(button,wheelButtonClass,buttonGetWeapon,
+                              "[WHEEL H8] BUTTON BEFORE REMAP",i);
         if (mapped<readyCount) {
             if (SetNativeWheelButtonWeapon(button,wheelButtonClass,weaponIdClass,buttonGetWeapon,ready[mapped])) {
+                LogWheelButtonStateH8(button,wheelButtonClass,buttonGetWeapon,
+                                      "[WHEEL H8] BUTTON AFTER REMAP",i);
                 if (g_dlcWheelMappedCount<64) {
                     g_dlcWheelMappedButtons[g_dlcWheelMappedCount]=button;
                     g_dlcWheelOriginalWeapons[g_dlcWheelMappedCount]=original;
