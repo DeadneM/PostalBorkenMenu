@@ -1,3 +1,49 @@
+PostalBorkenMenu V2A42-H6 WEAPONWHEELBUTTON METADATA PROBE + DXGI
+POSTAL: Brain-Damaged
+
+BASE
+Built directly from H4 clean/validated gameplay base.
+H5 is rejected because its guessed WeaponWheelButton setters/fields were wrong and it crashed.
+
+H6 PURPOSE
+Discover the real WeaponWheelButton API safely.
+
+WHEN DLC WEAPON WHEEL IS TRIGGERED
+H6 ONLY:
+- resolves the known WeaponWheelButton class
+- logs all method names and parameter types
+- logs all field names and field types
+- performs NO WeaponId mutation
+- performs NO button Enable/Disable
+- performs NO PlayerWheelView.Show
+- performs NO wheel remapping
+
+UNCHANGED
+- Grappling Hook validated AddWeapon -> InitHook sequence
+- H4 menu cleanup
+- Base Weapon Wheel
+- Weapon Keys Mode
+- Give All DLC Weapons
+- DXGI ASI loader
+
+TEST
+1. Install all four files.
+2. Launch and enter gameplay.
+3. Trigger/hold DLC Weapon Wheel once.
+4. Nothing visual is expected from the DLC wheel in H6.
+5. Exit normally.
+6. Send PostalBorkenMenu.log.
+
+PACKAGE
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+H4 BASE README
+======================================================================
+
 PostalBorkenMenu V2A42-H4 CLEAN GRAPPLING MENU + DXGI LOADER
 POSTAL: Brain-Damaged
 
