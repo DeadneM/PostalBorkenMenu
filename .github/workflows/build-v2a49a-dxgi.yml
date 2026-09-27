@@ -1,0 +1,70 @@
+name: Build V2A49A DXGI Proxy Safe Probe
+
+on:
+  push:
+    branches:
+      - dev/v2a49a-dxgi-proxy-safe-probe
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up MSVC x64
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Compile DXGI proxy
+        shell: cmd
+        run: |
+          cl /nologo /c /O2 /Oi- /GS- /GR- /EHs-c- /Zl /Fo:build\dxgi_proxy.obj proxy\dxgi_proxy.cpp
+          ml64 /nologo /c /Fo build\dxgi_thunks.obj proxy\dxgi_thunks.asm
+          link /nologo /DLL /MACHINE:X64 /NODEFAULTLIB /ENTRY:DllMain /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /DEF:proxy\dxgi_proxy.def /OUT:build\dxgi.dll build\dxgi_proxy.obj build\dxgi_thunks.obj kernel32.lib
+
+      - name: SHA-256
+        shell: powershell
+        run: |
+          Get-FileHash build\dxgi.dll -Algorithm SHA256 | Format-List
+
+      - name: Stage proxy artifact
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          Copy-Item build\dxgi.dll package\dxgi.dll
+          @"
+          PostalBorkenMenu V2A49A - DXGI PROXY SAFE PROBE
+
+          This artifact contains only the newly built dxgi.dll proxy.
+          The user-facing test ZIP must combine it with the exact validated V2A42
+          PostalBorkenMenu.asi and INI. Do not rebuild or replace that ASI.
+
+          Probe behavior:
+          - lazy load of System32\dxgi.dll outside DllMain
+          - real CreateDXGIFactory/CreateDXGIFactory1/CreateDXGIFactory2 forwarding
+          - private vtable clone per real DXGI factory object
+          - private vtable clone per real game swapchain object
+          - Present hook only logs first use and immediately calls original
+          - no rendering
+          - no cursor change
+          - no second UI implementation
+          - no global DXGI vtable modification
+          "@ | Set-Content -Encoding ASCII package\PROXY_README.txt
+
+      - name: Verify artifact
+        shell: powershell
+        run: |
+          Get-ChildItem package -File | Format-Table Name,Length
+
+      - name: Upload proxy artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: POSTAL_Brain_Damaged_V2A49A_DXGI_PROXY_SAFE_PROBE
+          path: package/*
+          if-no-files-found: error
