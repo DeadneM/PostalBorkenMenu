@@ -608,7 +608,7 @@ static BOOL HookGameWindow() {
             if (stableSamples==10) {
                 LogA("[WINDOW] Candidate stable for 1 second.");
                 if (g_skipIntroVideos)
-                    LogA("[INTRO H13] Skip Intro preference enabled; no simulated input is emitted.");
+                    LogA("[H20 FILESCAN] No simulated input is emitted. Startup asset scan is read-only.");
             } else if (stableSamples==20)
                 LogA("[WINDOW] Candidate stable for 2 seconds.");
 
@@ -640,10 +640,215 @@ static BOOL HookGameWindow() {
     return FALSE;
 }
 
+
+static WCHAR H20LowerW(WCHAR c) {
+    if (c>=L'A' && c<=L'Z') return (WCHAR)(c-L'A'+L'a');
+    return c;
+}
+static BOOL H20EqNoCaseW(const WCHAR* a,const WCHAR* b) {
+    if(!a || !b) return FALSE;
+    while(*a && *b) {
+        if(H20LowerW(*a)!=H20LowerW(*b)) return FALSE;
+        ++a; ++b;
+    }
+    return *a==*b;
+}
+static BOOL H20EndsWithNoCaseW(const WCHAR* s,const WCHAR* suffix) {
+    if(!s || !suffix) return FALSE;
+    int ls=StrLenW(s), lf=StrLenW(suffix);
+    if(lf>ls) return FALSE;
+    return H20EqNoCaseW(s+ls-lf,suffix);
+}
+static BOOL H20StartsWithNoCaseW(const WCHAR* s,const WCHAR* prefix) {
+    if(!s || !prefix) return FALSE;
+    while(*prefix) {
+        if(!*s || H20LowerW(*s)!=H20LowerW(*prefix)) return FALSE;
+        ++s; ++prefix;
+    }
+    return TRUE;
+}
+static BOOL H20ContainsNoCaseW(const WCHAR* s,const WCHAR* needle) {
+    if(!s || !needle || !*needle) return FALSE;
+    for(int i=0;s[i];++i) {
+        int j=0;
+        while(needle[j] && s[i+j] && H20LowerW(s[i+j])==H20LowerW(needle[j])) ++j;
+        if(!needle[j]) return TRUE;
+    }
+    return FALSE;
+}
+static void H20WideToAscii(const WCHAR* s,char* out,int cap) {
+    if(!out || cap<=0) return;
+    int p=0;
+    if(s) for(int i=0;s[i] && p<cap-1;i++) {
+        WCHAR w=s[i];
+        out[p++]=(w>=32 && w<=126)?(char)w:'?';
+    }
+    out[p]=0;
+}
+static BOOL H20AsciiContainsNoCase(const char* s,const char* needle) {
+    return StrContainsNoCaseA(s,needle);
+}
+static BOOL H20InterestingAscii(const char* s) {
+    if(!s || !*s) return FALSE;
+    static const char* keys[]={
+        "logo","splash","intro","startup","boot",
+        "hyperstrange","running with scissors","runningwithscissors",
+        "movie games","moviegames","creativeforge","creative forge",
+        "publisher","developer","pbd_ready","readylogo","rc_logo"
+    };
+    for(int i=0;i<(int)(sizeof(keys)/sizeof(keys[0]));i++)
+        if(H20AsciiContainsNoCase(s,keys[i])) return TRUE;
+    return FALSE;
+}
+static void H20FlushAsciiSequence(const char* fileLabel,char* seq,int* seqLen,int* hits) {
+    if(!seq || !seqLen || !hits) return;
+    int n=*seqLen;
+    if(n<4) { *seqLen=0; return; }
+    seq[n]=0;
+    if(H20InterestingAscii(seq) && *hits<120) {
+        LogA("[H20 FILESCAN] HIT");
+        LogA(fileLabel ? fileLabel : "<unknown file>");
+        LogA(seq);
+        ++(*hits);
+    }
+    *seqLen=0;
+}
+static void H20ScanOneFile(const WCHAR* fullPath,const WCHAR* displayName) {
+    if(!fullPath) return;
+
+    HANDLE h=CreateFileW(fullPath,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,0,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,0);
+    if(h==INVALID_HANDLE_VALUE) {
+        char label[320]; H20WideToAscii(displayName,label,320);
+        LogA("[H20 FILESCAN] Could not open:");
+        LogA(label);
+        return;
+    }
+
+    char label[320]; H20WideToAscii(displayName,label,320);
+    LogA("[H20 FILESCAN] Scanning:");
+    LogA(label);
+
+    BYTE buf[32768];
+    char seq[512];
+    int seqLen=0;
+    int hits=0;
+    ULONGLONG total=0;
+    const ULONGLONG MAX_SCAN=134217728ULL; // 128 MiB per file
+
+    while(total<MAX_SCAN) {
+        DWORD want=(DWORD)sizeof(buf);
+        ULONGLONG remain=MAX_SCAN-total;
+        if(remain<(ULONGLONG)want) want=(DWORD)remain;
+        DWORD got=0;
+        if(!ReadFile(h,buf,want,&got,0) || got==0) break;
+        total+=got;
+
+        for(DWORD i=0;i<got;i++) {
+            BYTE ch=buf[i];
+            if(ch>=32 && ch<=126) {
+                if(seqLen<(int)sizeof(seq)-1) {
+                    seq[seqLen++]=(char)ch;
+                } else {
+                    H20FlushAsciiSequence(label,seq,&seqLen,&hits);
+                    seq[seqLen++]=(char)ch;
+                }
+            } else {
+                H20FlushAsciiSequence(label,seq,&seqLen,&hits);
+            }
+        }
+        if(hits>=120) break;
+    }
+    H20FlushAsciiSequence(label,seq,&seqLen,&hits);
+    CloseHandle(h);
+
+    LogIntA("[H20 FILESCAN] hits in file: ",hits);
+    if(total>=MAX_SCAN) LogA("[H20 FILESCAN] Scan capped at 128 MiB for this file.");
+}
+static BOOL H20ShouldScanUnityFile(const WCHAR* name) {
+    if(!name || !*name) return FALSE;
+    if(H20EqNoCaseW(name,L"globalgamemanagers")) return TRUE;
+    if(H20EqNoCaseW(name,L"globalgamemanagers.assets")) return TRUE;
+    if(H20EqNoCaseW(name,L"resources.assets")) return TRUE;
+    if(H20EqNoCaseW(name,L"data.unity3d")) return TRUE;
+    if(H20EqNoCaseW(name,L"level0")) return TRUE;
+    if(H20StartsWithNoCaseW(name,L"sharedassets") && H20EndsWithNoCaseW(name,L".assets")) return TRUE;
+    if(H20ContainsNoCaseW(name,L"splash") || H20ContainsNoCaseW(name,L"logo") || H20ContainsNoCaseW(name,L"intro")) return TRUE;
+    return FALSE;
+}
+static void H20ScanDataDirectory(const WCHAR* dataDir,const WCHAR* dataName) {
+    if(!dataDir) return;
+    char dn[320]; H20WideToAscii(dataName,dn,320);
+    LogA("[H20 FILESCAN] Unity Data directory:");
+    LogA(dn);
+
+    WCHAR pattern[MAX_PATH_W]; CopyW(pattern,MAX_PATH_W,dataDir); AppendW(pattern,MAX_PATH_W,L"*");
+    WIN32_FIND_DATAW fd={};
+    HANDLE find=FindFirstFileW(pattern,&fd);
+    if(find==INVALID_HANDLE_VALUE) {
+        LogA("[H20 FILESCAN] Could not enumerate Unity Data directory.");
+        return;
+    }
+
+    int scanned=0;
+    do {
+        if(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+        if(!H20ShouldScanUnityFile(fd.cFileName)) continue;
+
+        WCHAR full[MAX_PATH_W]; CopyW(full,MAX_PATH_W,dataDir); AppendW(full,MAX_PATH_W,fd.cFileName);
+        H20ScanOneFile(full,fd.cFileName);
+        ++scanned;
+        if(scanned>=24) {
+            LogA("[H20 FILESCAN] Candidate-file cap reached.");
+            break;
+        }
+    } while(FindNextFileW(find,&fd));
+    FindClose(find);
+    LogIntA("[H20 FILESCAN] candidate files scanned: ",scanned);
+}
+static void RunStaticStartupAssetScanH20() {
+    LogA("[H20 FILESCAN] ===== static startup asset scan begin =====");
+    LogA("[H20 FILESCAN] Read-only disk scan. No Unity/IL2CPP call is used.");
+
+    WCHAR modulePath[MAX_PATH_W]; modulePath[0]=0;
+    GetModuleFileNameW(g_self,modulePath,MAX_PATH_W);
+    int n=StrLenW(modulePath),slash=-1;
+    for(int i=0;i<n;i++) if(modulePath[i]==L'\\' || modulePath[i]==L'/') slash=i;
+    if(slash<0) {
+        LogA("[H20 FILESCAN] Could not derive game directory.");
+        LogA("[H20 FILESCAN] ===== static startup asset scan end =====");
+        return;
+    }
+    modulePath[slash+1]=0;
+
+    WCHAR pattern[MAX_PATH_W]; CopyW(pattern,MAX_PATH_W,modulePath); AppendW(pattern,MAX_PATH_W,L"*");
+    WIN32_FIND_DATAW fd={};
+    HANDLE find=FindFirstFileW(pattern,&fd);
+    if(find==INVALID_HANDLE_VALUE) {
+        LogA("[H20 FILESCAN] Could not enumerate game directory.");
+        LogA("[H20 FILESCAN] ===== static startup asset scan end =====");
+        return;
+    }
+
+    int dataDirs=0;
+    do {
+        if(!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) continue;
+        if(fd.cFileName[0]==L'.' && (fd.cFileName[1]==0 || (fd.cFileName[1]==L'.' && fd.cFileName[2]==0))) continue;
+        if(!H20EndsWithNoCaseW(fd.cFileName,L"_Data")) continue;
+
+        WCHAR dataDir[MAX_PATH_W]; CopyW(dataDir,MAX_PATH_W,modulePath); AppendW(dataDir,MAX_PATH_W,fd.cFileName); AppendW(dataDir,MAX_PATH_W,L"\\");
+        H20ScanDataDirectory(dataDir,fd.cFileName);
+        ++dataDirs;
+    } while(FindNextFileW(find,&fd));
+    FindClose(find);
+
+    LogIntA("[H20 FILESCAN] Unity Data directories found: ",dataDirs);
+    LogA("[H20 FILESCAN] ===== static startup asset scan end =====");
+}
+
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42 CLEAN ARSENAL + FIVE TABS + SKIP INTRO TEST");
+    LogA("PostalBorkenMenu V2A42-H20 STATIC STARTUP ASSET SCAN TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -652,7 +857,8 @@ static DWORD __stdcall ModThread(void*) {
         LogA("[OK] Exact-name WeaponId resolver linked; cleaned Arsenal/Special dispatcher active.");
     else
         LogA("[ERROR] Exact-name WeaponId resolver was not retained.");
-    LogA(g_skipIntroVideos ? "[INTRO] Skip Intro Videos config: ENABLED (default)." : "[INTRO] Skip Intro Videos config: DISABLED.");
+    LogA("[H20 FILESCAN] Skip Intro Videos is not under test; H20 scans startup assets on disk.");
+    RunStaticStartupAssetScanH20();
     if (!InitIl2Cpp()) return 0;
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
