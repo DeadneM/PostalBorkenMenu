@@ -1070,3 +1070,14 @@ Note:
 - these hashes are for the canonical GitHub Release rebuild.
 - they intentionally supersede the earlier H13 validation-artifact hashes for public distribution.
 - Skip Intro remains an open item and is not claimed fixed by this release.
+
+
+## V2A42-H17 - Startup / publisher logo metadata audit (diagnostic only)
+
+Base: validated/canonical V2A42-H13.
+
+Reason for the branch: runtime interpretation was corrected. DebugManager.NO_VIDEO and the UI label SkipIntroVideos refer to an intro cinematic path, not the developer/publisher startup logos that are the real target. H14-H16 are therefore classified as wrong-target experiments and must not become the basis for future gameplay work.
+
+H17 makes no runtime gameplay change. It performs an observation-only scan of Assembly-CSharp metadata for startup-related tokens: logo, splash, boot, startup, intro, video, movie, cinematic, cutscene, publisher, developer, and sequence. The scan searches class names, namespaces, method names, and field names. If a class/namespace matches, all methods and fields of that class are logged. Otherwise only matching members are logged. Parameter counts, method return types, and field types are recorded when available.
+
+No objects are instantiated by this audit, no target fields are written, and no target methods are invoked. Synthetic input remains permanently excluded. The validated H13 Base Weapon Wheel, H13 crosshair handling, H3 Grappling Hook sequence, and V2A8 shutdown/lifetime model remain unchanged.
