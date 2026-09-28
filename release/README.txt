@@ -1,3 +1,68 @@
+PostalBorkenMenu V2A42-H14 NATIVE NO_VIDEO TEST
+POSTAL: Brain-Damaged
+
+BASE
+Built directly from validated/canonical V2A42-H13.
+H13 remains canonical until this candidate is validated.
+
+GOAL
+Make the existing Skip Intro Videos option drive the game's own
+DebugManager.NO_VIDEO mechanism instead of simulating input or modifying the Windows command line.
+
+H14 CHANGE
+- No keyboard or mouse input is generated.
+- No PEB / GetCommandLine / Steam launch-option emulation is used.
+- H14 resolves Hyperstrange.PBD.DebugManager.
+- Reads the native static NO_VIDEO string used by the game.
+- Reads the game's own _commandLineArguments storage.
+- If Skip Intro Videos is enabled and the native token is missing:
+  - creates an expanded managed String[] using the existing arguments,
+  - appends the exact DebugManager.NO_VIDEO string,
+  - replaces only DebugManager._commandLineArguments.
+- Calls DebugManager.get_NoVideo() before and after.
+- Does NOT call DebugManager.SelfInit().
+- Does NOT overwrite or remove any existing command-line argument.
+
+EXPECTED LOG
+Look for:
+[INTRO H14] Native DebugManager.NO_VIDEO token:
+[INTRO H14] get_NoVideo() BEFORE native token injection:
+[INTRO H14] Native NO_VIDEO token appended to DebugManager._commandLineArguments.
+[INTRO H14] get_NoVideo() AFTER native token injection:
+[INTRO H14] SUCCESS: native DebugManager.get_NoVideo() is TRUE.
+
+UNCHANGED FROM H13
+- validated Base Weapon Wheel / H4 path
+- validated No Crosshair multi-controller DLC fix
+- validated Grappling Hook AddWeapon -> InitHook sequence
+- five menu tabs
+- Arsenal / Special entries
+- Give All Weapons / Give All DLC Weapons
+- TimeScale
+- hotkeys and persistence
+- V2A8 shutdown/lifetime fencing
+- minimal DXGI ASI loader
+
+TEST
+1. Ensure Skip Intro Videos is ENABLED in PostalBorkenMenu.
+2. Do not add any manual Steam skip-intro option.
+3. Exit the game completely.
+4. Install H14.
+5. Launch normally.
+6. Observe whether the intro videos are skipped.
+7. Verify Base Weapon Wheel and No Crosshair still behave exactly like H13.
+8. Exit normally and send PostalBorkenMenu.log.
+
+PACKAGE
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+H13 CANONICAL HISTORY
+======================================================================
+
 PostalBorkenMenu V2A42-H13 RECOVERY + DLC CROSSHAIR AUDIT
 POSTAL: Brain-Damaged
 
