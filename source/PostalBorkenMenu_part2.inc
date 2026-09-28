@@ -2055,6 +2055,168 @@ static void RunTargetedNoVideoAndCrosshairAuditH13() {
     LogA("[H13 META] ===== audit end =====");
 }
 
+
+static const MethodInfo* g_h18ObjectGetName = 0;
+
+static void H18LogUnityObjectName(Il2CppObject* obj, const char* prefix) {
+    if (!prefix) prefix="[H18 STARTUP] object name: ";
+    if (!obj || !g_h18ObjectGetName) {
+        LogA(prefix);
+        LogA(obj ? "<get_name unresolved>" : "<null>");
+        return;
+    }
+    Il2CppException* ex=0;
+    Il2CppObject* strObj=g_il2cpp.runtime_invoke(g_h18ObjectGetName,obj,0,&ex);
+    if (ex) {
+        LogA(prefix);
+        LogA("<get_name threw>");
+        FormatExceptionToLog(ex);
+        return;
+    }
+    char name[256]; name[0]=0;
+    if (strObj) CatalogManagedStringToAscii((Il2CppString*)strObj,name,256);
+    LogA(prefix);
+    LogA(name[0] ? name : "<empty>");
+}
+
+static Il2CppArray* H18FindAllObjects(Il2CppClass* klass) {
+    if (!klass || !g_findObjectsOfTypeAll1) return 0;
+    const Il2CppType* t=g_il2cpp.class_get_type(klass);
+    Il2CppObject* typeObj=t ? g_il2cpp.type_get_object(t) : 0;
+    if (!typeObj) return 0;
+    void* pars[1]; pars[0]=typeObj;
+    Il2CppException* ex=0;
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(g_findObjectsOfTypeAll1,0,pars,&ex);
+    if (ex) {
+        LogA("[H18 STARTUP] Resources.FindObjectsOfTypeAll threw:");
+        FormatExceptionToLog(ex);
+        return 0;
+    }
+    return (Il2CppArray*)arrObj;
+}
+
+static void H18LogComponentIdentity(Il2CppObject* obj) {
+    H18LogUnityObjectName(obj,"[H18 STARTUP] component Unity name:");
+    if (!obj || !g_componentGetGameObject) return;
+    Il2CppException* ex=0;
+    Il2CppObject* go=g_il2cpp.runtime_invoke(g_componentGetGameObject,obj,0,&ex);
+    if (ex) {
+        LogA("[H18 STARTUP] Component.get_gameObject threw:");
+        FormatExceptionToLog(ex);
+        return;
+    }
+    H18LogUnityObjectName(go,"[H18 STARTUP] GameObject name:");
+}
+
+static void H18LogBoolField(Il2CppObject* obj, Il2CppClass* klass, const char* fieldName, const char* prefix) {
+    const FieldInfo* f=(obj && klass) ? g_il2cpp.class_get_field_from_name(klass,fieldName) : 0;
+    if (!f) { LogA(prefix); LogA("<field unresolved>"); return; }
+    BYTE v=0;
+    g_il2cpp.field_get_value(obj,f,&v);
+    LogIntA(prefix,v ? 1 : 0);
+}
+
+static void H18LogFloatField(Il2CppObject* obj, Il2CppClass* klass, const char* fieldName, const char* prefix) {
+    const FieldInfo* f=(obj && klass) ? g_il2cpp.class_get_field_from_name(klass,fieldName) : 0;
+    if (!f) { LogA(prefix); LogA("<field unresolved>"); return; }
+    float v=0.0f;
+    g_il2cpp.field_get_value(obj,f,&v);
+    char line[192]; line[0]=0;
+    CatalogAppendA(line,192,prefix);
+    int whole=(int)v;
+    int frac=(int)((v-(float)whole)*1000.0f);
+    if (frac<0) frac=-frac;
+    CatalogAppendInt(line,192,whole);
+    CatalogAppendA(line,192,".");
+    if (frac<100) CatalogAppendA(line,192,"0");
+    if (frac<10) CatalogAppendA(line,192,"0");
+    CatalogAppendInt(line,192,frac);
+    LogA(line);
+}
+
+static void H18LogObjectField(Il2CppObject* obj, Il2CppClass* klass, const char* fieldName, const char* prefix) {
+    const FieldInfo* f=(obj && klass) ? g_il2cpp.class_get_field_from_name(klass,fieldName) : 0;
+    if (!f) { LogA(prefix); LogA("<field unresolved>"); return; }
+    Il2CppObject* value=0;
+    g_il2cpp.field_get_value(obj,f,&value);
+    LogA(prefix);
+    if (!value) { LogA("<null>"); return; }
+    H18LogUnityObjectName(value,"[H18 STARTUP] referenced Unity name:");
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+    Il2CppClass* rc=objectGetClass ? objectGetClass(value) : 0;
+    if (rc) {
+        const char* ns=g_il2cpp.class_get_namespace(rc);
+        const char* cn=g_il2cpp.class_get_name(rc);
+        LogA("[H18 STARTUP] referenced runtime class namespace:");
+        LogA(ns && *ns ? ns : "<global namespace>");
+        LogA("[H18 STARTUP] referenced runtime class:");
+        LogA(cn ? cn : "<unknown>");
+    }
+}
+
+static void H18AuditClassInstances(const char* simpleName) {
+    Il2CppClass* klass=FindClassBySimpleName(simpleName);
+    LogA("[H18 STARTUP] ===== live class =====");
+    LogA(simpleName);
+    if (!klass) {
+        LogA("[H18 STARTUP] class unresolved.");
+        return;
+    }
+
+    Il2CppArray* arr=H18FindAllObjects(klass);
+    if (!arr) {
+        LogA("[H18 STARTUP] FindObjectsOfTypeAll returned null.");
+        return;
+    }
+
+    SIZE_T n=g_il2cpp.array_length(arr);
+    if (n>64) n=64;
+    LogIntA("[H18 STARTUP] live/loaded object count: ",(int)n);
+    unsigned int hdr=g_il2cpp.array_object_header_size();
+    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+
+    for (SIZE_T i=0;i<n;i++) {
+        Il2CppObject* obj=elems[i];
+        if (!obj) continue;
+        LogIntA("[H18 STARTUP] object index: ",(int)i);
+        H18LogComponentIdentity(obj);
+
+        if (StrEqA(simpleName,"IntroController")) {
+            H18LogObjectField(obj,klass,"_videoClip","[H18 STARTUP] IntroController._videoClip:");
+            H18LogObjectField(obj,klass,"_videoPlayer","[H18 STARTUP] IntroController._videoPlayer:");
+            H18LogBoolField(obj,klass,"_skipped","[H18 STARTUP] IntroController._skipped: ");
+            H18LogFloatField(obj,klass,"_skipProgress","[H18 STARTUP] IntroController._skipProgress: ");
+        } else if (StrEqA(simpleName,"RCLogoComponent")) {
+            const FieldInfo* cursor=g_il2cpp.class_get_field_from_name(klass,"_cursorSprite");
+            if (cursor) {
+                Il2CppObject* sprite=0;
+                g_il2cpp.field_get_value(obj,cursor,&sprite);
+                H18LogUnityObjectName(sprite,"[H18 STARTUP] RCLogoComponent._cursorSprite name:");
+            }
+        } else if (StrEqA(simpleName,"SceneManager")) {
+            H18LogObjectField(obj,klass,"_introCluster","[H18 STARTUP] SceneManager._introCluster:");
+        }
+    }
+}
+
+static void RunLiveStartupObjectAuditH18() {
+    LogA("[H18 STARTUP] ===== targeted live startup-object audit begin =====");
+
+    Il2CppClass* unityObjectClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Object") : 0;
+    g_h18ObjectGetName=unityObjectClass ? g_il2cpp.class_get_method_from_name(unityObjectClass,"get_name",0) : 0;
+    if (!g_h18ObjectGetName)
+        LogA("[H18 STARTUP] UnityEngine.Object.get_name unresolved; object names may be unavailable.");
+
+    H18AuditClassInstances("IntroController");
+    H18AuditClassInstances("RCLogoComponent");
+    H18AuditClassInstances("SceneManager");
+    H18AuditClassInstances("SkipIntroController");
+
+    LogA("[H18 STARTUP] Observation only. No startup field was written and no skip method was invoked.");
+    LogA("[H18 STARTUP] ===== targeted live startup-object audit end =====");
+}
+
 static BOOL SetCrosshairVisualAlpha(float alpha) {
     if (!g_crosshairControllerClass || !g_currentCrosshairField || !g_componentGetGameObject ||
         !g_gameObjectGetComponentsInChildren || !g_canvasRendererSetAlpha || !g_canvasRendererTypeObject) {
@@ -2349,6 +2511,7 @@ static BOOL InitIl2Cpp() {
     g_currentCrosshairField=g_crosshairControllerClass ? g_il2cpp.class_get_field_from_name(g_crosshairControllerClass,"_currentCrosshair") : 0;
 
     RunTargetedNoVideoAndCrosshairAuditH13();
+    RunLiveStartupObjectAuditH18();
 
     g_timeManagerClass=FindClassBySimpleName("TimeManager");
     g_timeScaleSetter=g_timeManagerClass ? FindMethodExact(g_timeManagerClass,"SetGameTimeScale",1,g_floatClass) : 0;
