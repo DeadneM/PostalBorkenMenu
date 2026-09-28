@@ -1,3 +1,78 @@
+PostalBorkenMenu V2A42-H17 STARTUP LOGO AUDIT TEST
+POSTAL: Brain-Damaged
+
+STATUS
+Diagnostic candidate only.
+Built directly from validated/canonical V2A42-H13.
+H13 remains the canonical gameplay/source base.
+
+CORRECTION OF TARGET
+The game's DebugManager.NO_VIDEO / SkipIntroVideos path refers to an intro cinematic,
+not the developer/publisher logos shown during application startup.
+Therefore H14/H15/H16 targeted the wrong mechanism and are rejected as wrong-target experiments.
+
+H17 GOAL
+Identify the actual classes, methods, and fields responsible for startup logos / splash screens
+without modifying any runtime state.
+
+H17 AUDIT
+Assembly-CSharp metadata is scanned for these terms in class names, namespaces, method names, and field names:
+logo
+splash
+boot
+startup
+intro
+video
+movie
+cinematic
+cutscene
+publisher
+developer
+sequence
+
+For classes whose name/namespace matches, H17 logs all methods and fields.
+For otherwise unrelated classes, H17 logs only members whose names match the startup terms.
+Method parameter counts and return types are logged.
+Field types are logged when the IL2CPP export is available.
+
+SAFETY / PRESERVATION
+- Observation only.
+- No startup object is instantiated.
+- No field is written.
+- No runtime method is invoked by the H17 audit.
+- No Escape, SendInput, keybd_event, mouse input, or PostMessage input simulation.
+- No PEB or Windows command-line modification.
+- No DebugManager.NO_VIDEO manipulation.
+- Base Weapon Wheel remains the validated H13/H4 path.
+- No Crosshair remains the validated H13 multi-controller path.
+- Grappling Hook remains the validated H3 AddWeapon -> InitHook sequence.
+- V2A8 shutdown/lifetime fencing is unchanged.
+- Minimal DXGI ASI loader is unchanged.
+
+TEST
+1. Replace dxgi.dll and PostalBorkenMenu.asi with the H17 package.
+2. Delete or rename the old PostalBorkenMenu.log.
+3. Launch the game normally and let it reach the main menu.
+4. Exit normally.
+5. Send the fresh PostalBorkenMenu.log.
+
+IMPORTANT LOG MARKERS
+[H17 STARTUP] ===== startup/logo metadata audit begin =====
+[H17 STARTUP] CLASS
+[H17 STARTUP] METHOD
+[H17 STARTUP] FIELD
+[H17 STARTUP] ===== startup/logo metadata audit end =====
+
+PACKAGE
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+H13 CANONICAL HISTORY
+======================================================================
+
 PostalBorkenMenu V2A42-H13 RECOVERY + DLC CROSSHAIR AUDIT
 POSTAL: Brain-Damaged
 
