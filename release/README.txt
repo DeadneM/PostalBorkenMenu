@@ -1,3 +1,63 @@
+PostalBorkenMenu V2A42-H18 LIVE STARTUP OBJECT AUDIT TEST
+POSTAL: Brain-Damaged
+
+STATUS
+Diagnostic candidate only.
+Built directly from validated/canonical V2A42-H13.
+H13 remains the canonical gameplay/source base.
+
+WHY H18
+H17 confirmed:
+- GeneralSettings.SkipIntro / WatchedIntro exists.
+- IntroController owns PlayVideo, VideoPlayer, VideoClip, skip progress and _skipped.
+- SceneManager owns LoadIntroCluster / _introCluster.
+- Hyperstrange.PBD.Ready.RCLogoComponent exists.
+
+H18 GOAL
+Identify which of those classes actually has loaded/live objects during startup and log their Unity object names / referenced asset names.
+
+H18 AUDIT
+- Finds all loaded IntroController objects.
+- Logs component and GameObject names.
+- Logs IntroController._videoClip and _videoPlayer referenced Unity names/runtime classes.
+- Logs _skipped and _skipProgress.
+- Finds all loaded RCLogoComponent objects and logs GameObject/component names.
+- Logs RCLogoComponent._cursorSprite name if available.
+- Finds loaded SceneManager objects and logs _introCluster referenced Unity name/runtime class.
+- Finds loaded SkipIntroController objects for comparison with the settings UI.
+
+SAFETY
+Observation only.
+No startup field is written.
+No skip method is called.
+No synthetic input.
+No PEB / command-line modification.
+H13 wheel, crosshair, hook and shutdown paths remain unchanged.
+
+TEST
+1. Replace dxgi.dll and PostalBorkenMenu.asi.
+2. Delete or rename old PostalBorkenMenu.log.
+3. Launch normally and let the developer/publisher logos play through to the main menu.
+4. Exit normally.
+5. Send the fresh PostalBorkenMenu.log.
+
+IMPORTANT MARKERS
+[H18 STARTUP] ===== targeted live startup-object audit begin =====
+[H18 STARTUP] ===== live class =====
+[H18 STARTUP] GameObject name:
+[H18 STARTUP] referenced Unity name:
+[H18 STARTUP] ===== targeted live startup-object audit end =====
+
+PACKAGE
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+H13 CANONICAL HISTORY
+======================================================================
+
 PostalBorkenMenu V2A42-H13 RECOVERY + DLC CROSSHAIR AUDIT
 POSTAL: Brain-Damaged
 
