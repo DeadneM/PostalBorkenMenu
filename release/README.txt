@@ -1,3 +1,83 @@
+PostalBorkenMenu V2A42-H20 STATIC STARTUP ASSET SCAN TEST
+POSTAL: Brain-Damaged
+
+STATUS
+Diagnostic candidate only.
+Built from current main / validated H13 gameplay lineage.
+Includes automatic one-launch-one-log reset.
+
+WHY H20
+H19 crashed immediately after resolving the four target classes and before its first FindObjectsOfTypeAll result.
+That proves the failure is in the early Unity/IL2CPP runtime observation path, not in the log reset or H13 gameplay code.
+H19 is rejected as an unsafe-timing diagnostic.
+
+H20 METHOD
+No early Unity or IL2CPP runtime calls.
+H20 performs a read-only disk scan of Unity data files before normal H13 initialization.
+
+H20 scans:
+- globalgamemanagers
+- globalgamemanagers.assets
+- resources.assets
+- data.unity3d
+- level0
+- sharedassets*.assets
+- files whose names contain splash / logo / intro
+
+Search keywords inside printable ASCII strings:
+logo
+splash
+intro
+startup
+boot
+hyperstrange
+running with scissors
+runningwithscissors
+movie games / moviegames
+creativeforge / creative forge
+publisher
+developer
+pbd_ready
+readylogo
+rc_logo
+
+SAFETY
+- Read-only file access.
+- No field writes.
+- No Unity runtime invocation.
+- No IL2CPP early thread attachment.
+- No startup/skip method invocation.
+- No synthetic input.
+- No PEB or command-line modification.
+- H13 gameplay paths remain unchanged.
+
+LIMITS
+- Up to 128 MiB scanned per candidate file.
+- Up to 24 candidate files.
+- Up to 120 matching strings logged per file.
+
+TEST
+1. Replace dxgi.dll and PostalBorkenMenu.asi with H20.
+2. No need to delete PostalBorkenMenu.log.
+3. Launch normally.
+4. Let the game reach the main menu.
+5. Exit and send the fresh PostalBorkenMenu.log.
+
+IMPORTANT MARKERS
+[H20 FILESCAN] ===== static startup asset scan begin =====
+[H20 FILESCAN] HIT
+[H20 FILESCAN] ===== static startup asset scan end =====
+
+PACKAGE
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+H13 CANONICAL HISTORY
+======================================================================
+
 PostalBorkenMenu V2A42-H13 RECOVERY + DLC CROSSHAIR AUDIT
 POSTAL: Brain-Damaged
 
