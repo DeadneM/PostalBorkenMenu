@@ -642,9 +642,6 @@ static BOOL HookGameWindow() {
     return FALSE;
 }
 
-static volatile LONG g_h15EarlyNoVideoDone=0;
-static volatile LONG g_h15EarlyNoVideoSuccess=0;
-
 static Il2CppClass* H15FindClassBySimpleNameEarly(const Il2CppImage* image, const char* simpleName) {
     if (!image || !simpleName || !g_il2cpp.image_get_class_count || !g_il2cpp.image_get_class ||
         !g_il2cpp.class_get_name) return 0;
