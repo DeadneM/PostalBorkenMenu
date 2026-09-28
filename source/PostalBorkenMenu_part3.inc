@@ -608,7 +608,9 @@ static BOOL HookGameWindow() {
             if (stableSamples==10) {
                 LogA("[WINDOW] Candidate stable for 1 second.");
                 if (g_skipIntroVideos)
-                    LogA("[INTRO H13] Skip Intro preference enabled; no simulated input is emitted.");
+                    LogA(g_h15EarlyNoVideoSuccess
+                        ? "[INTRO H15] Early native DebugManager NoVideo state was successfully armed."
+                        : "[INTRO H15] Early native NoVideo worker did not confirm success.");
             } else if (stableSamples==20)
                 LogA("[WINDOW] Candidate stable for 2 seconds.");
 
@@ -640,10 +642,239 @@ static BOOL HookGameWindow() {
     return FALSE;
 }
 
+static volatile LONG g_h15EarlyNoVideoDone=0;
+static volatile LONG g_h15EarlyNoVideoSuccess=0;
+
+static Il2CppClass* H15FindClassBySimpleNameEarly(const Il2CppImage* image, const char* simpleName) {
+    if (!image || !simpleName || !g_il2cpp.image_get_class_count || !g_il2cpp.image_get_class ||
+        !g_il2cpp.class_get_name) return 0;
+    SIZE_T count=g_il2cpp.image_get_class_count(image);
+    for (SIZE_T i=0;i<count;i++) {
+        Il2CppClass* k=g_il2cpp.image_get_class(image,i);
+        const char* n=k ? g_il2cpp.class_get_name(k) : 0;
+        if (n && StrEqA(n,simpleName)) return k;
+    }
+    return 0;
+}
+
+static BOOL H15AppendNoVideoToArgsObject(Il2CppObject* argsObj, Il2CppString* token,
+                                         void (*staticSet)(const FieldInfo*,void*),
+                                         const FieldInfo* argsField) {
+    if (!argsObj || !token || !staticSet || !argsField) return FALSE;
+
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+    Il2CppClass* klass=objectGetClass ? objectGetClass(argsObj) : 0;
+    const char* name=klass ? g_il2cpp.class_get_name(klass) : 0;
+    int n=name ? StrLenA(name) : 0;
+
+    if (name && n>=2 && name[n-2]=='[' && name[n-1]==']') {
+        Il2CppArray* oldArr=(Il2CppArray*)argsObj;
+        SIZE_T oldLen=g_il2cpp.array_length(oldArr);
+        if (oldLen>256) return FALSE;
+
+        unsigned int hdr=g_il2cpp.array_object_header_size();
+        Il2CppObject** oldElems=(Il2CppObject**)(((BYTE*)oldArr)+hdr);
+
+        for (SIZE_T i=0;i<oldLen;i++) {
+            if (oldElems[i]==(Il2CppObject*)token) {
+                LogA("[INTRO H15 EARLY] Native NO_VIDEO token already present.");
+                return TRUE;
+            }
+            Il2CppString* s=(Il2CppString*)oldElems[i];
+            if (s && g_il2cpp.string_chars && g_il2cpp.string_length) {
+                int sl=g_il2cpp.string_length(s);
+                int tl=g_il2cpp.string_length(token);
+                if (sl==tl && sl>=0) {
+                    const WCHAR* sc=g_il2cpp.string_chars(s);
+                    const WCHAR* tc=g_il2cpp.string_chars(token);
+                    BOOL same=(sc && tc) ? TRUE : FALSE;
+                    for (int j=0;same && j<sl;j++) if (sc[j]!=tc[j]) same=FALSE;
+                    if (same) {
+                        LogA("[INTRO H15 EARLY] Native NO_VIDEO token already present by value.");
+                        return TRUE;
+                    }
+                }
+            }
+        }
+
+        if (!g_stringClass) {
+            const Il2CppImage* corlib=g_il2cpp.get_corlib ? g_il2cpp.get_corlib() : 0;
+            g_stringClass=corlib ? g_il2cpp.class_from_name(corlib,"System","String") : 0;
+        }
+        if (!g_stringClass) return FALSE;
+
+        Il2CppArray* newArr=g_il2cpp.array_new(g_stringClass,oldLen+1);
+        if (!newArr) return FALSE;
+        unsigned int nhdr=g_il2cpp.array_object_header_size();
+        Il2CppObject** newElems=(Il2CppObject**)(((BYTE*)newArr)+nhdr);
+        for (SIZE_T i=0;i<oldLen;i++)
+            g_il2cpp.gc_wbarrier_set_field((Il2CppObject*)newArr,(void**)&newElems[i],oldElems[i]);
+        g_il2cpp.gc_wbarrier_set_field((Il2CppObject*)newArr,(void**)&newElems[oldLen],token);
+
+        Il2CppObject* replacement=(Il2CppObject*)newArr;
+        staticSet(argsField,&replacement);
+        LogA("[INTRO H15 EARLY] Native NO_VIDEO token appended to String[] immediately after SelfInit storage appeared.");
+        return TRUE;
+    }
+
+    const MethodInfo* add=klass ? g_il2cpp.class_get_method_from_name(klass,"Add",1) : 0;
+    if (add) {
+        void* p[1]; p[0]=token;
+        Il2CppException* ex=0;
+        g_il2cpp.runtime_invoke(add,argsObj,p,&ex);
+        if (ex) {
+            LogA("[INTRO H15 EARLY] Collection Add(NO_VIDEO) threw:");
+            FormatExceptionToLog(ex);
+            return FALSE;
+        }
+        LogA("[INTRO H15 EARLY] Native NO_VIDEO token added to command-line collection immediately.");
+        return TRUE;
+    }
+
+    LogA("[INTRO H15 EARLY] Unsupported _commandLineArguments runtime collection.");
+    if (name) LogA(name);
+    return FALSE;
+}
+
+static DWORD __stdcall EarlyNoVideoThreadH15(void*) {
+    BuildPaths();
+    LONG enabled=(LONG)GetPrivateProfileIntW(L"Settings",L"SkipIntroVideos",1,g_iniPath);
+    if (!enabled) {
+        LogA("[INTRO H15 EARLY] Skip Intro disabled; early worker exited without touching IL2CPP.");
+        g_h15EarlyNoVideoDone=1;
+        return 0;
+    }
+
+    LogA("[INTRO H15 EARLY] Worker started before normal 2500 ms IL2CPP delay.");
+
+    for (int k=0;k<4000 && !g_gameAssembly && !g_shuttingDown;k++) {
+        g_gameAssembly=GetModuleHandleW(L"GameAssembly.dll");
+        if (!g_gameAssembly) Sleep(1);
+    }
+    if (!g_gameAssembly || g_shuttingDown) {
+        LogA("[INTRO H15 EARLY] GameAssembly unavailable during early window.");
+        g_h15EarlyNoVideoDone=1;
+        return 0;
+    }
+
+    if (!ResolveIl2CppApi()) {
+        LogA("[INTRO H15 EARLY] IL2CPP exports unavailable.");
+        g_h15EarlyNoVideoDone=1;
+        return 0;
+    }
+
+    for (int k=0;k<4000 && !g_domain && !g_shuttingDown;k++) {
+        g_domain=g_il2cpp.domain_get();
+        if (!g_domain) Sleep(1);
+    }
+    if (!g_domain || g_shuttingDown) {
+        LogA("[INTRO H15 EARLY] IL2CPP domain unavailable during early window.");
+        g_h15EarlyNoVideoDone=1;
+        return 0;
+    }
+
+    void* attachedThread=0;
+    BOOL attached=FALSE;
+    if (!g_il2cpp.thread_current()) {
+        attachedThread=g_il2cpp.thread_attach(g_domain);
+        attached=attachedThread ? TRUE : FALSE;
+    }
+
+    const Il2CppAssembly* ass=0;
+    for (int k=0;k<4000 && !ass && !g_shuttingDown;k++) {
+        ass=g_il2cpp.domain_assembly_open(g_domain,"Assembly-CSharp");
+        if (!ass) Sleep(1);
+    }
+    const Il2CppImage* image=ass ? g_il2cpp.assembly_get_image(ass) : 0;
+    if (!image || g_shuttingDown) {
+        LogA("[INTRO H15 EARLY] Assembly-CSharp unavailable during early window.");
+        if (attached) g_il2cpp.thread_detach(attachedThread);
+        g_h15EarlyNoVideoDone=1;
+        return 0;
+    }
+
+    Il2CppClass* debugManager=H15FindClassBySimpleNameEarly(image,"DebugManager");
+    const FieldInfo* noVideoField=debugManager ? g_il2cpp.class_get_field_from_name(debugManager,"NO_VIDEO") : 0;
+    const FieldInfo* argsField=debugManager ? g_il2cpp.class_get_field_from_name(debugManager,"_commandLineArguments") : 0;
+    const MethodInfo* getNoVideo=debugManager ? g_il2cpp.class_get_method_from_name(debugManager,"get_NoVideo",0) : 0;
+
+    typedef void (*FnFieldStaticGetValue)(const FieldInfo*, void*);
+    typedef void (*FnFieldStaticSetValue)(const FieldInfo*, void*);
+    FnFieldStaticGetValue staticGet=(FnFieldStaticGetValue)Proc("il2cpp_field_static_get_value");
+    FnFieldStaticSetValue staticSet=(FnFieldStaticSetValue)Proc("il2cpp_field_static_set_value");
+
+    if (!debugManager || !noVideoField || !argsField || !getNoVideo || !staticGet || !staticSet) {
+        LogA("[INTRO H15 EARLY] DebugManager native NO_VIDEO bridge incomplete.");
+        if (attached) g_il2cpp.thread_detach(attachedThread);
+        g_h15EarlyNoVideoDone=1;
+        return 0;
+    }
+
+    // Invoke the native getter once only to ensure the DebugManager static constructor
+    // has materialized its constant strings. We do NOT call SelfInit().
+    Il2CppException* ex=0;
+    g_il2cpp.runtime_invoke(getNoVideo,0,0,&ex);
+    if (ex) LogA("[INTRO H15 EARLY] Initial get_NoVideo() raised before SelfInit; continuing to watch storage.");
+
+    Il2CppString* token=0;
+    for (int k=0;k<2000 && !token && !g_shuttingDown;k++) {
+        staticGet(noVideoField,&token);
+        if (!token) Sleep(1);
+    }
+    if (!token || g_shuttingDown) {
+        LogA("[INTRO H15 EARLY] Native DebugManager.NO_VIDEO token never materialized.");
+        if (attached) g_il2cpp.thread_detach(attachedThread);
+        g_h15EarlyNoVideoDone=1;
+        return 0;
+    }
+
+    if (g_il2cpp.string_chars && g_il2cpp.string_length) {
+        const WCHAR* chars=g_il2cpp.string_chars(token);
+        int len=g_il2cpp.string_length(token);
+        char tokenAscii[128]; int p=0;
+        if (chars) for (int i=0;i<len && p<127;i++) tokenAscii[p++]=(chars[i]>=32 && chars[i]<=126)?(char)chars[i]:'?';
+        tokenAscii[p]=0;
+        LogA("[INTRO H15 EARLY] Native token resolved:");
+        LogA(tokenAscii);
+    }
+
+    BOOL mutated=FALSE;
+    for (int k=0;k<5000 && !mutated && !g_shuttingDown;k++) {
+        Il2CppObject* argsObj=0;
+        staticGet(argsField,&argsObj);
+        if (argsObj) {
+            LogIntA("[INTRO H15 EARLY] _commandLineArguments became available after ms: ",k);
+            mutated=H15AppendNoVideoToArgsObject(argsObj,token,staticSet,argsField);
+            break;
+        }
+        Sleep(1);
+    }
+
+    if (mutated) {
+        ex=0;
+        Il2CppObject* boxed=g_il2cpp.runtime_invoke(getNoVideo,0,0,&ex);
+        int value=-1;
+        if (!ex && boxed && g_il2cpp.object_unbox(boxed))
+            value=(*(BYTE*)g_il2cpp.object_unbox(boxed)) ? 1 : 0;
+        LogIntA("[INTRO H15 EARLY] DebugManager.get_NoVideo() immediately after injection: ",value);
+        if (value==1) {
+            g_h15EarlyNoVideoSuccess=1;
+            LogA("[INTRO H15 EARLY] SUCCESS: native NoVideo state became TRUE in the early startup window.");
+        }
+    } else {
+        LogA("[INTRO H15 EARLY] _commandLineArguments never became writable inside the early watch window.");
+    }
+
+    if (attached) g_il2cpp.thread_detach(attachedThread);
+    g_h15EarlyNoVideoDone=1;
+    return 0;
+}
+
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42 CLEAN ARSENAL + FIVE TABS + SKIP INTRO TEST");
+    LogA("PostalBorkenMenu V2A42-H15 EARLY NATIVE NO_VIDEO TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -684,6 +915,8 @@ extern "C" BOOL __stdcall DllMain(HMODULE module, DWORD reason, void*) {
     if (reason==DLL_PROCESS_ATTACH) {
         g_self=module;
         DisableThreadLibraryCalls(module);
+        HANDLE early=CreateThread(0,0,EarlyNoVideoThreadH15,0,0,0);
+        if (early) CloseHandle(early);
         HANDLE t=CreateThread(0,0,ModThread,0,0,0);
         if (t) CloseHandle(t);
     }
