@@ -14,6 +14,7 @@ GetPrivateProfileStringW
 WritePrivateProfileStringW
 CreateFileW
 WriteFile
+ReadFile
 SetFilePointer
 CloseHandle
 FindFirstFileW
