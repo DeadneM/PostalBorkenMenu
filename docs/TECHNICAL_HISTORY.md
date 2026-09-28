@@ -1070,3 +1070,8 @@ Note:
 - these hashes are for the canonical GitHub Release rebuild.
 - they intentionally supersede the earlier H13 validation-artifact hashes for public distribution.
 - Skip Intro remains an open item and is not claimed fixed by this release.
+
+
+## Logging policy - one launch, one log
+
+From commit `1a97bd2d3ad8f43a2ff387a04cf3eb11cc7ce1c4`, the minimal DXGI ASI loader truncates `PostalBorkenMenu.log` exactly once at first DXGI initialization for each game process, before writing any loader or ASI diagnostic line. Subsequent writes in the same run remain append-only. This prevents diagnostics from multiple builds/runs being concatenated into one file.
