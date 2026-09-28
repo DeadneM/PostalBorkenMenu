@@ -1075,3 +1075,12 @@ Note:
 ## Logging policy - one launch, one log
 
 From commit `1a97bd2d3ad8f43a2ff387a04cf3eb11cc7ce1c4`, the minimal DXGI ASI loader truncates `PostalBorkenMenu.log` exactly once at first DXGI initialization for each game process, before writing any loader or ASI diagnostic line. Subsequent writes in the same run remain append-only. This prevents diagnostics from multiple builds/runs being concatenated into one file.
+
+
+## V2A42-H19 - rejected: immediate crash during early Unity observation
+
+H19 resolved GameAssembly, the IL2CPP domain, Assembly-CSharp/CoreModule and all four target class metadata entries, then crashed before the first object-count result. The failure therefore occurred as the early watcher transitioned into Unity runtime object queries. H19 is rejected and must not be used as a future base.
+
+## V2A42-H20 - static startup asset scan
+
+Base: current main / validated H13 gameplay lineage, including one-launch-one-log reset. H20 removes the entire early Unity-observation concept. It performs only read-only Win32 file I/O against the game's Unity *_Data directory and scans selected Unity data files for printable ASCII strings related to startup logos, publishers, developers and intro/splash assets. No Unity or IL2CPP runtime method is called by the H20 diagnostic.
