@@ -1,3 +1,46 @@
+PostalBorkenMenu V2A42-H16 ISOLATED EARLY NO_VIDEO TEST
+POSTAL: Brain-Damaged
+
+BASE
+Built directly from validated/canonical V2A42-H13.
+H14 and H15 remain rejected/noncanonical.
+
+WHY H16
+H15 proved the early worker loaded, but it stopped before producing the expected native NO_VIDEO diagnostics.
+The likely cause was concurrent reuse of PostalBorkenMenu's global IL2CPP state from two startup threads.
+
+H16 CHANGE
+- Dedicated early NO_VIDEO worker still starts before the normal 2500 ms H13 IL2CPP delay.
+- The worker resolves its own local IL2CPP export pointers.
+- It never calls ResolveIl2CppApi() and never writes g_il2cpp / g_domain / g_gameAssembly.
+- It never calls runtime_invoke.
+- It never calls DebugManager.SelfInit().
+- It only watches DebugManager.NO_VIDEO and DebugManager._commandLineArguments.
+- When both are available, it appends the exact native NO_VIDEO token to a String[] using local IL2CPP exports.
+- The validated H13 startup path continues independently and unchanged.
+- No keyboard or mouse input is generated.
+
+EXPECTED H16 LOG
+[INTRO H16 EARLY] Native NO_VIDEO token became available after ms:
+[INTRO H16 EARLY] _commandLineArguments became available after ms:
+[INTRO H16 EARLY] Native NO_VIDEO token appended to String[] without runtime_invoke.
+[INTRO H16 EARLY] Early native argument injection completed.
+
+TEST
+1. Keep Skip Intro Videos enabled.
+2. Remove any manual Steam skip-intro launch option.
+3. Replace both dxgi.dll and PostalBorkenMenu.asi.
+4. Delete/rename the old PostalBorkenMenu.log.
+5. Launch normally.
+6. Note whether the startup videos are skipped.
+7. Exit normally and send the fresh PostalBorkenMenu.log.
+
+H13 remains canonical until H16 is runtime-validated.
+
+======================================================================
+H13 CANONICAL HISTORY
+======================================================================
+
 PostalBorkenMenu V2A42-H13 RECOVERY + DLC CROSSHAIR AUDIT
 POSTAL: Brain-Damaged
 
