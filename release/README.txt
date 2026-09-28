@@ -1,3 +1,62 @@
+PostalBorkenMenu V2A42-H15 EARLY NATIVE NO_VIDEO TEST
+POSTAL: Brain-Damaged
+
+BASE
+Built directly from validated/canonical V2A42-H13.
+H14 is rejected because the correct native DebugManager state was reached too late to affect startup videos.
+
+H15 GOAL
+Arm the game's own DebugManager NO_VIDEO state at the earliest IL2CPP moment possible.
+
+H15 METHOD
+- A dedicated startup worker is created before the normal PostalBorkenMenu worker.
+- It reads only the existing SkipIntroVideos INI preference.
+- It waits for GameAssembly.dll, the IL2CPP domain, and Assembly-CSharp with 1 ms polling.
+- It resolves DebugManager directly.
+- It never calls DebugManager.SelfInit().
+- It watches the native static _commandLineArguments field.
+- At the first moment that field becomes non-null, it appends the exact native DebugManager.NO_VIDEO token.
+- Supports String[] and collections exposing Add().
+- Immediately verifies DebugManager.get_NoVideo().
+- No Escape, SendInput, keybd_event, mouse input, PEB edit, or fake Windows command-line injection.
+
+UNCHANGED FROM H13
+- Base Weapon Wheel H4 path
+- No Crosshair DLC multi-controller fix
+- Grappling Hook validated AddWeapon -> InitHook path
+- five tabs
+- Arsenal / Special
+- Give All Weapons / Give All DLC Weapons
+- TimeScale
+- hotkeys and persistence
+- V2A8 shutdown fencing
+- minimal DXGI loader
+
+TEST
+1. Keep Skip Intro Videos ENABLED.
+2. Remove any manual launch option that skips videos.
+3. Exit the game completely.
+4. Install H15 and launch normally.
+5. Check whether startup videos are skipped.
+6. Verify Base Weapon Wheel and No Crosshair are unchanged.
+7. Exit normally and send PostalBorkenMenu.log.
+
+IMPORTANT LOG LINES
+[INTRO H15 EARLY] _commandLineArguments became available after ms:
+[INTRO H15 EARLY] Native NO_VIDEO token appended...
+[INTRO H15 EARLY] DebugManager.get_NoVideo() immediately after injection:
+[INTRO H15 EARLY] SUCCESS...
+
+PACKAGE
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+H13 CANONICAL HISTORY
+======================================================================
+
 PostalBorkenMenu V2A42-H13 RECOVERY + DLC CROSSHAIR AUDIT
 POSTAL: Brain-Damaged
 
