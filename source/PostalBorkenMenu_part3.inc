@@ -608,7 +608,7 @@ static BOOL HookGameWindow() {
             if (stableSamples==10) {
                 LogA("[WINDOW] Candidate stable for 1 second.");
                 if (g_skipIntroVideos)
-                    LogA("[INTRO H13] Skip Intro preference enabled; no simulated input is emitted.");
+                    LogA("[H18 STARTUP] No simulated input is emitted. Live startup-object audit is observation-only.");
             } else if (stableSamples==20)
                 LogA("[WINDOW] Candidate stable for 2 seconds.");
 
@@ -643,7 +643,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42 CLEAN ARSENAL + FIVE TABS + SKIP INTRO TEST");
+    LogA("PostalBorkenMenu V2A42-H18 LIVE STARTUP OBJECT AUDIT TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -652,7 +652,7 @@ static DWORD __stdcall ModThread(void*) {
         LogA("[OK] Exact-name WeaponId resolver linked; cleaned Arsenal/Special dispatcher active.");
     else
         LogA("[ERROR] Exact-name WeaponId resolver was not retained.");
-    LogA(g_skipIntroVideos ? "[INTRO] Skip Intro Videos config: ENABLED (default)." : "[INTRO] Skip Intro Videos config: DISABLED.");
+    LogA("[H18 STARTUP] Skip Intro Videos is not under test; H18 only identifies live startup objects/assets.");
     if (!InitIl2Cpp()) return 0;
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
