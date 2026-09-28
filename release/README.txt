@@ -1,3 +1,70 @@
+PostalBorkenMenu V2A42-H19 EARLY STARTUP OBJECT WATCH TEST
+POSTAL: Brain-Damaged
+
+STATUS
+Diagnostic candidate only.
+Built from current main, whose gameplay/source lineage is validated V2A42-H13.
+The one-launch-one-log policy is included: PostalBorkenMenu.log is truncated once at process startup by the DXGI loader.
+
+WHY H19
+H18 ran its live-object audit only after the normal 2500 ms H13 IL2CPP delay.
+At that point IntroController, RCLogoComponent, SceneManager and SkipIntroController all reported zero loaded objects.
+That does not prove they are unrelated: a startup-logo object may have existed and been destroyed before H18 looked.
+
+H19 GOAL
+Watch the exact four candidate classes continuously during the earliest safe IL2CPP startup window.
+
+H19 WATCH
+- Separate worker starts as soon as the ASI is loaded.
+- Uses locally resolved IL2CPP exports only.
+- Does not call ResolveIl2CppApi() and does not write H13 globals.
+- Waits for GameAssembly, IL2CPP domain, Assembly-CSharp and UnityEngine.CoreModule.
+- Attaches its own IL2CPP thread.
+- Polls every 20 ms for about 8 seconds.
+- Targets only:
+  IntroController
+  RCLogoComponent
+  SceneManager
+  SkipIntroController
+- Logs object-count transitions.
+- When an object appears, logs component name and GameObject name.
+- IntroController: logs _videoClip, _videoPlayer and _skipped.
+- RCLogoComponent: logs _cursorSprite name.
+- SceneManager: logs _introCluster name/runtime class.
+- Logs final observed counts and total polls.
+
+SAFETY
+Observation only.
+No target field is written.
+No startup/skip method is invoked.
+No Escape / SendInput / keybd_event / synthetic mouse / fake PostMessage input.
+No process command-line or PEB modification.
+No H13 gameplay path is altered.
+
+TEST
+1. Replace dxgi.dll and PostalBorkenMenu.asi with H19.
+2. No need to delete PostalBorkenMenu.log. H19 includes automatic per-launch reset.
+3. Launch normally and let all developer/publisher logos play until the main menu.
+4. Exit normally.
+5. Send the fresh PostalBorkenMenu.log.
+
+IMPORTANT MARKERS
+[H19 EARLY] ===== isolated early startup-object watch begin =====
+[H19 EARLY] object-count transition for:
+[H19 EARLY] live target:
+[H19 EARLY] GameObject name:
+[H19 EARLY] ===== isolated early startup-object watch end =====
+
+PACKAGE
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+H13 CANONICAL HISTORY
+======================================================================
+
 PostalBorkenMenu V2A42-H13 RECOVERY + DLC CROSSHAIR AUDIT
 POSTAL: Brain-Damaged
 
