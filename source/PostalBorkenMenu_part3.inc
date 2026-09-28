@@ -832,12 +832,17 @@ static DWORD __stdcall EarlyStartupObjectWatchH19(void*) {
         char lastComponentName[160];
     };
 
-    Target targets[4]={
-        {"IntroController",0,-1,{0},{0}},
-        {"RCLogoComponent",0,-1,{0},{0}},
-        {"SceneManager",0,-1,{0},{0}},
-        {"SkipIntroController",0,-1,{0},{0}}
-    };
+    Target targets[4];
+    targets[0].name="IntroController";
+    targets[1].name="RCLogoComponent";
+    targets[2].name="SceneManager";
+    targets[3].name="SkipIntroController";
+    for (int t=0;t<4;t++) {
+        targets[t].klass=0;
+        targets[t].lastCount=-1;
+        targets[t].lastGoName[0]=0;
+        targets[t].lastComponentName[0]=0;
+    }
 
     for (int t=0;t<4;t++) {
         targets[t].klass=findClassSimple(gameImage,targets[t].name);
