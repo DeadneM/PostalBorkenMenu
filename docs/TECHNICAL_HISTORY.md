@@ -1075,3 +1075,10 @@ Note:
 ## Logging policy - one launch, one log
 
 From commit `1a97bd2d3ad8f43a2ff387a04cf3eb11cc7ce1c4`, the minimal DXGI ASI loader truncates `PostalBorkenMenu.log` exactly once at first DXGI initialization for each game process, before writing any loader or ASI diagnostic line. Subsequent writes in the same run remain append-only. This prevents diagnostics from multiple builds/runs being concatenated into one file.
+
+
+## V2A42-H19 - isolated early startup-object watcher
+
+Base: current main / validated H13 gameplay lineage, including the one-launch-one-log DXGI policy.
+
+H18 observed zero loaded instances of IntroController, RCLogoComponent, SceneManager and SkipIntroController after the normal 2500 ms IL2CPP delay. H19 tests the timing hypothesis without changing game state. A dedicated worker starts immediately after ASI load, resolves local IL2CPP exports without touching H13 global bridge state, waits for the domain and metadata images, attaches independently, then polls only those four classes every 20 ms for roughly 8 seconds. It logs count transitions, Unity component/GameObject names and a small set of referenced fields relevant to the startup path. No startup method is invoked and no field is written.
