@@ -782,7 +782,7 @@ static void H20ScanDataDirectory(const WCHAR* dataDir,const WCHAR* dataName) {
     LogA(dn);
 
     WCHAR pattern[MAX_PATH_W]; CopyW(pattern,MAX_PATH_W,dataDir); AppendW(pattern,MAX_PATH_W,L"*");
-    WIN32_FIND_DATAW fd={};
+    WIN32_FIND_DATAW fd;
     HANDLE find=FindFirstFileW(pattern,&fd);
     if(find==INVALID_HANDLE_VALUE) {
         LogA("[H20 FILESCAN] Could not enumerate Unity Data directory.");
@@ -821,7 +821,7 @@ static void RunStaticStartupAssetScanH20() {
     modulePath[slash+1]=0;
 
     WCHAR pattern[MAX_PATH_W]; CopyW(pattern,MAX_PATH_W,modulePath); AppendW(pattern,MAX_PATH_W,L"*");
-    WIN32_FIND_DATAW fd={};
+    WIN32_FIND_DATAW fd;
     HANDLE find=FindFirstFileW(pattern,&fd);
     if(find==INVALID_HANDLE_VALUE) {
         LogA("[H20 FILESCAN] Could not enumerate game directory.");
