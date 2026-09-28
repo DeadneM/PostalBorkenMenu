@@ -2044,6 +2044,135 @@ static void LogTargetClassMetadataH13(Il2CppClass* klass, const char* label) {
     LogIntA("[H13 META] fields logged: ",fc);
 }
 
+
+static BOOL H17StartupTokenMatch(const char* s) {
+    if (!s || !*s) return FALSE;
+    static const char* keys[]={
+        "logo","splash","boot","startup","intro","video","movie",
+        "cinematic","cutscene","publisher","developer","sequence"
+    };
+    for (int i=0;i<(int)(sizeof(keys)/sizeof(keys[0]));i++)
+        if (StrContainsNoCaseA(s,keys[i])) return TRUE;
+    return FALSE;
+}
+
+static void H17LogClassHeader(Il2CppClass* klass) {
+    if (!klass) return;
+    const char* ns=g_il2cpp.class_get_namespace(klass);
+    const char* name=g_il2cpp.class_get_name(klass);
+    LogA("[H17 STARTUP] CLASS");
+    LogA(ns && *ns ? ns : "<global namespace>");
+    LogA(name ? name : "<unnamed>");
+}
+
+static void RunStartupLogoMetadataAuditH17() {
+    LogA("[H17 STARTUP] ===== startup/logo metadata audit begin =====");
+    if (!g_assemblyCSharp) {
+        LogA("[H17 STARTUP] Assembly-CSharp unavailable.");
+        LogA("[H17 STARTUP] ===== startup/logo metadata audit end =====");
+        return;
+    }
+
+    typedef const Il2CppType* (*FnFieldGetType)(const FieldInfo*);
+    FnFieldGetType fieldGetType=(FnFieldGetType)Proc("il2cpp_field_get_type");
+
+    SIZE_T classCount=g_il2cpp.image_get_class_count(g_assemblyCSharp);
+    int classesWithHits=0;
+    int classNameHits=0;
+    int memberOnlyHits=0;
+    int methodsLogged=0;
+    int fieldsLogged=0;
+
+    for (SIZE_T i=0;i<classCount;i++) {
+        Il2CppClass* klass=g_il2cpp.image_get_class(g_assemblyCSharp,i);
+        if (!klass) continue;
+
+        const char* cn=g_il2cpp.class_get_name(klass);
+        const char* ns=g_il2cpp.class_get_namespace(klass);
+        BOOL classMatched=H17StartupTokenMatch(cn) || H17StartupTokenMatch(ns);
+
+        int localMethodHits=0;
+        int localFieldHits=0;
+
+        void* mi=0;
+        const MethodInfo* m=0;
+        while ((m=g_il2cpp.class_get_methods(klass,&mi))!=0) {
+            const char* mn=g_il2cpp.method_get_name(m);
+            if (classMatched || H17StartupTokenMatch(mn)) ++localMethodHits;
+        }
+
+        void* fi=0;
+        const FieldInfo* fld=0;
+        while ((fld=g_il2cpp.class_get_fields(klass,&fi))!=0) {
+            const char* fn=g_il2cpp.field_get_name(fld);
+            if (classMatched || H17StartupTokenMatch(fn)) ++localFieldHits;
+        }
+
+        if (!classMatched && localMethodHits==0 && localFieldHits==0) continue;
+
+        ++classesWithHits;
+        if (classMatched) ++classNameHits; else ++memberOnlyHits;
+        H17LogClassHeader(klass);
+        LogA(classMatched
+            ? "[H17 STARTUP] Match source: class/namespace keyword"
+            : "[H17 STARTUP] Match source: member keyword only");
+
+        mi=0;
+        while ((m=g_il2cpp.class_get_methods(klass,&mi))!=0) {
+            const char* mn=g_il2cpp.method_get_name(m);
+            if (!classMatched && !H17StartupTokenMatch(mn)) continue;
+            LogA("[H17 STARTUP] METHOD");
+            LogA(mn ? mn : "<unnamed>");
+            LogIntA("[H17 STARTUP] parameter count: ",(int)g_il2cpp.method_get_param_count(m));
+
+            const Il2CppType* rt=g_il2cpp.method_get_return_type(m);
+            Il2CppClass* rc=rt ? g_il2cpp.class_from_type(rt) : 0;
+            if (rc) {
+                const char* rns=g_il2cpp.class_get_namespace(rc);
+                const char* rn=g_il2cpp.class_get_name(rc);
+                LogA("[H17 STARTUP] return type namespace:");
+                LogA(rns && *rns ? rns : "<global namespace>");
+                LogA("[H17 STARTUP] return type:");
+                LogA(rn ? rn : "<unknown>");
+            }
+            ++methodsLogged;
+        }
+
+        fi=0;
+        while ((fld=g_il2cpp.class_get_fields(klass,&fi))!=0) {
+            const char* fn=g_il2cpp.field_get_name(fld);
+            if (!classMatched && !H17StartupTokenMatch(fn)) continue;
+            LogA("[H17 STARTUP] FIELD");
+            LogA(fn ? fn : "<unnamed>");
+
+            if (fieldGetType) {
+                const Il2CppType* ft=fieldGetType(fld);
+                Il2CppClass* fc=ft ? g_il2cpp.class_from_type(ft) : 0;
+                if (fc) {
+                    const char* fns=g_il2cpp.class_get_namespace(fc);
+                    const char* fcn=g_il2cpp.class_get_name(fc);
+                    LogA("[H17 STARTUP] field type namespace:");
+                    LogA(fns && *fns ? fns : "<global namespace>");
+                    LogA("[H17 STARTUP] field type:");
+                    LogA(fcn ? fcn : "<unknown>");
+                }
+            }
+            ++fieldsLogged;
+        }
+
+        LogA("[H17 STARTUP] ----- class end -----");
+    }
+
+    LogIntA("[H17 STARTUP] Assembly-CSharp total classes scanned: ",(int)classCount);
+    LogIntA("[H17 STARTUP] classes with startup-related hits: ",classesWithHits);
+    LogIntA("[H17 STARTUP] class/namespace keyword hits: ",classNameHits);
+    LogIntA("[H17 STARTUP] member-only keyword hits: ",memberOnlyHits);
+    LogIntA("[H17 STARTUP] methods logged: ",methodsLogged);
+    LogIntA("[H17 STARTUP] fields logged: ",fieldsLogged);
+    LogA("[H17 STARTUP] Observation only. No runtime object or field was modified.");
+    LogA("[H17 STARTUP] ===== startup/logo metadata audit end =====");
+}
+
 static void RunTargetedNoVideoAndCrosshairAuditH13() {
     LogA("[H13 META] ===== targeted DebugManager / NO_VIDEO audit =====");
     Il2CppClass* debugManager=FindClassBySimpleName("DebugManager");
@@ -2349,6 +2478,7 @@ static BOOL InitIl2Cpp() {
     g_currentCrosshairField=g_crosshairControllerClass ? g_il2cpp.class_get_field_from_name(g_crosshairControllerClass,"_currentCrosshair") : 0;
 
     RunTargetedNoVideoAndCrosshairAuditH13();
+    RunStartupLogoMetadataAuditH17();
 
     g_timeManagerClass=FindClassBySimpleName("TimeManager");
     g_timeScaleSetter=g_timeManagerClass ? FindMethodExact(g_timeManagerClass,"SetGameTimeScale",1,g_floatClass) : 0;
