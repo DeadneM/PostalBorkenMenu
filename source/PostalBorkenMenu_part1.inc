@@ -72,6 +72,19 @@ struct WINHTTP_CURRENT_USER_IE_PROXY_CONFIG {
     LPWSTR lpszProxy;
     LPWSTR lpszProxyBypass;
 };
+struct FILETIME { DWORD dwLowDateTime; DWORD dwHighDateTime; };
+struct WIN32_FIND_DATAW {
+    DWORD dwFileAttributes;
+    FILETIME ftCreationTime;
+    FILETIME ftLastAccessTime;
+    FILETIME ftLastWriteTime;
+    DWORD nFileSizeHigh;
+    DWORD nFileSizeLow;
+    DWORD dwReserved0;
+    DWORD dwReserved1;
+    WCHAR cFileName[260];
+    WCHAR cAlternateFileName[14];
+};
 
 __declspec(dllimport) HMODULE __stdcall GetModuleHandleW(LPCWSTR);
 __declspec(dllimport) void* __stdcall GetProcAddress(HMODULE, LPCSTR);
@@ -87,8 +100,12 @@ __declspec(dllimport) DWORD __stdcall GetPrivateProfileStringW(LPCWSTR, LPCWSTR,
 __declspec(dllimport) BOOL __stdcall WritePrivateProfileStringW(LPCWSTR, LPCWSTR, LPCWSTR, LPCWSTR);
 __declspec(dllimport) HANDLE __stdcall CreateFileW(LPCWSTR, DWORD, DWORD, void*, DWORD, DWORD, HANDLE);
 __declspec(dllimport) BOOL __stdcall WriteFile(HANDLE, const void*, DWORD, DWORD*, void*);
+__declspec(dllimport) BOOL __stdcall ReadFile(HANDLE, void*, DWORD, DWORD*, void*);
 __declspec(dllimport) DWORD __stdcall SetFilePointer(HANDLE, LONG, LONG*, DWORD);
 __declspec(dllimport) BOOL __stdcall CloseHandle(HANDLE);
+__declspec(dllimport) HANDLE __stdcall FindFirstFileW(LPCWSTR, WIN32_FIND_DATAW*);
+__declspec(dllimport) BOOL __stdcall FindNextFileW(HANDLE, WIN32_FIND_DATAW*);
+__declspec(dllimport) BOOL __stdcall FindClose(HANDLE);
 
 __declspec(dllimport) HWND __stdcall GetForegroundWindow(void);
 __declspec(dllimport) DWORD __stdcall GetWindowThreadProcessId(HWND, DWORD*);
@@ -128,10 +145,13 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 #define NULLPTR ((void*)0)
 #define DLL_PROCESS_ATTACH 1
 #define MAX_PATH_W 512
+#define GENERIC_READ 0x80000000UL
 #define GENERIC_WRITE 0x40000000UL
 #define FILE_SHARE_READ 0x00000001UL
 #define FILE_SHARE_WRITE 0x00000002UL
+#define OPEN_EXISTING 3UL
 #define OPEN_ALWAYS 4UL
+#define FILE_ATTRIBUTE_DIRECTORY 0x00000010UL
 #define FILE_ATTRIBUTE_NORMAL 0x00000080UL
 #define FILE_END 2UL
 #define INVALID_HANDLE_VALUE ((HANDLE)(LONG_PTR)-1)
