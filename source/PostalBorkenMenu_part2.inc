@@ -2044,15 +2044,189 @@ static void LogTargetClassMetadataH13(Il2CppClass* klass, const char* label) {
     LogIntA("[H13 META] fields logged: ",fc);
 }
 
-static void RunTargetedNoVideoAndCrosshairAuditH13() {
-    LogA("[H13 META] ===== targeted DebugManager / NO_VIDEO audit =====");
+static void H14ManagedStringToAscii(Il2CppString* str, char* out, int cap) {
+    if (!out || cap<=0) return;
+    out[0]=0;
+    if (!str || !g_il2cpp.string_chars || !g_il2cpp.string_length) return;
+    const WCHAR* chars=g_il2cpp.string_chars(str);
+    int len=g_il2cpp.string_length(str);
+    if (!chars || len<=0) return;
+    int n=0;
+    for (int i=0;i<len && n<cap-1;i++) {
+        WCHAR w=chars[i];
+        out[n++]=(w>=32 && w<=126) ? (char)w : '?';
+    }
+    out[n]=0;
+}
+
+static BOOL H14ManagedStringEquals(Il2CppString* a, Il2CppString* b) {
+    if (a==b) return TRUE;
+    if (!a || !b || !g_il2cpp.string_chars || !g_il2cpp.string_length) return FALSE;
+    int al=g_il2cpp.string_length(a);
+    int bl=g_il2cpp.string_length(b);
+    if (al!=bl || al<0) return FALSE;
+    const WCHAR* ac=g_il2cpp.string_chars(a);
+    const WCHAR* bc=g_il2cpp.string_chars(b);
+    if (!ac || !bc) return FALSE;
+    for (int i=0;i<al;i++) if (ac[i]!=bc[i]) return FALSE;
+    return TRUE;
+}
+
+static int H14ReadNoVideoGetter(Il2CppClass* debugManager, const MethodInfo* getNoVideo) {
+    if (!debugManager || !getNoVideo) return -1;
+    void* target=0;
+    if (g_il2cpp.method_is_instance(getNoVideo))
+        target=FindLiveObject(debugManager);
+    if (g_il2cpp.method_is_instance(getNoVideo) && !target) return -1;
+
+    Il2CppException* ex=0;
+    Il2CppObject* boxed=g_il2cpp.runtime_invoke(getNoVideo,target,0,&ex);
+    if (ex) {
+        LogA("[INTRO H14] DebugManager.get_NoVideo() threw:");
+        FormatExceptionToLog(ex);
+        return -1;
+    }
+    if (!boxed || !g_il2cpp.object_unbox(boxed)) return -1;
+    return (*(BYTE*)g_il2cpp.object_unbox(boxed)) ? 1 : 0;
+}
+
+static BOOL H14TryAppendNativeNoVideoArgument(Il2CppClass* debugManager) {
+    if (!debugManager) return FALSE;
+
+    typedef void (*FnFieldStaticGetValue)(const FieldInfo*, void*);
+    typedef void (*FnFieldStaticSetValue)(const FieldInfo*, void*);
+    typedef const Il2CppType* (*FnFieldGetType)(const FieldInfo*);
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+
+    FnFieldStaticGetValue staticGet=(FnFieldStaticGetValue)Proc("il2cpp_field_static_get_value");
+    FnFieldStaticSetValue staticSet=(FnFieldStaticSetValue)Proc("il2cpp_field_static_set_value");
+    FnFieldGetType fieldGetType=(FnFieldGetType)Proc("il2cpp_field_get_type");
+    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+
+    const FieldInfo* noVideoField=g_il2cpp.class_get_field_from_name(debugManager,"NO_VIDEO");
+    const FieldInfo* argsField=g_il2cpp.class_get_field_from_name(debugManager,"_commandLineArguments");
+    const MethodInfo* getNoVideo=g_il2cpp.class_get_method_from_name(debugManager,"get_NoVideo",0);
+
+    if (!staticGet || !staticSet || !noVideoField || !argsField || !getNoVideo) {
+        LogA("[INTRO H14] Required DebugManager static-field bridge unresolved.");
+        return FALSE;
+    }
+
+    if (fieldGetType) {
+        const Il2CppType* nt=fieldGetType(noVideoField);
+        const Il2CppType* at=fieldGetType(argsField);
+        Il2CppClass* nc=nt ? g_il2cpp.class_from_type(nt) : 0;
+        Il2CppClass* ac=at ? g_il2cpp.class_from_type(at) : 0;
+        if (nc) {
+            LogA("[INTRO H14] NO_VIDEO field type:");
+            LogA(g_il2cpp.class_get_name(nc));
+        }
+        if (ac) {
+            LogA("[INTRO H14] _commandLineArguments field type:");
+            LogA(g_il2cpp.class_get_name(ac));
+        }
+    }
+
+    Il2CppString* nativeToken=0;
+    staticGet(noVideoField,&nativeToken);
+    if (!nativeToken) {
+        LogA("[INTRO H14] DebugManager.NO_VIDEO static string is NULL.");
+        return FALSE;
+    }
+
+    char tokenAscii[256];
+    H14ManagedStringToAscii(nativeToken,tokenAscii,256);
+    LogA("[INTRO H14] Native DebugManager.NO_VIDEO token:");
+    LogA(tokenAscii[0] ? tokenAscii : "<non-ascii-or-empty>");
+
+    Il2CppObject* argsObj=0;
+    staticGet(argsField,&argsObj);
+    if (!argsObj) {
+        LogA("[INTRO H14] DebugManager._commandLineArguments is NULL; not forcing SelfInit.");
+        int before=H14ReadNoVideoGetter(debugManager,getNoVideo);
+        LogIntA("[INTRO H14] get_NoVideo() with NULL args state: ",before);
+        return FALSE;
+    }
+
+    Il2CppClass* argsClass=objectGetClass ? objectGetClass(argsObj) : 0;
+    const char* argsClassName=argsClass ? g_il2cpp.class_get_name(argsClass) : 0;
+    LogA("[INTRO H14] _commandLineArguments runtime class:");
+    LogA(argsClassName ? argsClassName : "<unknown>");
+
+    int before=H14ReadNoVideoGetter(debugManager,getNoVideo);
+    LogIntA("[INTRO H14] get_NoVideo() BEFORE native token injection: ",before);
+
+    // First handle the expected System.String[] representation.
+    int nameLen=argsClassName ? StrLenA(argsClassName) : 0;
+    if (argsClassName && nameLen>=2 && argsClassName[nameLen-2]=='[' && argsClassName[nameLen-1]==']') {
+        Il2CppArray* oldArr=(Il2CppArray*)argsObj;
+        SIZE_T oldLen=g_il2cpp.array_length(oldArr);
+        if (oldLen>256) {
+            LogA("[INTRO H14] Command-line array exceeded defensive limit.");
+            return FALSE;
+        }
+
+        unsigned int hdr=g_il2cpp.array_object_header_size();
+        Il2CppObject** oldElems=(Il2CppObject**)(((BYTE*)oldArr)+hdr);
+        BOOL already=FALSE;
+        LogIntA("[INTRO H14] Existing internal command-line argument count: ",(int)oldLen);
+
+        for (SIZE_T i=0;i<oldLen;i++) {
+            Il2CppString* s=(Il2CppString*)oldElems[i];
+            if (s && H14ManagedStringEquals(s,nativeToken)) already=TRUE;
+            if (s) {
+                char arg[256];
+                H14ManagedStringToAscii(s,arg,256);
+                LogA("[INTRO H14] Existing arg:");
+                LogA(arg[0] ? arg : "<non-ascii-or-empty>");
+            }
+        }
+
+        if (already) {
+            LogA("[INTRO H14] Native NO_VIDEO token already present; no mutation needed.");
+        } else if (g_skipIntroVideos) {
+            Il2CppArray* newArr=g_il2cpp.array_new(g_stringClass,oldLen+1);
+            if (!newArr) {
+                LogA("[INTRO H14] Failed to allocate expanded command-line array.");
+                return FALSE;
+            }
+            unsigned int nhdr=g_il2cpp.array_object_header_size();
+            Il2CppObject** newElems=(Il2CppObject**)(((BYTE*)newArr)+nhdr);
+            for (SIZE_T i=0;i<oldLen;i++)
+                g_il2cpp.gc_wbarrier_set_field((Il2CppObject*)newArr,(void**)&newElems[i],oldElems[i]);
+            g_il2cpp.gc_wbarrier_set_field((Il2CppObject*)newArr,(void**)&newElems[oldLen],nativeToken);
+
+            Il2CppObject* newObj=(Il2CppObject*)newArr;
+            staticSet(argsField,&newObj);
+            LogA("[INTRO H14] Native NO_VIDEO token appended to DebugManager._commandLineArguments.");
+        } else {
+            LogA("[INTRO H14] Skip Intro preference disabled; internal args left unchanged.");
+        }
+    } else {
+        LogA("[INTRO H14] Internal command-line storage is not an array; H14 leaves it untouched.");
+    }
+
+    int after=H14ReadNoVideoGetter(debugManager,getNoVideo);
+    LogIntA("[INTRO H14] get_NoVideo() AFTER native token injection: ",after);
+
+    if (g_skipIntroVideos && after==1) {
+        LogA("[INTRO H14] SUCCESS: native DebugManager.get_NoVideo() is TRUE.");
+        return TRUE;
+    }
+    if (!g_skipIntroVideos) return TRUE;
+
+    LogA("[INTRO H14] Native get_NoVideo() did not become TRUE.");
+    return FALSE;
+}
+
+static void RunTargetedNoVideoAndCrosshairAuditH14() {
+    LogA("[H14 META] ===== native DebugManager NO_VIDEO path =====");
     Il2CppClass* debugManager=FindClassBySimpleName("DebugManager");
-    Il2CppClass* noVideoClass=FindClassBySimpleName("NO_VIDEO");
-    LogTargetClassMetadataH13(debugManager,"[H13 META] DebugManager");
-    LogTargetClassMetadataH13(noVideoClass,"[H13 META] NO_VIDEO class");
-    LogA("[H13 META] ===== targeted PlayerCrosshairController audit =====");
-    LogTargetClassMetadataH13(g_crosshairControllerClass,"[H13 META] PlayerCrosshairController");
-    LogA("[H13 META] ===== audit end =====");
+    LogTargetClassMetadataH13(debugManager,"[H14 META] DebugManager");
+    H14TryAppendNativeNoVideoArgument(debugManager);
+    LogA("[H14 META] ===== PlayerCrosshairController inherited H13 audit =====");
+    LogTargetClassMetadataH13(g_crosshairControllerClass,"[H14 META] PlayerCrosshairController");
+    LogA("[H14 META] ===== audit end =====");
 }
 
 static BOOL SetCrosshairVisualAlpha(float alpha) {
@@ -2348,7 +2522,7 @@ static BOOL InitIl2Cpp() {
     g_crosshairControllerClass=FindClassBySimpleName("PlayerCrosshairController");
     g_currentCrosshairField=g_crosshairControllerClass ? g_il2cpp.class_get_field_from_name(g_crosshairControllerClass,"_currentCrosshair") : 0;
 
-    RunTargetedNoVideoAndCrosshairAuditH13();
+    RunTargetedNoVideoAndCrosshairAuditH14();
 
     g_timeManagerClass=FindClassBySimpleName("TimeManager");
     g_timeScaleSetter=g_timeManagerClass ? FindMethodExact(g_timeManagerClass,"SetGameTimeScale",1,g_floatClass) : 0;
