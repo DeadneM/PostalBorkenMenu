@@ -608,7 +608,7 @@ static BOOL HookGameWindow() {
             if (stableSamples==10) {
                 LogA("[WINDOW] Candidate stable for 1 second.");
                 if (g_skipIntroVideos)
-                    LogA("[INTRO H13] Skip Intro preference enabled; no simulated input is emitted.");
+                    LogA("[H19 EARLY] No simulated input is emitted. Early watcher is observation-only.");
             } else if (stableSamples==20)
                 LogA("[WINDOW] Candidate stable for 2 seconds.");
 
@@ -640,10 +640,378 @@ static BOOL HookGameWindow() {
     return FALSE;
 }
 
+
+static void CopyA(char* dst,int cap,const char* src) {
+    if(!dst || cap<=0) return;
+    int i=0; if(src) for(;i<cap-1 && src[i];++i) dst[i]=src[i];
+    dst[i]=0;
+}
+
+static void H19ManagedStringToAsciiLocal(Il2CppString* str,
+                                         const WCHAR* (__stdcall *stringChars)(Il2CppString*),
+                                         int (__stdcall *stringLength)(Il2CppString*),
+                                         char* out, int cap) {
+    if (!out || cap<=0) return;
+    out[0]=0;
+    if (!str || !stringChars || !stringLength) return;
+    const WCHAR* s=stringChars(str);
+    int len=stringLength(str);
+    if (!s || len<=0) return;
+    int p=0;
+    for (int i=0;i<len && p<cap-1;i++) {
+        WCHAR w=s[i];
+        out[p++]=(w>=32 && w<=126) ? (char)w : '?';
+    }
+    out[p]=0;
+}
+
+static DWORD __stdcall EarlyStartupObjectWatchH19(void*) {
+    BuildPaths();
+    LogA("[H19 EARLY] ===== isolated early startup-object watch begin =====");
+    LogA("[H19 EARLY] Observation only. No field write, no skip call, no synthetic input.");
+
+    HMODULE ga=0;
+    int waitMs=0;
+    for (;waitMs<5000 && !g_shuttingDown;waitMs+=5) {
+        ga=GetModuleHandleW(L"GameAssembly.dll");
+        if (ga) break;
+        Sleep(5);
+    }
+    if (!ga || g_shuttingDown) {
+        LogA("[H19 EARLY] GameAssembly.dll unavailable in early window.");
+        LogA("[H19 EARLY] ===== isolated early startup-object watch end =====");
+        return 0;
+    }
+    LogIntA("[H19 EARLY] GameAssembly available after ms: ",waitMs);
+
+    typedef Il2CppDomain* (__stdcall *FnDomainGet)();
+    typedef const Il2CppAssembly* (__stdcall *FnDomainAssemblyOpen)(Il2CppDomain*,const char*);
+    typedef const Il2CppImage* (__stdcall *FnAssemblyGetImage)(const Il2CppAssembly*);
+    typedef SIZE_T (__stdcall *FnImageGetClassCount)(const Il2CppImage*);
+    typedef Il2CppClass* (__stdcall *FnImageGetClass)(const Il2CppImage*,SIZE_T);
+    typedef const char* (__stdcall *FnClassGetName)(Il2CppClass*);
+    typedef const char* (__stdcall *FnClassGetNamespace)(Il2CppClass*);
+    typedef const MethodInfo* (__stdcall *FnClassGetMethods)(Il2CppClass*,void**);
+    typedef const MethodInfo* (__stdcall *FnClassGetMethodFromName)(Il2CppClass*,const char*,int);
+    typedef const FieldInfo* (__stdcall *FnClassGetFieldFromName)(Il2CppClass*,const char*);
+    typedef const char* (__stdcall *FnMethodGetName)(const MethodInfo*);
+    typedef unsigned int (__stdcall *FnMethodGetParamCount)(const MethodInfo*);
+    typedef const Il2CppType* (__stdcall *FnClassGetType)(Il2CppClass*);
+    typedef Il2CppObject* (__stdcall *FnTypeGetObject)(const Il2CppType*);
+    typedef Il2CppObject* (__stdcall *FnRuntimeInvoke)(const MethodInfo*,void*,void**,Il2CppException**);
+    typedef SIZE_T (__stdcall *FnArrayLength)(Il2CppArray*);
+    typedef unsigned int (__stdcall *FnArrayObjectHeaderSize)();
+    typedef void* (__stdcall *FnThreadAttach)(Il2CppDomain*);
+    typedef void* (__stdcall *FnThreadCurrent)();
+    typedef void (__stdcall *FnThreadDetach)(void*);
+    typedef void (__stdcall *FnFieldGetValue)(Il2CppObject*,const FieldInfo*,void*);
+    typedef const WCHAR* (__stdcall *FnStringChars)(Il2CppString*);
+    typedef int (__stdcall *FnStringLength)(Il2CppString*);
+    typedef Il2CppClass* (__stdcall *FnObjectGetClass)(Il2CppObject*);
+
+#define H19RESOLVE(type,var,name) type var=(type)GetProcAddress(ga,name)
+    H19RESOLVE(FnDomainGet,domainGet,"il2cpp_domain_get");
+    H19RESOLVE(FnDomainAssemblyOpen,domainAssemblyOpen,"il2cpp_domain_assembly_open");
+    H19RESOLVE(FnAssemblyGetImage,assemblyGetImage,"il2cpp_assembly_get_image");
+    H19RESOLVE(FnImageGetClassCount,imageGetClassCount,"il2cpp_image_get_class_count");
+    H19RESOLVE(FnImageGetClass,imageGetClass,"il2cpp_image_get_class");
+    H19RESOLVE(FnClassGetName,classGetName,"il2cpp_class_get_name");
+    H19RESOLVE(FnClassGetNamespace,classGetNamespace,"il2cpp_class_get_namespace");
+    H19RESOLVE(FnClassGetMethods,classGetMethods,"il2cpp_class_get_methods");
+    H19RESOLVE(FnClassGetMethodFromName,classGetMethodFromName,"il2cpp_class_get_method_from_name");
+    H19RESOLVE(FnClassGetFieldFromName,classGetFieldFromName,"il2cpp_class_get_field_from_name");
+    H19RESOLVE(FnMethodGetName,methodGetName,"il2cpp_method_get_name");
+    H19RESOLVE(FnMethodGetParamCount,methodGetParamCount,"il2cpp_method_get_param_count");
+    H19RESOLVE(FnClassGetType,classGetType,"il2cpp_class_get_type");
+    H19RESOLVE(FnTypeGetObject,typeGetObject,"il2cpp_type_get_object");
+    H19RESOLVE(FnRuntimeInvoke,runtimeInvoke,"il2cpp_runtime_invoke");
+    H19RESOLVE(FnArrayLength,arrayLength,"il2cpp_array_length");
+    H19RESOLVE(FnArrayObjectHeaderSize,arrayObjectHeaderSize,"il2cpp_array_object_header_size");
+    H19RESOLVE(FnThreadAttach,threadAttach,"il2cpp_thread_attach");
+    H19RESOLVE(FnThreadCurrent,threadCurrent,"il2cpp_thread_current");
+    H19RESOLVE(FnThreadDetach,threadDetach,"il2cpp_thread_detach");
+    H19RESOLVE(FnFieldGetValue,fieldGetValue,"il2cpp_field_get_value");
+    H19RESOLVE(FnStringChars,stringChars,"il2cpp_string_chars");
+    H19RESOLVE(FnStringLength,stringLength,"il2cpp_string_length");
+    H19RESOLVE(FnObjectGetClass,objectGetClass,"il2cpp_object_get_class");
+#undef H19RESOLVE
+
+    if (!domainGet || !domainAssemblyOpen || !assemblyGetImage || !imageGetClassCount ||
+        !imageGetClass || !classGetName || !classGetMethods || !classGetMethodFromName ||
+        !classGetFieldFromName || !methodGetName || !methodGetParamCount ||
+        !classGetType || !typeGetObject || !runtimeInvoke || !arrayLength ||
+        !arrayObjectHeaderSize || !threadAttach || !threadCurrent || !threadDetach ||
+        !fieldGetValue) {
+        LogA("[H19 EARLY] Required isolated IL2CPP exports unavailable.");
+        LogA("[H19 EARLY] ===== isolated early startup-object watch end =====");
+        return 0;
+    }
+
+    Il2CppDomain* domain=0;
+    int domainWait=0;
+    for (;domainWait<5000 && !g_shuttingDown;domainWait+=5) {
+        domain=domainGet();
+        if (domain) break;
+        Sleep(5);
+    }
+    if (!domain || g_shuttingDown) {
+        LogA("[H19 EARLY] IL2CPP domain unavailable.");
+        LogA("[H19 EARLY] ===== isolated early startup-object watch end =====");
+        return 0;
+    }
+    LogIntA("[H19 EARLY] IL2CPP domain available after additional ms: ",domainWait);
+
+    BOOL attached=FALSE;
+    void* attachedThread=0;
+    if (!threadCurrent()) {
+        attachedThread=threadAttach(domain);
+        attached=attachedThread ? TRUE : FALSE;
+    }
+
+    const Il2CppAssembly* gameAss=0;
+    const Il2CppAssembly* coreAss=0;
+    int assWait=0;
+    for (;assWait<5000 && !g_shuttingDown;assWait+=5) {
+        if (!gameAss) gameAss=domainAssemblyOpen(domain,"Assembly-CSharp");
+        if (!coreAss) coreAss=domainAssemblyOpen(domain,"UnityEngine.CoreModule");
+        if (gameAss && coreAss) break;
+        Sleep(5);
+    }
+    const Il2CppImage* gameImage=gameAss ? assemblyGetImage(gameAss) : 0;
+    const Il2CppImage* coreImage=coreAss ? assemblyGetImage(coreAss) : 0;
+    if (!gameImage || !coreImage || g_shuttingDown) {
+        LogA("[H19 EARLY] Required metadata images unavailable.");
+        if (attached) threadDetach(attachedThread);
+        LogA("[H19 EARLY] ===== isolated early startup-object watch end =====");
+        return 0;
+    }
+    LogIntA("[H19 EARLY] Assembly-CSharp/CoreModule available after additional ms: ",assWait);
+
+    auto findClassSimple=[&](const Il2CppImage* img,const char* simple)->Il2CppClass* {
+        if (!img || !simple) return 0;
+        SIZE_T n=imageGetClassCount(img);
+        for (SIZE_T i=0;i<n;i++) {
+            Il2CppClass* k=imageGetClass(img,i);
+            const char* name=k ? classGetName(k) : 0;
+            if (name && StrEqA(name,simple)) return k;
+        }
+        return 0;
+    };
+
+    auto findMethod=[&](Il2CppClass* k,const char* name,int argc)->const MethodInfo* {
+        if (!k || !name) return 0;
+        void* it=0;
+        const MethodInfo* m=0;
+        while ((m=classGetMethods(k,&it))!=0) {
+            const char* mn=methodGetName(m);
+            if (mn && StrEqA(mn,name) && (int)methodGetParamCount(m)==argc) return m;
+        }
+        return 0;
+    };
+
+    Il2CppClass* resourcesClass=findClassSimple(coreImage,"Resources");
+    Il2CppClass* objectClass=findClassSimple(coreImage,"Object");
+    Il2CppClass* componentClass=findClassSimple(coreImage,"Component");
+
+    const MethodInfo* findAll=resourcesClass ? findMethod(resourcesClass,"FindObjectsOfTypeAll",1) : 0;
+    const MethodInfo* getName=objectClass ? classGetMethodFromName(objectClass,"get_name",0) : 0;
+    const MethodInfo* getGameObject=componentClass ? classGetMethodFromName(componentClass,"get_gameObject",0) : 0;
+
+    if (!findAll || !getName || !getGameObject) {
+        LogA("[H19 EARLY] Resources/Object/Component bridge unresolved.");
+        if (attached) threadDetach(attachedThread);
+        LogA("[H19 EARLY] ===== isolated early startup-object watch end =====");
+        return 0;
+    }
+
+    struct Target {
+        const char* name;
+        Il2CppClass* klass;
+        int lastCount;
+        char lastGoName[160];
+        char lastComponentName[160];
+    };
+
+    Target targets[4]={
+        {"IntroController",0,-1,{0},{0}},
+        {"RCLogoComponent",0,-1,{0},{0}},
+        {"SceneManager",0,-1,{0},{0}},
+        {"SkipIntroController",0,-1,{0},{0}}
+    };
+
+    for (int t=0;t<4;t++) {
+        targets[t].klass=findClassSimple(gameImage,targets[t].name);
+        LogA("[H19 EARLY] target class:");
+        LogA(targets[t].name);
+        LogA(targets[t].klass ? "[H19 EARLY] metadata resolved." : "[H19 EARLY] metadata unresolved.");
+    }
+
+    int totalPolls=0;
+    for (int elapsed=0;elapsed<=8000 && !g_shuttingDown;elapsed+=20) {
+        ++totalPolls;
+
+        for (int ti=0;ti<4;ti++) {
+            Target& T=targets[ti];
+            if (!T.klass) continue;
+
+            const Il2CppType* type=classGetType(T.klass);
+            Il2CppObject* typeObj=type ? typeGetObject(type) : 0;
+            if (!typeObj) continue;
+
+            void* pars[1]; pars[0]=typeObj;
+            Il2CppException* ex=0;
+            Il2CppObject* arrObj=runtimeInvoke(findAll,0,pars,&ex);
+            if (ex || !arrObj) {
+                if (ex && T.lastCount!=-2) {
+                    LogA("[H19 EARLY] FindObjectsOfTypeAll threw for:");
+                    LogA(T.name);
+                    T.lastCount=-2;
+                }
+                continue;
+            }
+
+            Il2CppArray* arr=(Il2CppArray*)arrObj;
+            SIZE_T count=arrayLength(arr);
+            if (count>64) count=64;
+
+            if ((int)count!=T.lastCount) {
+                LogIntA("[H19 EARLY] elapsed ms: ",elapsed);
+                LogA("[H19 EARLY] object-count transition for:");
+                LogA(T.name);
+                LogIntA("[H19 EARLY] loaded object count: ",(int)count);
+                T.lastCount=(int)count;
+            }
+
+            if (!count) continue;
+
+            unsigned int hdr=arrayObjectHeaderSize();
+            Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+            for (SIZE_T oi=0;oi<count;oi++) {
+                Il2CppObject* obj=elems[oi];
+                if (!obj) continue;
+
+                char compName[160]; compName[0]=0;
+                ex=0;
+                Il2CppObject* compNameObj=runtimeInvoke(getName,obj,0,&ex);
+                if (!ex && compNameObj)
+                    H19ManagedStringToAsciiLocal((Il2CppString*)compNameObj,stringChars,stringLength,compName,160);
+
+                char goName[160]; goName[0]=0;
+                ex=0;
+                Il2CppObject* go=runtimeInvoke(getGameObject,obj,0,&ex);
+                if (!ex && go) {
+                    Il2CppObject* goNameObj=runtimeInvoke(getName,go,0,&ex);
+                    if (!ex && goNameObj)
+                        H19ManagedStringToAsciiLocal((Il2CppString*)goNameObj,stringChars,stringLength,goName,160);
+                }
+
+                BOOL changed=FALSE;
+                if (compName[0] && !StrEqA(compName,T.lastComponentName)) changed=TRUE;
+                if (goName[0] && !StrEqA(goName,T.lastGoName)) changed=TRUE;
+
+                if (changed) {
+                    LogIntA("[H19 EARLY] elapsed ms: ",elapsed);
+                    LogA("[H19 EARLY] live target:");
+                    LogA(T.name);
+                    LogA("[H19 EARLY] component Unity name:");
+                    LogA(compName[0] ? compName : "<empty>");
+                    LogA("[H19 EARLY] GameObject name:");
+                    LogA(goName[0] ? goName : "<empty>");
+                    CopyA(T.lastComponentName,160,compName);
+                    CopyA(T.lastGoName,160,goName);
+
+                    if (StrEqA(T.name,"IntroController")) {
+                        const FieldInfo* videoClip=classGetFieldFromName(T.klass,"_videoClip");
+                        const FieldInfo* videoPlayer=classGetFieldFromName(T.klass,"_videoPlayer");
+                        const FieldInfo* skipped=classGetFieldFromName(T.klass,"_skipped");
+                        Il2CppObject* ref=0;
+                        if (videoClip) {
+                            fieldGetValue(obj,videoClip,&ref);
+                            if (ref) {
+                                Il2CppObject* nobj=runtimeInvoke(getName,ref,0,&ex);
+                                char n[160]; n[0]=0;
+                                if (!ex && nobj) H19ManagedStringToAsciiLocal((Il2CppString*)nobj,stringChars,stringLength,n,160);
+                                LogA("[H19 EARLY] IntroController._videoClip name:");
+                                LogA(n[0] ? n : "<empty>");
+                            }
+                        }
+                        ref=0;
+                        if (videoPlayer) {
+                            fieldGetValue(obj,videoPlayer,&ref);
+                            if (ref) {
+                                Il2CppObject* nobj=runtimeInvoke(getName,ref,0,&ex);
+                                char n[160]; n[0]=0;
+                                if (!ex && nobj) H19ManagedStringToAsciiLocal((Il2CppString*)nobj,stringChars,stringLength,n,160);
+                                LogA("[H19 EARLY] IntroController._videoPlayer name:");
+                                LogA(n[0] ? n : "<empty>");
+                            }
+                        }
+                        if (skipped) {
+                            BYTE v=0;
+                            fieldGetValue(obj,skipped,&v);
+                            LogIntA("[H19 EARLY] IntroController._skipped: ",v?1:0);
+                        }
+                    } else if (StrEqA(T.name,"RCLogoComponent")) {
+                        const FieldInfo* cursor=classGetFieldFromName(T.klass,"_cursorSprite");
+                        Il2CppObject* ref=0;
+                        if (cursor) {
+                            fieldGetValue(obj,cursor,&ref);
+                            if (ref) {
+                                Il2CppObject* nobj=runtimeInvoke(getName,ref,0,&ex);
+                                char n[160]; n[0]=0;
+                                if (!ex && nobj) H19ManagedStringToAsciiLocal((Il2CppString*)nobj,stringChars,stringLength,n,160);
+                                LogA("[H19 EARLY] RCLogoComponent._cursorSprite name:");
+                                LogA(n[0] ? n : "<empty>");
+                            }
+                        }
+                    } else if (StrEqA(T.name,"SceneManager")) {
+                        const FieldInfo* introCluster=classGetFieldFromName(T.klass,"_introCluster");
+                        Il2CppObject* ref=0;
+                        if (introCluster) {
+                            fieldGetValue(obj,introCluster,&ref);
+                            if (ref) {
+                                Il2CppObject* nobj=runtimeInvoke(getName,ref,0,&ex);
+                                char n[160]; n[0]=0;
+                                if (!ex && nobj) H19ManagedStringToAsciiLocal((Il2CppString*)nobj,stringChars,stringLength,n,160);
+                                LogA("[H19 EARLY] SceneManager._introCluster name:");
+                                LogA(n[0] ? n : "<empty>");
+                                if (objectGetClass) {
+                                    Il2CppClass* rk=objectGetClass(ref);
+                                    if (rk) {
+                                        const char* rns=classGetNamespace ? classGetNamespace(rk) : 0;
+                                        const char* rn=classGetName(rk);
+                                        LogA("[H19 EARLY] _introCluster runtime namespace:");
+                                        LogA(rns && *rns ? rns : "<global namespace>");
+                                        LogA("[H19 EARLY] _introCluster runtime class:");
+                                        LogA(rn ? rn : "<unknown>");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Sleep(20);
+    }
+
+    LogIntA("[H19 EARLY] total polls completed: ",totalPolls);
+    for (int ti=0;ti<4;ti++) {
+        LogA("[H19 EARLY] final/last observed count for:");
+        LogA(targets[ti].name);
+        LogIntA("[H19 EARLY] count: ",targets[ti].lastCount<0 ? 0 : targets[ti].lastCount);
+    }
+
+    if (attached) threadDetach(attachedThread);
+    LogA("[H19 EARLY] ===== isolated early startup-object watch end =====");
+    return 0;
+}
+
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42 CLEAN ARSENAL + FIVE TABS + SKIP INTRO TEST");
+    LogA("PostalBorkenMenu V2A42-H19 EARLY STARTUP OBJECT WATCH TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -652,7 +1020,7 @@ static DWORD __stdcall ModThread(void*) {
         LogA("[OK] Exact-name WeaponId resolver linked; cleaned Arsenal/Special dispatcher active.");
     else
         LogA("[ERROR] Exact-name WeaponId resolver was not retained.");
-    LogA(g_skipIntroVideos ? "[INTRO] Skip Intro Videos config: ENABLED (default)." : "[INTRO] Skip Intro Videos config: DISABLED.");
+    LogA("[H19 EARLY] Skip Intro Videos is not under test; H19 watches startup objects only.");
     if (!InitIl2Cpp()) return 0;
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
@@ -684,6 +1052,8 @@ extern "C" BOOL __stdcall DllMain(HMODULE module, DWORD reason, void*) {
     if (reason==DLL_PROCESS_ATTACH) {
         g_self=module;
         DisableThreadLibraryCalls(module);
+        HANDLE watch=CreateThread(0,0,EarlyStartupObjectWatchH19,0,0,0);
+        if (watch) CloseHandle(watch);
         HANDLE t=CreateThread(0,0,ModThread,0,0,0);
         if (t) CloseHandle(t);
     }
