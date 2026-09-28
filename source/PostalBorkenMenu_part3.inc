@@ -728,7 +728,7 @@ static void H20ScanOneFile(const WCHAR* fullPath,const WCHAR* displayName) {
     LogA("[H20 FILESCAN] Scanning:");
     LogA(label);
 
-    BYTE buf[32768];
+    BYTE buf[2048];
     char seq[512];
     int seqLen=0;
     int hits=0;
