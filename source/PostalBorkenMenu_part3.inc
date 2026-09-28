@@ -608,7 +608,7 @@ static BOOL HookGameWindow() {
             if (stableSamples==10) {
                 LogA("[WINDOW] Candidate stable for 1 second.");
                 if (g_skipIntroVideos)
-                    LogA("[INTRO H13] Skip Intro preference enabled; no simulated input is emitted.");
+                    LogA("[INTRO H14] Skip Intro uses native DebugManager.NO_VIDEO state; no simulated input is emitted.");
             } else if (stableSamples==20)
                 LogA("[WINDOW] Candidate stable for 2 seconds.");
 
