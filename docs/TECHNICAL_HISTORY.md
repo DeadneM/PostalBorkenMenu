@@ -1,3 +1,11 @@
+## V2A42-H26 - early initialized IntroCluster main-thread trigger
+
+Status: **active diagnostic candidate, not canonical**. Base: **V2A42-H13**.
+
+H25 proved that `SceneManager.LoadIntroCluster()` can be resolved and invoked without a managed exception, but the user observed no visual skip. Because H25 did not invoke until after the normal 2.5 s IL2CPP delay plus H13's 3 s stable-window gate, H26 removes timing as an unknown.
+
+H26 uses optional IL2CPP static-field metadata to verify `SceneManager._introCluster` is static, then installs a one-shot `WH_CALLWNDPROC` hook on the game's own window thread. The callback waits for the real `_introCluster` reference to become non-null, logs its `SceneField` scene names plus the title cluster when available, invokes `LoadIntroCluster()` exactly once on that Unity thread, and immediately removes itself. There is no synthetic input, no PEB mutation, no binary patch, and no live Unity object enumeration. If the trigger is still not reached by normal H13 window setup, the hook is removed without a late fallback.
+
 # PostalBorkenMenu - Technical Project Notebook
 
 This file is the cumulative engineering notebook for **PostalBorkenMenu**.
