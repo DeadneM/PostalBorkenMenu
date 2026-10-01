@@ -643,7 +643,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42 CLEAN ARSENAL + FIVE TABS + SKIP INTRO TEST");
+    LogA("PostalBorkenMenu PLATFORMINTRO DIRECT SCENE BYPASS TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -653,9 +653,19 @@ static DWORD __stdcall ModThread(void*) {
     else
         LogA("[ERROR] Exact-name WeaponId resolver was not retained.");
     LogA(g_skipIntroVideos ? "[INTRO] Skip Intro Videos config: ENABLED (default)." : "[INTRO] Skip Intro Videos config: DISABLED.");
+    InstallPlatformIntroSceneBypass();
     if (!InitIl2Cpp()) return 0;
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
+
+    if (g_platformIntroSceneHook) {
+        HHOOK old=g_platformIntroSceneHook;
+        g_platformIntroSceneHook=0;
+        UnhookWindowsHookEx(old);
+        LogA("[PLATFORMINTRO] Early hook was still armed after normal window setup; removed.");
+    }
+    LogIntA("[PLATFORMINTRO] Direct redirect attempt occurred: ",g_platformIntroSceneAttempted ? 1 : 0);
+
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
     LogA("[READY] Five tabs active. Arsenal has 14 single weapons, Special has 4 non-Dong entries. Skip Intro checkbox persists in INI.");
 
