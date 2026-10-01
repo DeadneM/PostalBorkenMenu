@@ -352,26 +352,22 @@ extern "C" __declspec(dllexport) DWORD __stdcall PostalEarlySplashPatch(void) {
             BYTE* p=(BYTE*)mbi.BaseAddress;
             SIZE_T limit=mbi.RegionSize-120;
 
-            __try {
-                for (SIZE_T i=0;i<=limit && patched<8;i++) {
-                    BYTE* s=p+i;
-                    // 0x44 points at the exact m_SplashScreenLogos count.
-                    if (s[0]!=0x01 || s[68]!=0x03 || s[72]!=0x01) continue;
-                    if (!H37Exact120(s)) continue;
+            for (SIZE_T i=0;i<=limit && patched<8;i++) {
+                BYTE* s=p+i;
+                // 0x44 points at the exact m_SplashScreenLogos count.
+                if (s[0]!=0x01 || s[68]!=0x03 || s[72]!=0x01) continue;
+                if (!H37Exact120(s)) continue;
 
-                    g_h37ExactMatches++;
-                    DWORD oldProtect=0;
-                    BOOL madeWritable=VirtualProtect(s,1,PAGE_READWRITE,&oldProtect);
-                    if (madeWritable) {
-                        s[0]=0;
-                        DWORD ignored=0;
-                        VirtualProtect(s,1,oldProtect,&ignored);
-                        g_h37Patched++;
-                        patched++;
-                    }
+                g_h37ExactMatches++;
+                DWORD oldProtect=0;
+                BOOL madeWritable=VirtualProtect(s,1,PAGE_READWRITE,&oldProtect);
+                if (madeWritable) {
+                    s[0]=0;
+                    DWORD ignored=0;
+                    VirtualProtect(s,1,oldProtect,&ignored);
+                    g_h37Patched++;
+                    patched++;
                 }
-            } __except(1) {
-                // A region changed protection during startup. Skip it and continue.
             }
         }
 
