@@ -1,3 +1,49 @@
+PostalBorkenMenu - PLATFORMINTRO DIRECT SCENE BYPASS TEST
+POSTAL: Brain-Damaged
+
+PURPOSE
+Skip ONLY the developer/publisher startup-logo scene.
+
+IMPORTANT SEPARATION
+- Assets/Scenes/PlatformIntro.unity = startup developer/publisher logos.
+- Assets/Scenes/Intro.unity = the separate opening cinematic.
+- VIDEO_Intro.webm belongs to the separate opening cinematic.
+- The game's -novideo option targets that cinematic and is NOT the mechanism tested here.
+
+THIS TEST
+- starts strictly from the validated V2A42-H13 gameplay/source base
+- does not inherit H24/H25/H26/H27 startup experiments
+- does not call Hyperstrange.PBD.SceneManager.LoadIntroCluster()
+- does not patch POSTAL Brain Damaged.exe, GameAssembly.dll, or UnityPlayer.dll
+- does not simulate keyboard or mouse input
+- resolves UnityEngine.SceneManagement.SceneManager.LoadScene(string)
+- installs one early WH_CALLWNDPROC callback on the Unity/game window thread
+- calls LoadScene("Intro") exactly once
+- removes the hook immediately afterward
+- if the callback is never reached, the hook is removed once normal H13 window setup completes
+
+EXPECTED RESULT
+PlatformIntro should be bypassed and the game should proceed directly to the normal Intro scene.
+The opening cinematic itself is intentionally preserved by this test.
+
+LOG MARKERS
+[PLATFORMINTRO] Direct scene bypass enabled: PlatformIntro -> Intro.
+[PLATFORMINTRO] LoadScene(string) resolved: 1
+[PLATFORMINTRO] One-shot Unity main-thread hook installed.
+[PLATFORMINTRO] Unity main-thread callback reached; redirecting PlatformIntro -> Intro.
+[PLATFORMINTRO] Unity SceneManager.LoadScene("Intro") returned without managed exception.
+[PLATFORMINTRO] Direct redirect attempt occurred: 1
+
+PACKAGE
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+
+======================================================================
+VALIDATED H13 HISTORY
+======================================================================
+
 PostalBorkenMenu V2A42-H13 RECOVERY + DLC CROSSHAIR AUDIT
 POSTAL: Brain-Damaged
 
