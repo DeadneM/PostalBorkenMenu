@@ -89,6 +89,8 @@ __declspec(dllimport) HANDLE __stdcall CreateFileW(LPCWSTR, DWORD, DWORD, void*,
 __declspec(dllimport) BOOL __stdcall WriteFile(HANDLE, const void*, DWORD, DWORD*, void*);
 __declspec(dllimport) DWORD __stdcall SetFilePointer(HANDLE, LONG, LONG*, DWORD);
 __declspec(dllimport) BOOL __stdcall CloseHandle(HANDLE);
+__declspec(dllimport) BOOL __stdcall VirtualProtect(void*, SIZE_T, DWORD, DWORD*);
+__declspec(dllimport) SIZE_T __stdcall VirtualQuery(const void*, void*, SIZE_T);
 
 __declspec(dllimport) HWND __stdcall GetForegroundWindow(void);
 __declspec(dllimport) DWORD __stdcall GetWindowThreadProcessId(HWND, DWORD*);
@@ -135,6 +137,20 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 #define FILE_ATTRIBUTE_NORMAL 0x00000080UL
 #define FILE_END 2UL
 #define INVALID_HANDLE_VALUE ((HANDLE)(LONG_PTR)-1)
+#define PAGE_READWRITE 0x00000004UL
+#define PAGE_NOACCESS 0x00000001UL
+#define PAGE_READONLY 0x00000002UL
+#define PAGE_WRITECOPY 0x00000008UL
+#define PAGE_EXECUTE 0x00000010UL
+#define PAGE_EXECUTE_READ 0x00000020UL
+#define PAGE_EXECUTE_READWRITE 0x00000040UL
+#define PAGE_EXECUTE_WRITECOPY 0x00000080UL
+#define PAGE_GUARD 0x00000100UL
+#define MEM_COMMIT 0x00001000UL
+#define IMAGE_DOS_SIGNATURE 0x5A4D
+#define IMAGE_NT_SIGNATURE 0x00004550UL
+#define IMAGE_NT_OPTIONAL_HDR64_MAGIC 0x20B
+#define IMAGE_DIRECTORY_ENTRY_IMPORT 1
 
 #define WS_OVERLAPPED 0x00000000L
 #define WS_CAPTION 0x00C00000L
@@ -233,6 +249,10 @@ static volatile LONG g_menuVisible = 0;
 static volatile LONG g_shuttingDown = 0;
 static volatile LONG g_noCrosshair = 0;
 static volatile LONG g_skipIntroVideos = 1;
+static volatile LONG g_skipStartupLogos = 1;
+static volatile LONG g_startupHookInstalled = 0;
+static volatile LONG g_startupRedirectDone = 0;
+static volatile LONG g_sceneMapPatched = 0;
 static volatile LONG g_introSkipPulseSent = 0;
 static DWORD g_lastCrosshairTick = 0;
 static volatile LONG g_crosshairReapplyCountdown = 0;
@@ -256,6 +276,267 @@ static const int VISIBLE_ROWS = (OVERLAY_H - ROW_Y - 48) / ROW_H;
 
 static int StrLenA(const char* s) { int n=0; if (!s) return 0; while (s[n]) ++n; return n; }
 static int StrLenW(const WCHAR* s) { int n=0; if (!s) return 0; while (s[n]) ++n; return n; }
+
+/*
+ H30 ASI-only startup-logo bypass.
+
+ H29 proved that a raw level0 -> level1 file redirect is not sufficient:
+ the game can reach a black screen because Unity still owns the original
+ build-scene mapping. H30 therefore fails closed.
+
+ Before redirecting level0, H30 searches committed readable process memory
+ for the exact serialized adjacent scene entries:
+   Assets/Scenes/PlatformIntro.unity
+   Assets/Scenes/Intro.unity
+
+ The exact 72-byte serialized block is swapped in memory only. If that exact
+ block is not found and patched, H30 does NOT redirect level0.
+
+ No game file is written, renamed or replaced on disk.
+ No SceneManager.LoadScene or IL2CPP scene transition is used.
+*/
+struct PBM_IMAGE_DOS_HEADER {
+    WORD e_magic;
+    BYTE pad[58];
+    LONG e_lfanew;
+};
+struct PBM_IMAGE_FILE_HEADER {
+    WORD Machine;
+    WORD NumberOfSections;
+    DWORD TimeDateStamp;
+    DWORD PointerToSymbolTable;
+    DWORD NumberOfSymbols;
+    WORD SizeOfOptionalHeader;
+    WORD Characteristics;
+};
+struct PBM_IMAGE_DATA_DIRECTORY { DWORD VirtualAddress; DWORD Size; };
+struct PBM_IMAGE_OPTIONAL_HEADER64 {
+    WORD Magic;
+    BYTE MajorLinkerVersion;
+    BYTE MinorLinkerVersion;
+    DWORD SizeOfCode;
+    DWORD SizeOfInitializedData;
+    DWORD SizeOfUninitializedData;
+    DWORD AddressOfEntryPoint;
+    DWORD BaseOfCode;
+    ULONGLONG ImageBase;
+    DWORD SectionAlignment;
+    DWORD FileAlignment;
+    WORD MajorOperatingSystemVersion;
+    WORD MinorOperatingSystemVersion;
+    WORD MajorImageVersion;
+    WORD MinorImageVersion;
+    WORD MajorSubsystemVersion;
+    WORD MinorSubsystemVersion;
+    DWORD Win32VersionValue;
+    DWORD SizeOfImage;
+    DWORD SizeOfHeaders;
+    DWORD CheckSum;
+    WORD Subsystem;
+    WORD DllCharacteristics;
+    ULONGLONG SizeOfStackReserve;
+    ULONGLONG SizeOfStackCommit;
+    ULONGLONG SizeOfHeapReserve;
+    ULONGLONG SizeOfHeapCommit;
+    DWORD LoaderFlags;
+    DWORD NumberOfRvaAndSizes;
+    PBM_IMAGE_DATA_DIRECTORY DataDirectory[16];
+};
+struct PBM_IMAGE_NT_HEADERS64 {
+    DWORD Signature;
+    PBM_IMAGE_FILE_HEADER FileHeader;
+    PBM_IMAGE_OPTIONAL_HEADER64 OptionalHeader;
+};
+struct PBM_IMAGE_IMPORT_DESCRIPTOR {
+    DWORD OriginalFirstThunk;
+    DWORD TimeDateStamp;
+    DWORD ForwarderChain;
+    DWORD Name;
+    DWORD FirstThunk;
+};
+struct PBM_MEMORY_BASIC_INFORMATION {
+    void* BaseAddress;
+    void* AllocationBase;
+    DWORD AllocationProtect;
+    WORD PartitionId;
+    SIZE_T RegionSize;
+    DWORD State;
+    DWORD Protect;
+    DWORD Type;
+};
+
+typedef HANDLE (__stdcall *PBM_CreateFileWFn)(LPCWSTR, DWORD, DWORD, void*, DWORD, DWORD, HANDLE);
+static PBM_CreateFileWFn g_unityOriginalCreateFileW=0;
+static ULONG_PTR* g_unityCreateFileWIatSlot=0;
+
+static const BYTE g_sceneMapOriginal[72] = {
+    0x21,0x00,0x00,0x00,
+    'A','s','s','e','t','s','/','S','c','e','n','e','s','/','P','l','a','t','f','o','r','m','I','n','t','r','o','.','u','n','i','t','y',0x00,0x00,0x00,
+    0x19,0x00,0x00,0x00,
+    'A','s','s','e','t','s','/','S','c','e','n','e','s','/','I','n','t','r','o','.','u','n','i','t','y',0x00,0x00,0x00
+};
+static const BYTE g_sceneMapSwapped[72] = {
+    0x19,0x00,0x00,0x00,
+    'A','s','s','e','t','s','/','S','c','e','n','e','s','/','I','n','t','r','o','.','u','n','i','t','y',0x00,0x00,0x00,
+    0x21,0x00,0x00,0x00,
+    'A','s','s','e','t','s','/','S','c','e','n','e','s','/','P','l','a','t','f','o','r','m','I','n','t','r','o','.','u','n','i','t','y',0x00,0x00,0x00
+};
+
+static BOOL IsReadableProtect(DWORD p) {
+    if (p & PAGE_GUARD) return FALSE;
+    DWORD b=p & 0xFF;
+    return b==PAGE_READONLY || b==PAGE_READWRITE || b==PAGE_WRITECOPY ||
+           b==PAGE_EXECUTE_READ || b==PAGE_EXECUTE_READWRITE || b==PAGE_EXECUTE_WRITECOPY;
+}
+
+static BOOL BytesEqual72(const BYTE* p, const BYTE* q) {
+    for (int i=0;i<72;i++) if (p[i]!=q[i]) return FALSE;
+    return TRUE;
+}
+
+static BOOL PatchSceneMapBlockInMemory() {
+    if (g_sceneMapPatched) return TRUE;
+
+    ULONG_PTR addr=0x10000ULL;
+    const ULONG_PTR maxAddr=0x00007FFFFFFEFFFFULL;
+    int patchedCount=0;
+
+    while (addr<maxAddr) {
+        PBM_MEMORY_BASIC_INFORMATION mbi={};
+        SIZE_T got=VirtualQuery((const void*)addr,&mbi,sizeof(mbi));
+        if (!got || !mbi.RegionSize) break;
+
+        ULONG_PTR base=(ULONG_PTR)mbi.BaseAddress;
+        SIZE_T region=mbi.RegionSize;
+
+        if (mbi.State==MEM_COMMIT && IsReadableProtect(mbi.Protect) && region>=72) {
+            BYTE* p=(BYTE*)base;
+            SIZE_T limit=region-72;
+            for (SIZE_T i=0;i<=limit;i++) {
+                if (p[i]!=0x21 || p[i+4]!='A') continue;
+                if (!BytesEqual72(p+i,g_sceneMapOriginal)) continue;
+
+                DWORD oldProtect=0;
+                if (!VirtualProtect(p+i,72,PAGE_READWRITE,&oldProtect)) continue;
+                volatile BYTE* dst=(volatile BYTE*)(p+i);
+                for (int j=0;j<72;j++) dst[j]=g_sceneMapSwapped[j];
+                DWORD ignored=0;
+                VirtualProtect(p+i,72,oldProtect,&ignored);
+                ++patchedCount;
+            }
+        }
+
+        ULONG_PTR next=base+(ULONG_PTR)region;
+        if (next<=addr) break;
+        addr=next;
+    }
+
+    if (patchedCount>0) {
+        g_sceneMapPatched=1;
+        return TRUE;
+    }
+    return FALSE;
+}
+
+static BOOL IsLevel0Path(const WCHAR* path) {
+    if (!path) return FALSE;
+    int n=StrLenW(path);
+    if (n<6) return FALSE;
+    const WCHAR* t=path+n-6;
+    if (t[0]!=L'l' || t[1]!=L'e' || t[2]!=L'v' || t[3]!=L'e' || t[4]!=L'l' || t[5]!=L'0') return FALSE;
+    if (n==6) return TRUE;
+    WCHAR p=path[n-7];
+    return (p==L'\\' || p==L'/') ? TRUE : FALSE;
+}
+
+static void RestoreStartupCreateFileHook() {
+    if (!g_unityCreateFileWIatSlot || !g_unityOriginalCreateFileW) {
+        g_startupHookInstalled=0;
+        return;
+    }
+    DWORD oldProtect=0;
+    if (VirtualProtect(g_unityCreateFileWIatSlot,sizeof(ULONG_PTR),PAGE_READWRITE,&oldProtect)) {
+        *g_unityCreateFileWIatSlot=(ULONG_PTR)g_unityOriginalCreateFileW;
+        DWORD ignored=0;
+        VirtualProtect(g_unityCreateFileWIatSlot,sizeof(ULONG_PTR),oldProtect,&ignored);
+    }
+    g_unityCreateFileWIatSlot=0;
+    g_startupHookInstalled=0;
+}
+
+static HANDLE __stdcall StartupCreateFileWHook(
+    LPCWSTR fileName, DWORD desiredAccess, DWORD shareMode, void* securityAttributes,
+    DWORD creationDisposition, DWORD flagsAndAttributes, HANDLE templateFile)
+{
+    PBM_CreateFileWFn realFn=g_unityOriginalCreateFileW;
+    if (!realFn) return INVALID_HANDLE_VALUE;
+
+    if (g_skipStartupLogos && !g_startupRedirectDone && IsLevel0Path(fileName)) {
+        // Fail closed: redirect only if the exact scene-map block was found
+        // and swapped in process memory first.
+        if (PatchSceneMapBlockInMemory()) {
+            int n=StrLenW(fileName);
+            if (n>0 && n<MAX_PATH_W) {
+                WCHAR redirected[MAX_PATH_W];
+                volatile WCHAR* dst=redirected;
+                for (int i=0;i<=n;i++) dst[i]=fileName[i];
+                redirected[n-1]=L'1';
+
+                HANDLE h=realFn(redirected,desiredAccess,shareMode,securityAttributes,
+                                creationDisposition,flagsAndAttributes,templateFile);
+                if (h!=INVALID_HANDLE_VALUE) {
+                    g_startupRedirectDone=1;
+                    RestoreStartupCreateFileHook();
+                    return h;
+                }
+            }
+        }
+        // Exact map not found or redirect failed: preserve vanilla startup.
+        RestoreStartupCreateFileHook();
+    }
+
+    return realFn(fileName,desiredAccess,shareMode,securityAttributes,
+                  creationDisposition,flagsAndAttributes,templateFile);
+}
+
+static BOOL InstallStartupCreateFileHook() {
+    if (!g_skipStartupLogos) return TRUE;
+    HMODULE unity=GetModuleHandleW(L"UnityPlayer.dll");
+    HMODULE k32=GetModuleHandleW(L"kernel32.dll");
+    if (!unity || !k32) return FALSE;
+
+    void* targetAddr=GetProcAddress(k32,"CreateFileW");
+    if (!targetAddr) return FALSE;
+
+    BYTE* base=(BYTE*)unity;
+    PBM_IMAGE_DOS_HEADER* dos=(PBM_IMAGE_DOS_HEADER*)base;
+    if (dos->e_magic!=IMAGE_DOS_SIGNATURE || dos->e_lfanew<=0) return FALSE;
+
+    PBM_IMAGE_NT_HEADERS64* nt=(PBM_IMAGE_NT_HEADERS64*)(base+dos->e_lfanew);
+    if (nt->Signature!=IMAGE_NT_SIGNATURE || nt->OptionalHeader.Magic!=IMAGE_NT_OPTIONAL_HDR64_MAGIC) return FALSE;
+    DWORD importRva=nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+    if (!importRva) return FALSE;
+
+    PBM_IMAGE_IMPORT_DESCRIPTOR* desc=(PBM_IMAGE_IMPORT_DESCRIPTOR*)(base+importRva);
+    ULONG_PTR target=(ULONG_PTR)targetAddr;
+
+    for (; desc->FirstThunk; ++desc) {
+        ULONG_PTR* slot=(ULONG_PTR*)(base+desc->FirstThunk);
+        for (; *slot; ++slot) {
+            if (*slot!=target) continue;
+            DWORD oldProtect=0;
+            if (!VirtualProtect(slot,sizeof(ULONG_PTR),PAGE_READWRITE,&oldProtect)) return FALSE;
+            g_unityOriginalCreateFileW=(PBM_CreateFileWFn)(*slot);
+            g_unityCreateFileWIatSlot=slot;
+            *slot=(ULONG_PTR)&StartupCreateFileWHook;
+            DWORD ignored=0;
+            VirtualProtect(slot,sizeof(ULONG_PTR),oldProtect,&ignored);
+            g_startupHookInstalled=1;
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
 static BOOL StrEqA(const char* a, const char* b) {
     if (!a || !b) return FALSE;
     while (*a && *b) { if (*a != *b) return FALSE; ++a; ++b; }
