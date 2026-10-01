@@ -87,6 +87,12 @@ static void BuildLogPath() {
     CopyW(g_logPath,1024,dir);
     AppendW(g_logPath,1024,L"PostalBorkenMenu.log");
 }
+static BOOL ShouldSkipStartupLogos() {
+    WCHAR ini[1024]={};
+    if(!ModuleDirectory(ini,1024)) return TRUE;
+    AppendW(ini,1024,L"PostalBorkenMenu.ini");
+    return GetPrivateProfileIntW(L"Settings",L"SkipStartupLogos",1,ini) ? TRUE : FALSE;
+}
 static void Log(const char* s) {
     if(!s) return;
     BuildLogPath();
@@ -158,7 +164,9 @@ static void EnsureAsiLoaded() {
     // completes before the proxy forwards the real CreateDXGIFactory request.
     typedef DWORD (__stdcall *PFN_PostalEarlySplashPatch)(void);
     PFN_PostalEarlySplashPatch early=(PFN_PostalEarlySplashPatch)GetProcAddress(g_asi,"PostalEarlySplashPatch");
-    if(early) {
+    if(!ShouldSkipStartupLogos()) {
+        Log("[DXGI LOADER] H37: SkipStartupLogos=0; early RAM patch disabled.");
+    } else if(early) {
         DWORD patched=early();
         if(patched)
             Log("[DXGI LOADER] H37: exact PlayerSettings splash block patched in RAM before DXGI factory.");
