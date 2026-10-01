@@ -1,3 +1,42 @@
+PostalBorkenMenu V2A42-H26 EARLY INTROCLUSTER HOOK TEST
+POSTAL: Brain-Damaged
+
+STATUS
+Active diagnostic candidate only. Canonical remains V2A42-H13.
+
+H25 RESULT
+H25 resolved and invoked static SceneManager.LoadIntroCluster() without a managed exception, but the user observed that nothing was visually skipped. H25 invoked only after the normal 2500 ms IL2CPP delay plus the H13 three-second stable-window wait, so timing remained an unresolved variable.
+
+H26 OBJECTIVE
+Determine whether LoadIntroCluster can skip PlatformIntro when invoked at the earliest valid native point, and log the actual cluster contents used by the game.
+
+H26 ARCHITECTURE
+- Starts strictly from V2A42-H13.
+- Adds independent [Settings] SkipStartupLogos=1.
+- Resolves only the minimal early metadata needed for SceneManager.LoadIntroCluster and SceneManager._introCluster.
+- Requires _introCluster to be a real static field.
+- Installs a one-shot WH_CALLWNDPROC hook on the game's own UI thread.
+- Does NOT synthesize keyboard or mouse input.
+- Waits until _introCluster becomes non-null.
+- Logs the actual SceneField names in _introCluster and, when available, _titleCluster.
+- Invokes SceneManager.LoadIntroCluster() exactly once on the Unity/window thread.
+- Removes the temporary hook immediately after the attempt.
+- If the early trigger never becomes valid, the hook is removed after normal H13 window setup with NO late fallback.
+- Normal H13 initialization, overlay, gameplay features and shutdown fencing remain intact.
+- DXGI log reset behavior is preserved so each launch starts a fresh log.
+
+INTERPRETATION
+- If H26 visibly skips startup logos, H25 was too late.
+- If H26 invokes early with a valid non-null intro cluster but nothing is skipped, LoadIntroCluster is not sufficient to remove PlatformIntro and the next target must be the PlatformIntro unload/transition completion path.
+- If _introCluster never becomes non-null during the early window, no active transition is attempted.
+
+TEST
+Launch normally. Note exactly which logos/video/menu screens appear. Quit normally and send PostalBorkenMenu.log.
+
+======================================================================
+V2A42-H13 CANONICAL HISTORY
+======================================================================
+
 PostalBorkenMenu V2A42-H13 RECOVERY + DLC CROSSHAIR AUDIT
 POSTAL: Brain-Damaged
 
