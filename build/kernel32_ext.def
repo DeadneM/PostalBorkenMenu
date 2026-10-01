@@ -19,3 +19,7 @@ CloseHandle
 FindFirstFileW
 FindNextFileW
 FindClose
+ReadFile
+GetFileSizeEx
+SetFilePointerEx
+VirtualProtect
