@@ -375,6 +375,288 @@ static void CatalogManagedStringToAscii(Il2CppString* str, char* out, int cap) {
     out[n]=0;
 }
 
+
+static HHOOK g_logoDiagHookH33=0;
+static HWND g_logoDiagWindowH33=0;
+static Il2CppClass* g_rcLogoClassH33=0;
+static const MethodInfo* g_componentGetGameObjectH33=0;
+static const MethodInfo* g_objectGetNameH33=0;
+static Il2CppObject* g_lastLogoObjectH33=0;
+static volatile LONG g_logoDiagCallbacksH33=0;
+static volatile LONG g_logoDiagObjectsSeenH33=0;
+static volatile LONG g_logoDiagNoObjectLoggedH33=0;
+
+typedef const Il2CppType* (*FnFieldGetTypeH33)(const FieldInfo*);
+typedef SIZE_T (*FnFieldGetOffsetH33)(const FieldInfo*);
+
+static void LogClassTypeH33(const char* prefix, const Il2CppType* type) {
+    if (prefix) LogA(prefix);
+    Il2CppClass* c=type ? g_il2cpp.class_from_type(type) : 0;
+    if (!c) { LogA("<unresolved>"); return; }
+    const char* ns=g_il2cpp.class_get_namespace(c);
+    const char* n=g_il2cpp.class_get_name(c);
+    if (ns && ns[0]) LogA(ns);
+    if (n && n[0]) LogA(n);
+}
+
+static void DumpRCLogoMetadataH33() {
+    LogA("[LOGO H33] ===== RCLogoComponent metadata audit =====");
+    if (!g_rcLogoClassH33) {
+        LogA("[LOGO H33] RCLogoComponent class unresolved.");
+        return;
+    }
+
+    const char* ns=g_il2cpp.class_get_namespace(g_rcLogoClassH33);
+    const char* cn=g_il2cpp.class_get_name(g_rcLogoClassH33);
+    LogA("[LOGO H33] Namespace:");
+    LogA(ns && ns[0] ? ns : "<empty>");
+    LogA("[LOGO H33] Class:");
+    LogA(cn && cn[0] ? cn : "<unnamed>");
+
+    void* mi=0;
+    const MethodInfo* m=0;
+    int methodCount=0;
+    while ((m=g_il2cpp.class_get_methods(g_rcLogoClassH33,&mi))!=0 && methodCount<128) {
+        const char* mn=g_il2cpp.method_get_name(m);
+        LogA("[LOGO H33 METHOD]");
+        LogA(mn ? mn : "<unnamed>");
+        int pc=(int)g_il2cpp.method_get_param_count(m);
+        LogIntA("[LOGO H33] param count: ",pc);
+        LogIntA("[LOGO H33] instance: ",g_il2cpp.method_is_instance(m) ? 1 : 0);
+
+        const Il2CppType* rt=g_il2cpp.method_get_return_type(m);
+        LogClassTypeH33("[LOGO H33] return type:",rt);
+
+        for (int p=0;p<pc && p<8;p++) {
+            const Il2CppType* pt=g_il2cpp.method_get_param(m,(unsigned int)p);
+            LogIntA("[LOGO H33] param index: ",p);
+            LogClassTypeH33("[LOGO H33] param type:",pt);
+        }
+        ++methodCount;
+    }
+    LogIntA("[LOGO H33] method count: ",methodCount);
+
+    FnFieldGetTypeH33 fieldGetType=(FnFieldGetTypeH33)Proc("il2cpp_field_get_type");
+    FnFieldGetOffsetH33 fieldGetOffset=(FnFieldGetOffsetH33)Proc("il2cpp_field_get_offset");
+    void* fi=0;
+    const FieldInfo* f=0;
+    int fieldCount=0;
+    while ((f=g_il2cpp.class_get_fields(g_rcLogoClassH33,&fi))!=0 && fieldCount<128) {
+        const char* fn=g_il2cpp.field_get_name(f);
+        LogA("[LOGO H33 FIELD]");
+        LogA(fn ? fn : "<unnamed>");
+        if (fieldGetType) {
+            const Il2CppType* ft=fieldGetType(f);
+            LogClassTypeH33("[LOGO H33] field type:",ft);
+        }
+        if (fieldGetOffset) {
+            SIZE_T off=fieldGetOffset(f);
+            LogIntA("[LOGO H33] field offset: ",(int)off);
+        }
+        ++fieldCount;
+    }
+    LogIntA("[LOGO H33] field count: ",fieldCount);
+    LogA("[LOGO H33] ===== metadata audit end =====");
+}
+
+static Il2CppObject* FindActiveRCLogoH33() {
+    if (!g_rcLogoClassH33 || !g_findObjectOfType2) return 0;
+    const Il2CppType* t=g_il2cpp.class_get_type(g_rcLogoClassH33);
+    if (!t) return 0;
+    Il2CppObject* typeObj=g_il2cpp.type_get_object(t);
+    if (!typeObj) return 0;
+    BOOL includeInactive=FALSE;
+    void* pars[2]; pars[0]=typeObj; pars[1]=&includeInactive;
+    Il2CppException* ex=0;
+    Il2CppObject* obj=g_il2cpp.runtime_invoke(g_findObjectOfType2,0,pars,&ex);
+    if (ex) {
+        LogA("[LOGO H33] FindObjectOfType(RCLogoComponent,false) threw:");
+        FormatExceptionToLog(ex);
+        return 0;
+    }
+    return obj;
+}
+
+static void LogRCLogoObjectNameH33(Il2CppObject* component) {
+    if (!component || !g_componentGetGameObjectH33 || !g_objectGetNameH33) return;
+    Il2CppException* ex=0;
+    Il2CppObject* go=g_il2cpp.runtime_invoke(g_componentGetGameObjectH33,component,0,&ex);
+    if (ex || !go) {
+        if (ex) FormatExceptionToLog(ex);
+        return;
+    }
+    ex=0;
+    Il2CppObject* nameObj=g_il2cpp.runtime_invoke(g_objectGetNameH33,go,0,&ex);
+    if (ex || !nameObj) {
+        if (ex) FormatExceptionToLog(ex);
+        return;
+    }
+    char name[256]; CatalogManagedStringToAscii((Il2CppString*)nameObj,name,256);
+    LogA("[LOGO H33] Active RCLogo GameObject:");
+    LogA(name[0] ? name : "<empty>");
+}
+
+static void RemoveLogoDiagnosticHookH33(const char* reason) {
+    HHOOK old=g_logoDiagHookH33;
+    g_logoDiagHookH33=0;
+    if (old) UnhookWindowsHookEx(old);
+    if (reason) LogA(reason);
+}
+
+static LRESULT __stdcall LogoDiagnosticCallWndProcH33(int code, WPARAM wp, LPARAM lp) {
+    HHOOK current=g_logoDiagHookH33;
+    if (code>=0 && current && !g_shuttingDown && g_skipStartupLogos) {
+        LONG tick=++g_logoDiagCallbacksH33;
+        if ((tick%5)==0) {
+            BOOL attached=FALSE; void* thread=0;
+            if (EnsureIl2CppThread(&attached,&thread)) {
+                Il2CppObject* obj=FindActiveRCLogoH33();
+                if (obj) {
+                    if (obj!=g_lastLogoObjectH33) {
+                        g_lastLogoObjectH33=obj;
+                        ++g_logoDiagObjectsSeenH33;
+                        LogIntA("[LOGO H33] New live RCLogoComponent object observed. Object generation: ",
+                                (int)g_logoDiagObjectsSeenH33);
+                        LogRCLogoObjectNameH33(obj);
+                    }
+                    g_logoDiagNoObjectLoggedH33=0;
+                } else {
+                    if (g_lastLogoObjectH33) {
+                        LogA("[LOGO H33] Previously active RCLogoComponent disappeared.");
+                        g_lastLogoObjectH33=0;
+                    } else if (!g_logoDiagNoObjectLoggedH33) {
+                        g_logoDiagNoObjectLoggedH33=1;
+                        LogA("[LOGO H33] No active RCLogoComponent at this probe.");
+                    }
+                }
+                ReleaseIl2CppThread(attached,thread);
+            }
+        }
+    }
+    return CallNextHookEx(current,code,wp,lp);
+}
+
+static BOOL InstallLogoDiagnosticH33() {
+    if (!g_skipStartupLogos) {
+        LogA("[LOGO H33] Diagnostic disabled by SkipStartupLogos=0.");
+        return FALSE;
+    }
+
+    LogA("[LOGO H33] Starting read-only startup-logo audit.");
+    for (int k=0;k<600 && !g_gameAssembly;k++) {
+        g_gameAssembly=GetModuleHandleW(L"GameAssembly.dll");
+        if (!g_gameAssembly) Sleep(10);
+    }
+    if (!g_gameAssembly) {
+        LogA("[LOGO H33] GameAssembly.dll unavailable.");
+        return FALSE;
+    }
+    if (!ResolveIl2CppApi()) {
+        LogA("[LOGO H33] IL2CPP export resolution failed.");
+        return FALSE;
+    }
+
+    for (int k=0;k<150 && !g_domain;k++) {
+        g_domain=g_il2cpp.domain_get();
+        if (!g_domain) Sleep(10);
+    }
+    if (!g_domain) {
+        LogA("[LOGO H33] IL2CPP domain not ready in diagnostic window.");
+        return FALSE;
+    }
+
+    BOOL attached=FALSE; void* thread=0;
+    if (!EnsureIl2CppThread(&attached,&thread)) {
+        LogA("[LOGO H33] Could not attach metadata worker.");
+        return FALSE;
+    }
+
+    const Il2CppAssembly* ass=0;
+    for (int k=0;k<150 && !ass;k++) {
+        ass=g_il2cpp.domain_assembly_open(g_domain,"Assembly-CSharp");
+        if (!ass) Sleep(10);
+    }
+    if (!ass) {
+        ReleaseIl2CppThread(attached,thread);
+        LogA("[LOGO H33] Assembly-CSharp not ready.");
+        return FALSE;
+    }
+
+    g_assemblyCSharp=g_il2cpp.assembly_get_image(ass);
+    g_rcLogoClassH33=g_assemblyCSharp ?
+        g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.Ready","RCLogoComponent") : 0;
+    if (!g_rcLogoClassH33) g_rcLogoClassH33=FindClassBySimpleName("RCLogoComponent");
+
+    const Il2CppAssembly* coreAss=g_il2cpp.domain_assembly_open(g_domain,"UnityEngine.CoreModule");
+    if (coreAss) g_coreImage=g_il2cpp.assembly_get_image(coreAss);
+    const Il2CppImage* corlib=g_il2cpp.get_corlib();
+    if (corlib) {
+        g_systemTypeClass=g_il2cpp.class_from_name(corlib,"System","Type");
+        g_boolClass=g_il2cpp.class_from_name(corlib,"System","Boolean");
+    }
+
+    Il2CppClass* objectClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Object") : 0;
+    Il2CppClass* componentClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Component") : 0;
+    if (objectClass && g_systemTypeClass && g_boolClass)
+        g_findObjectOfType2=FindMethodExact(objectClass,"FindObjectOfType",2,g_systemTypeClass,g_boolClass);
+    g_componentGetGameObjectH33=componentClass ? FindMethodExact(componentClass,"get_gameObject",0) : 0;
+    g_objectGetNameH33=objectClass ? FindMethodExact(objectClass,"get_name",0) : 0;
+
+    DumpRCLogoMetadataH33();
+    LogIntA("[LOGO H33] FindObjectOfType bridge: ",g_findObjectOfType2 ? 1 : 0);
+    LogIntA("[LOGO H33] Component.get_gameObject bridge: ",g_componentGetGameObjectH33 ? 1 : 0);
+    LogIntA("[LOGO H33] Object.get_name bridge: ",g_objectGetNameH33 ? 1 : 0);
+
+    ReleaseIl2CppThread(attached,thread);
+
+    if (!g_rcLogoClassH33 || !g_findObjectOfType2) {
+        LogA("[LOGO H33] Required read-only diagnostic metadata missing.");
+        return FALSE;
+    }
+
+    HWND hwnd=0; DWORD tid=0;
+    for (int k=0;k<250;k++) {
+        HWND h=GetForegroundWindow();
+        if (h && IsWindow(h)) {
+            DWORD pid=0;
+            DWORD t=GetWindowThreadProcessId(h,&pid);
+            RECT r={};
+            if (pid==GetCurrentProcessId() && t && GetClientRect(h,&r) &&
+                (r.right-r.left)>=320 && (r.bottom-r.top)>=200) {
+                hwnd=h; tid=t; break;
+            }
+        }
+        Sleep(10);
+    }
+    if (!hwnd || !tid) {
+        LogA("[LOGO H33] Game window/thread unavailable.");
+        return FALSE;
+    }
+
+    g_logoDiagWindowH33=hwnd;
+    g_logoDiagCallbacksH33=0;
+    g_logoDiagObjectsSeenH33=0;
+    g_logoDiagNoObjectLoggedH33=0;
+    g_lastLogoObjectH33=0;
+
+    g_logoDiagHookH33=SetWindowsHookExW(WH_CALLWNDPROC,LogoDiagnosticCallWndProcH33,g_self,tid);
+    if (!g_logoDiagHookH33) {
+        LogA("[LOGO H33] SetWindowsHookExW failed.");
+        return FALSE;
+    }
+
+    LogA("[LOGO H33] Read-only Unity main-thread observation hook installed.");
+    for (int k=0;k<80 && g_logoDiagHookH33;k++) {
+        PostMessageW(hwnd,WM_NULL,0,0);
+        Sleep(100);
+    }
+
+    if (g_logoDiagHookH33)
+        RemoveLogoDiagnosticHookH33("[LOGO H33] Diagnostic observation window ended; hook removed.");
+    LogIntA("[LOGO H33] Distinct live RCLogoComponent generations seen: ",(int)g_logoDiagObjectsSeenH33);
+    return TRUE;
+}
+
 static BOOL RunWeaponCatalog() {
     Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
     Il2CppClass* inventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerInventoryComponent") : 0;
