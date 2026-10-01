@@ -2132,6 +2132,62 @@ static void RunSceneClusterTransitionAuditH23() {
     LogA("[H23 META] ===== transition metadata audit end =====");
 }
 
+
+static BOOL IsH24TransitionMethodName(const char* n) {
+    if (!n) return FALSE;
+    return StrEqA(n,"LoadClusterAfterFadeIn") ||
+           StrEqA(n,"LoadIntroCluster") ||
+           StrEqA(n,"LoadTitleCluster") ||
+           StrEqA(n,"LoadCluster");
+}
+
+static void RunSceneManagerOwnerAuditH24() {
+    LogA("[H24 META] ===== SceneManager / cluster-loader owner audit =====");
+    LogA("[H24 META] Read-only metadata only. No object enumeration, field writes, or method invocation.");
+
+    LogTransitionClassMetadataH23("SceneManager");
+
+    if (!g_assemblyCSharp) {
+        LogA("[H24 OWNER] Assembly-CSharp image unavailable");
+        return;
+    }
+
+    SIZE_T classCount=g_il2cpp.image_get_class_count(g_assemblyCSharp);
+    int ownerHits=0;
+    for (SIZE_T ci=0; ci<classCount; ++ci) {
+        Il2CppClass* klass=g_il2cpp.image_get_class(g_assemblyCSharp,ci);
+        if (!klass) continue;
+        void* mi=0;
+        const MethodInfo* m=0;
+        while ((m=g_il2cpp.class_get_methods(klass,&mi))!=0) {
+            const char* mn=g_il2cpp.method_get_name(m);
+            if (!IsH24TransitionMethodName(mn)) continue;
+
+            LogA("[H24 OWNER HIT]");
+            LogA("[H24 OWNER NAMESPACE]");
+            const char* ns=g_il2cpp.class_get_namespace(klass);
+            LogA((ns && ns[0]) ? ns : "<global>");
+            LogA("[H24 OWNER CLASS]");
+            const char* cn=g_il2cpp.class_get_name(klass);
+            LogA(cn ? cn : "<unnamed>");
+            LogA("[H24 OWNER METHOD]");
+            LogA(mn ? mn : "<unnamed>");
+            LogIntA("[H24 OWNER] parameter count: ",(int)g_il2cpp.method_get_param_count(m));
+            LogIntA("[H24 OWNER] instance method: ",g_il2cpp.method_is_instance(m) ? 1 : 0);
+            LogTypeMetadataH23("[H24 OWNER RETURN TYPE]",g_il2cpp.method_get_return_type(m));
+            unsigned int pc=g_il2cpp.method_get_param_count(m);
+            unsigned int cap=pc; if (cap>16) cap=16;
+            for (unsigned int pi=0; pi<cap; ++pi) {
+                LogIntA("[H24 OWNER PARAM INDEX] ",(int)pi);
+                LogTypeMetadataH23("[H24 OWNER PARAM TYPE]",g_il2cpp.method_get_param(m,pi));
+            }
+            ++ownerHits;
+        }
+    }
+    LogIntA("[H24 OWNER] matching transition methods: ",ownerHits);
+    LogA("[H24 META] ===== owner audit end =====");
+}
+
 static BOOL SetCrosshairVisualAlpha(float alpha) {
     if (!g_crosshairControllerClass || !g_currentCrosshairField || !g_componentGetGameObject ||
         !g_gameObjectGetComponentsInChildren || !g_canvasRendererSetAlpha || !g_canvasRendererTypeObject) {
@@ -2427,6 +2483,7 @@ static BOOL InitIl2Cpp() {
 
     RunTargetedNoVideoAndCrosshairAuditH13();
     RunSceneClusterTransitionAuditH23();
+    RunSceneManagerOwnerAuditH24();
 
     g_timeManagerClass=FindClassBySimpleName("TimeManager");
     g_timeScaleSetter=g_timeManagerClass ? FindMethodExact(g_timeManagerClass,"SetGameTimeScale",1,g_floatClass) : 0;
