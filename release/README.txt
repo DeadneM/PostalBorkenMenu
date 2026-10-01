@@ -1,215 +1,94 @@
-PostalBorkenMenu V2A42-H13 RECOVERY + DLC CROSSHAIR AUDIT
-POSTAL: Brain-Damaged
-
-STATUS
-VALIDATED by user.
-V2A42-H13 is the current canonical source/gameplay base.
-Built directly from H4.
-H9 / H10 / H11 / H12 wheel experiments are rejected and are NOT inherited.
-
-PRIMARY GOAL
-Restore the stable H4 behavior first, then isolate the two remaining issues:
-- No Crosshair in DLC.
-- Native Skip Intro / NO_VIDEO mechanism.
-
-WEAPON WHEELS
-- Base Weapon Wheel is exactly the H4 implementation again.
-- No H7-H12 controller Show/Hide/UpdateSelection/SelectButton experiments are present.
-- DLC Weapon Wheel is back to the H4 research implementation only.
-- This build is NOT a new DLC-wheel experiment.
-
-NO CROSSHAIR H13
-H4 targeted only the first PlayerCrosshairController returned by FindObjectOfType.
-H13 additionally resolves Resources.FindObjectsOfTypeAll(PlayerCrosshairController).
-
-When No Crosshair is applied:
-- every loaded PlayerCrosshairController is inspected,
-- only each controller's current Crosshair object is used,
-- only CanvasRenderer alpha is changed,
-- aim logic / target position / current crosshair object are never cleared or replaced,
-- the validated H4 single-controller path remains as fallback.
-
-The log records:
-- PlayerCrosshairController object count,
-- how many expose a current Crosshair,
-- how many CanvasRenderers were actually updated.
-
-SKIP INTRO H13
-- NO simulated keyboard or mouse input exists.
-- The old Escape implementation is removed.
-- H13 does NOT claim Skip Intro is fixed yet.
-- The existing menu preference is still stored in the INI.
-- H13 performs a targeted metadata audit of:
-  - Hyperstrange.PBD.DebugManager
-  - NO_VIDEO class if present
-  - PlayerCrosshairController
-This is intended to reveal the real internal NO_VIDEO path used by the game's working launch option.
-
-TEST
-1. Install all four files.
-2. Enter normal gameplay.
-3. Test Base Weapon Wheel first and confirm it behaves like H4.
-4. Enable No Crosshair and confirm the base-game reticle disappears.
-5. Enter the DLC / use DLC weapons and confirm whether the reticle remains hidden.
-6. Switch several weapons in the DLC.
-7. Exit normally.
-8. Send PostalBorkenMenu.log so the NO_VIDEO and DLC crosshair metadata can be read.
-
-VALIDATION RESULT
-- Base Weapon Wheel restored and validated.
-- No Crosshair behavior validated, including the DLC path tested by the user.
-- Grappling Hook validated behavior preserved.
-- H13 promoted to canonical base.
-
-KNOWN OPEN ITEM
-Skip Intro is NOT fixed in H13.
-The old Escape/input approach is permanently rejected.
-Future work must reproduce the game's native NO_VIDEO behavior without simulated user input.
-
-PACKAGE
-dxgi.dll
-PostalBorkenMenu.asi
-PostalBorkenMenu.ini
-README.txt
-
-======================================================================
-H4 BASE TECHNICAL HISTORY
-======================================================================
-
-PostalBorkenMenu V2A42-H4 CLEAN GRAPPLING MENU + DXGI LOADER
-POSTAL: Brain-Damaged
+POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H37 EARLY PLAYERSETTINGS RAM SPLASH TEST
 
 BASE
-Built from the user-validated V2A42-H3 grappling-hook fix.
-H3 is the validated gameplay basis for this cleanup build.
+----
+H37 starts directly from validated V2A42-H13.
+H29, H30, H32-H36 remain diagnostic/rejected branches and are not used as the gameplay base.
 
-VALIDATED GRAPPLING FIX PRESERVED
-Special -> Grappling Hook uses the validated sequence:
-1. Resolve exact WEAPON_Hook.
-2. AddWeapon(WEAPON_Hook) only if required.
-3. Never use ordinary EquipWeapon for the Hook.
-4. Always call WeaponsInventory.InitHook() AFTER the AddWeapon/collected state.
-5. Verify get_Hook().
+WHAT WE NOW KNOW
+----------------
+The exact retail globalgamemanagers PlayerSettings contains:
 
-MENU CLEANUP ONLY
-- "Hook (Add Only)" renamed to "Grappling Hook".
-- Weapon Catalog menu entry removed.
-- DLC Hook Slot99 Test / InitHook menu entry removed.
-- Their command dispatch/menu routing entries are removed.
-- No other menu layout or behavior is changed.
+m_ShowUnitySplashScreen = 1
+m_ShowUnitySplashLogo   = 0
+m_SplashScreenLogos     = 3
 
-DXGI ASI LOADER
-dxgi.dll remains the standard ASI loader.
-It forwards the real System32 DXGI exports and loads PostalBorkenMenu.asi.
-It does not hook Present, render anything, patch swapchains/vtables, or alter gameplay.
+Logo #1:
+  Sprite: LOGO_RWS
+  PathID: 5944
+  Duration: 2.0 seconds
 
-PACKAGE CONTENTS
-dxgi.dll
-PostalBorkenMenu.asi
-PostalBorkenMenu.ini
-README.txt
+Logo #2:
+  Sprite: LOGO_Hyperstrange
+  PathID: 5943
+  Duration: 3.0 seconds
 
-======================================================================
-ORIGINAL V2A42 README
-======================================================================
+Logo #3:
+  Sprite: LOGOS_Rest
+  PathID: 5942
+  Duration: 3.0 seconds
 
-PostalBorkenMenu V2A42
-POSTAL: Brain-Damaged
+Those are the three visible startup logos.
 
-BASE
-Built from V2A41 while preserving the V2A40 stable-window subclass fix that the user validated.
+WHAT H36 PROVED
+---------------
+H36 successfully hooked UnityPlayer ReadFile and later observed 626 reads from a file
+with the exact retail globalgamemanagers size, but never observed the original
+PlayerSettings offset containing m_ShowUnitySplashScreen.
 
-THIS BUILD
-V2A42 reconstructs the desired five-tab overlay and cleans the named weapon lists.
+Conclusion:
+the critical PlayerSettings data is read before the normal ASI worker hook is active.
 
-TABS
-- Gameplay
-- Weapons
-- Arsenal
-- Special
-- Visual
+H37 METHOD
+----------
+H37 does not hook the file system.
 
-ARSENAL
-Only single WeaponId variants are exposed.
+The DXGI proxy loads PostalBorkenMenu.asi and, immediately after LoadLibraryW returns,
+calls the exported PostalEarlySplashPatch() synchronously BEFORE forwarding the real
+CreateDXGIFactory call.
 
-Base:
-- Shovel
-- Pistol
-- Shotgun
-- Machine Gun
-- Rocket Launcher
-- Lightning Gun
-- Gatling Gun
-- Dildo Bow
-- Cat Canon
+The ASI then scans only committed readable MEM_PRIVATE / MEM_MAPPED regions for the
+exact 120-byte retail PlayerSettings sequence beginning at m_ShowUnitySplashScreen.
 
-These Sunny Daze / PTSD:
-- Um Drill
-- Piss Gun
-- Meat Shotgun
-- Bubble Gum Machine Gun
-- Nuclear Syringe
+That exact sequence includes the complete three-logo vector above, making the
+signature highly specific.
 
-All _Akimbo WeaponIds are intentionally removed from the overlay.
+Only an exact match is eligible. For each exact match:
 
-SPECIAL
-Kept:
-- Hook (Add Only)
-- Cutscene Weapon DLC
-- No Weapon
-- No Weapon DLC
+  m_ShowUnitySplashScreen: 1 -> 0
 
-Removed:
-- Dong
-- Dong Confusion
-- Dong Fire
-- Dong Ice
+Only the RAM copy changes.
+No disk file changes.
+The scan stops after at most 8 exact matches.
 
-The Hook path remains AddWeapon-only and is never passed through EquipWeapon.
+H37 logs:
+[SPLASH H37] committed readable regions scanned before DXGI: N
+[SPLASH H37] exact 120-byte PlayerSettings matches: N
+[SPLASH H37] m_ShowUnitySplashScreen RAM patches: N
 
-SKIP INTRO VIDEOS
-A new checkbox appears in the Gameplay tab.
+The DXGI loader also logs one of:
+[DXGI LOADER] H37: exact PlayerSettings splash block patched in RAM before DXGI factory.
+[DXGI LOADER] H37: exact PlayerSettings splash block not found before DXGI factory.
 
-Default:
-SkipIntroVideos=1
+SAFETY / NON-GOALS
+------------------
+H37 does NOT:
+- alter POSTAL Brain Damaged.exe
+- alter UnityPlayer.dll on disk
+- alter GameAssembly.dll
+- alter globalgamemanagers on disk
+- alter level0 / level1
+- redirect scenes
+- call SceneManager.LoadScene
+- simulate input
+- continuously scan memory
+- repeat the H30 byte-by-byte runtime scan
 
-The value is persisted in PostalBorkenMenu.ini under [Settings].
-Changing the checkbox affects the next launch.
+The H37 scan is one-shot, synchronous, and runs before the first forwarded DXGI factory call.
 
-Implementation for this test:
-- no game files are renamed or deleted
-- SAVE_DATA.cfg is not modified
-- no EXE/GameAssembly patching
-- while V2A40 qualifies the foreground game HWND, after the same HWND has remained valid for 1 second, the ASI sends exactly one synthetic Escape key pulse if Skip Intro Videos is enabled
-- the normal V2A40 WndProc subclass is still delayed until 3 seconds of HWND stability
-- no repeated key injection occurs
+CONFIG
+------
+[Settings]
+SkipStartupLogos=1
 
-This deliberately targets startup only and does not touch normal in-game cutscenes.
-
-STABILITY PRESERVED
-- V2A40: 3-second stable foreground HWND qualification before SetWindowLongPtrW
-- V2A8: early WM_CLOSE shutdown fencing
-- no permanent IL2CPP crosshair polling
-- V2A29 weapon-wheel behavior
-- exact-name WeaponId resolver remains targeted
-- no broad Assembly-CSharp scans
-- no startup Hook recovery
-
-TEST
-1. Launch normally with SkipIntroVideos=1.
-2. Confirm whether the intro video is skipped.
-3. Confirm the game reaches the menu and remains stable.
-4. Open F1.
-5. Check all five tabs.
-6. Confirm Arsenal contains no Akimbo entries.
-7. Confirm Special contains no Dong entries.
-8. Toggle Skip Intro Videos off and on once to verify checkbox persistence.
-9. Test one normal Arsenal weapon and, if owned, one DLC weapon.
-10. Exit normally and send PostalBorkenMenu.log.
-
-PACKAGE CONTENTS
-PostalBorkenMenu.asi
-PostalBorkenMenu.ini
-README.txt
-
-PostalBorkenMenu.log is generated at runtime and is intentionally not included.
+Set it to 0 to disable H37's early RAM patch completely.
