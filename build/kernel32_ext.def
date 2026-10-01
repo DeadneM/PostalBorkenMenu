@@ -16,6 +16,8 @@ CreateFileW
 WriteFile
 SetFilePointer
 CloseHandle
+VirtualProtect
+VirtualQuery
 FindFirstFileW
 FindNextFileW
 FindClose
