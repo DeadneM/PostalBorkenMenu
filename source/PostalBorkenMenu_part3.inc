@@ -644,7 +644,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H26 EARLY INTROCLUSTER HOOK TEST");
+    LogA("PostalBorkenMenu V2A42-H27 INSTANCE INTROCLUSTER HOOK TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -654,18 +654,18 @@ static DWORD __stdcall ModThread(void*) {
     else
         LogA("[ERROR] Exact-name WeaponId resolver was not retained.");
     LogA(g_skipIntroVideos ? "[INTRO] Skip Intro Videos config: ENABLED (default)." : "[INTRO] Skip Intro Videos config: DISABLED.");
-    LogA(g_skipStartupLogos ? "[H26 EARLY] SkipStartupLogos config: ENABLED (default)." : "[H26 EARLY] SkipStartupLogos config: DISABLED.");
-    InstallEarlyStartupLogoHookH26();
+    LogA(g_skipStartupLogos ? "[H27 EARLY] SkipStartupLogos config: ENABLED (default)." : "[H27 EARLY] SkipStartupLogos config: DISABLED.");
+    InstallEarlyStartupLogoHookH27();
     if (!InitIl2Cpp()) return 0;
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
-    if (g_earlyLogoHookH26) {
-        HHOOK old=g_earlyLogoHookH26;
-        g_earlyLogoHookH26=0;
+    if (g_earlyLogoHookH27) {
+        HHOOK old=g_earlyLogoHookH27;
+        g_earlyLogoHookH27=0;
         UnhookWindowsHookEx(old);
-        LogA("[H26 EARLY] Early hook was still armed after normal H13 window setup; removed without late fallback.");
+        LogA("[H27 EARLY] Early hook was still armed after normal H13 window setup; removed without late fallback.");
     }
-    LogIntA("[H26 EARLY] Early LoadIntroCluster attempt occurred: ",g_earlyLogoAttemptedH26 ? 1 : 0);
+    LogIntA("[H27 EARLY] Early LoadIntroCluster attempt occurred: ",g_earlyLogoAttemptedH27 ? 1 : 0);
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
     LogA("[READY] Five tabs active. Arsenal has 14 single weapons, Special has 4 non-Dong entries. Skip Intro checkbox persists in INI.");
 
