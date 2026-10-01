@@ -233,6 +233,7 @@ static volatile LONG g_menuVisible = 0;
 static volatile LONG g_shuttingDown = 0;
 static volatile LONG g_noCrosshair = 0;
 static volatile LONG g_skipIntroVideos = 1;
+static volatile LONG g_skipStartupLogos = 1;
 static volatile LONG g_introSkipPulseSent = 0;
 static DWORD g_lastCrosshairTick = 0;
 static volatile LONG g_crosshairReapplyCountdown = 0;
@@ -373,6 +374,8 @@ struct Il2CppApi {
     void (*thread_detach)(void*);
     const FieldInfo* (*class_get_field_from_name)(Il2CppClass*, const char*);
     void (*field_get_value)(Il2CppObject*, const FieldInfo*, void*);
+    void (*field_static_get_value)(const FieldInfo*, void*);
+    unsigned int (*field_get_flags)(const FieldInfo*);
     const Il2CppType* (*class_get_type)(Il2CppClass*);
     Il2CppClass* (*class_from_type)(const Il2CppType*);
     Il2CppObject* (*type_get_object)(const Il2CppType*);
@@ -498,5 +501,8 @@ static BOOL ResolveIl2CppApi() {
     // unchanged if a future IL2CPP build does not export these convenience APIs.
     g_il2cpp.string_chars=(decltype(g_il2cpp.string_chars))Proc("il2cpp_string_chars");
     g_il2cpp.string_length=(decltype(g_il2cpp.string_length))Proc("il2cpp_string_length");
+    // H26 startup diagnostics use these only when the exports are present.
+    g_il2cpp.field_static_get_value=(decltype(g_il2cpp.field_static_get_value))Proc("il2cpp_field_static_get_value");
+    g_il2cpp.field_get_flags=(decltype(g_il2cpp.field_get_flags))Proc("il2cpp_field_get_flags");
     return TRUE;
 }
