@@ -2055,6 +2055,88 @@ static void RunTargetedNoVideoAndCrosshairAuditH13() {
     LogA("[H13 META] ===== audit end =====");
 }
 
+
+static void LogTypeMetadataH21(const char* label, const Il2CppType* type) {
+    if (label) LogA(label);
+    if (!type) {
+        LogA("[H21 META TYPE] unresolved");
+        return;
+    }
+    Il2CppClass* tc=g_il2cpp.class_from_type(type);
+    if (!tc) {
+        LogA("[H21 META TYPE] class_from_type unresolved");
+        return;
+    }
+    const char* ns=g_il2cpp.class_get_namespace(tc);
+    const char* name=g_il2cpp.class_get_name(tc);
+    LogA("[H21 META TYPE NAMESPACE]");
+    LogA((ns && ns[0]) ? ns : "<global>");
+    LogA("[H21 META TYPE NAME]");
+    LogA(name ? name : "<unnamed>");
+}
+
+static void LogStartupClassMetadataH21(const char* simpleName) {
+    LogA("[H21 META] ------------------------------------------------------------");
+    LogA("[H21 META CLASS QUERY]");
+    LogA(simpleName ? simpleName : "<null>");
+
+    Il2CppClass* klass=simpleName ? FindClassBySimpleName(simpleName) : 0;
+    if (!klass) {
+        LogA("[H21 META] class unresolved");
+        return;
+    }
+
+    const char* ns=g_il2cpp.class_get_namespace(klass);
+    const char* name=g_il2cpp.class_get_name(klass);
+    LogA("[H21 META CLASS NAMESPACE]");
+    LogA((ns && ns[0]) ? ns : "<global>");
+    LogA("[H21 META CLASS NAME]");
+    LogA(name ? name : "<unnamed>");
+
+    void* mi=0;
+    const MethodInfo* m=0;
+    int mc=0;
+    while ((m=g_il2cpp.class_get_methods(klass,&mi))!=0 && mc<160) {
+        const char* mn=g_il2cpp.method_get_name(m);
+        unsigned int pc=g_il2cpp.method_get_param_count(m);
+        LogA("[H21 META METHOD]");
+        LogA(mn ? mn : "<unnamed>");
+        LogIntA("[H21 META] parameter count: ",(int)pc);
+        LogIntA("[H21 META] instance method: ",g_il2cpp.method_is_instance(m) ? 1 : 0);
+        LogTypeMetadataH21("[H21 META RETURN TYPE]",g_il2cpp.method_get_return_type(m));
+
+        unsigned int cap=pc;
+        if (cap>16) cap=16;
+        for (unsigned int pi=0;pi<cap;pi++) {
+            LogIntA("[H21 META PARAM INDEX] ",(int)pi);
+            LogTypeMetadataH21("[H21 META PARAM TYPE]",g_il2cpp.method_get_param(m,pi));
+        }
+        ++mc;
+    }
+    LogIntA("[H21 META] methods logged: ",mc);
+
+    void* fi=0;
+    const FieldInfo* fld=0;
+    int fc=0;
+    while ((fld=g_il2cpp.class_get_fields(klass,&fi))!=0 && fc<160) {
+        const char* fn=g_il2cpp.field_get_name(fld);
+        LogA("[H21 META FIELD]");
+        LogA(fn ? fn : "<unnamed>");
+        ++fc;
+    }
+    LogIntA("[H21 META] fields logged: ",fc);
+}
+
+static void RunTargetedPlatformIntroMetadataAuditH21() {
+    LogA("[H21 META] ===== PlatformIntro / startup-logo metadata audit =====");
+    LogA("[H21 META] Metadata only: no object enumeration, no field writes, no runtime_invoke, no startup/skip method calls.");
+    LogStartupClassMetadataH21("RCLogoComponent");
+    LogStartupClassMetadataH21("IntroController");
+    LogStartupClassMetadataH21("SkipIntroController");
+    LogStartupClassMetadataH21("SceneManager");
+    LogA("[H21 META] ===== PlatformIntro / startup-logo metadata audit end =====");
+}
+
 static BOOL SetCrosshairVisualAlpha(float alpha) {
     if (!g_crosshairControllerClass || !g_currentCrosshairField || !g_componentGetGameObject ||
         !g_gameObjectGetComponentsInChildren || !g_canvasRendererSetAlpha || !g_canvasRendererTypeObject) {
@@ -2349,6 +2431,7 @@ static BOOL InitIl2Cpp() {
     g_currentCrosshairField=g_crosshairControllerClass ? g_il2cpp.class_get_field_from_name(g_crosshairControllerClass,"_currentCrosshair") : 0;
 
     RunTargetedNoVideoAndCrosshairAuditH13();
+    RunTargetedPlatformIntroMetadataAuditH21();
 
     g_timeManagerClass=FindClassBySimpleName("TimeManager");
     g_timeScaleSetter=g_timeManagerClass ? FindMethodExact(g_timeManagerClass,"SetGameTimeScale",1,g_floatClass) : 0;
