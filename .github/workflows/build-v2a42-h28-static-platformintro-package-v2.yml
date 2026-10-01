@@ -1,0 +1,67 @@
+name: Build V2A42-H28 Static PlatformIntro Package Core v2
+
+on:
+  push:
+    branches:
+      - dev/v2a42-h28-static-platformintro-package-v2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out exact V2A42-H13 release source
+        uses: actions/checkout@v4
+
+      - name: Set up MSVC x64
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build ASI import libraries
+        shell: cmd
+        run: |
+          lib /nologo /machine:x64 /def:build\kernel32_ext.def /out:build\kernel32_ext.lib
+          lib /nologo /machine:x64 /def:build\user32_ext.def /out:build\user32_ext.lib
+
+      - name: Compile validated H13 ASI
+        shell: cmd
+        run: |
+          cl /nologo /c /O2 /GS- /GR- /EHs-c- /Zl /Fo:build\PostalBorkenMenu.obj source\PostalBorkenMenu.cpp
+          link /nologo /DLL /MACHINE:X64 /NODEFAULTLIB /ENTRY:DllMain /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /OUT:build\PostalBorkenMenu.asi build\PostalBorkenMenu.obj build\kernel32_ext.lib build\user32_ext.lib
+
+      - name: Compile DXGI ASI loader
+        shell: cmd
+        run: |
+          cl /nologo /c /O2 /Oi- /GS- /GR- /EHs-c- /Zl /Fo:build\dxgi_asi_loader.obj proxy\dxgi_asi_loader.cpp
+          ml64 /nologo /c /Fo build\dxgi_thunks.obj proxy\dxgi_thunks.asm
+          link /nologo /DLL /MACHINE:X64 /NODEFAULTLIB /ENTRY:DllMain /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /DEF:proxy\dxgi_proxy.def /OUT:build\dxgi.dll build\dxgi_asi_loader.obj build\dxgi_thunks.obj kernel32.lib
+
+      - name: Verify exact release hashes
+        shell: powershell
+        run: |
+          $asi = (Get-FileHash build\PostalBorkenMenu.asi -Algorithm SHA256).Hash.ToLower()
+          $dxgi = (Get-FileHash build\dxgi.dll -Algorithm SHA256).Hash.ToLower()
+          Write-Host "ASI=$asi"
+          Write-Host "DXGI=$dxgi"
+          if ($asi -ne "2eb2f49f0ef3a1823a9c5a739f321dbc6f129e5ebd2c2e614f5f9a015683c92c") { throw "H13 ASI hash mismatch" }
+          if ($dxgi -ne "a71a24368479620ea93e58b35a7291ee175ec894ad85ab3122510eff580d52ef") { throw "H13 DXGI hash mismatch" }
+
+      - name: Stage core package
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          Copy-Item build\dxgi.dll package\dxgi.dll
+          Copy-Item build\PostalBorkenMenu.asi package\PostalBorkenMenu.asi
+          Copy-Item config\PostalBorkenMenu.ini package\PostalBorkenMenu.ini
+          Copy-Item release\README.txt package\README_H13.txt
+
+      - name: Upload H28 core package
+        uses: actions/upload-artifact@v4
+        with:
+          name: POSTAL_Brain_Damaged_V2A42_H28_H13_RELEASE_CORE
+          path: package/*
+          if-no-files-found: error
