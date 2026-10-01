@@ -14,8 +14,10 @@ GetPrivateProfileStringW
 WritePrivateProfileStringW
 CreateFileW
 WriteFile
+ReadFile
 SetFilePointer
 CloseHandle
+VirtualProtect
 FindFirstFileW
 FindNextFileW
 FindClose
