@@ -169,6 +169,7 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 #define WM_APP_WEAPONKEY (WM_APP + 0x35)
 #define WM_APP_BASEWHEEL (WM_APP + 0x36)
 #define WM_APP_DLCWHEEL (WM_APP + 0x37)
+#define WM_APP_STARTUPLOGOS (WM_APP + 0x38)
 
 #define VK_BACK 0x08
 #define VK_TAB 0x09
@@ -233,6 +234,7 @@ static volatile LONG g_menuVisible = 0;
 static volatile LONG g_shuttingDown = 0;
 static volatile LONG g_noCrosshair = 0;
 static volatile LONG g_skipIntroVideos = 1;
+static volatile LONG g_skipStartupLogos = 1;
 static volatile LONG g_introSkipPulseSent = 0;
 static DWORD g_lastCrosshairTick = 0;
 static volatile LONG g_crosshairReapplyCountdown = 0;
