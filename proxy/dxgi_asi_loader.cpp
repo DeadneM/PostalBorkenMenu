@@ -87,10 +87,10 @@ static void BuildLogPath() {
     CopyW(g_logPath,1024,dir);
     AppendW(g_logPath,1024,L"PostalBorkenMenu.log");
 }
-static BOOL ShouldSkipStartupLogos() {
-    WCHAR ini[1024]={};
-    if(!ModuleDirectory(ini,1024)) return TRUE;
-    AppendW(ini,1024,L"PostalBorkenMenu.ini");
+__declspec(noinline) static BOOL ShouldSkipStartupLogos() {
+    WCHAR ini[512]={};
+    if(!ModuleDirectory(ini,512)) return TRUE;
+    AppendW(ini,512,L"PostalBorkenMenu.ini");
     return GetPrivateProfileIntW(L"Settings",L"SkipStartupLogos",1,ini) ? TRUE : FALSE;
 }
 static void Log(const char* s) {
