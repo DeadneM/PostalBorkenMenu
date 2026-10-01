@@ -1,0 +1,47 @@
+name: Extract Exact Published V2A42-H13 Core
+
+on:
+  push:
+    branches:
+      - dev/v2a42-h28-static-platformintro-package-v2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  extract:
+    runs-on: windows-latest
+    steps:
+      - name: Download exact published H13 release asset
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download V2A42-H13 --repo "${{ github.repository }}" --pattern "POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H13.zip" --dir release_dl
+
+      - name: Verify published ZIP hash
+        shell: powershell
+        run: |
+          $zip = "release_dl\POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H13.zip"
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          Write-Host "H13_ZIP=$hash"
+          if ($hash -ne "2b3c4f233a0a706714b7f198be5867506b62e7e21b4491f401079f7efb8513f0") { throw "Published H13 ZIP hash mismatch" }
+          Expand-Archive -Path $zip -DestinationPath exact_h13
+
+      - name: Verify exact H13 binaries
+        shell: powershell
+        run: |
+          $asi = (Get-FileHash exact_h13\PostalBorkenMenu.asi -Algorithm SHA256).Hash.ToLower()
+          $dxgi = (Get-FileHash exact_h13\dxgi.dll -Algorithm SHA256).Hash.ToLower()
+          Write-Host "ASI=$asi"
+          Write-Host "DXGI=$dxgi"
+          if ($asi -ne "2eb2f49f0ef3a1823a9c5a739f321dbc6f129e5ebd2c2e614f5f9a015683c92c") { throw "Published H13 ASI hash mismatch" }
+          if ($dxgi -ne "a71a24368479620ea93e58b35a7291ee175ec894ad85ab3122510eff580d52ef") { throw "Published H13 DXGI hash mismatch" }
+
+      - name: Upload exact H13 core
+        uses: actions/upload-artifact@v4
+        with:
+          name: POSTAL_Brain_Damaged_V2A42_H28_EXACT_H13_CORE
+          path: exact_h13/*
+          if-no-files-found: error
