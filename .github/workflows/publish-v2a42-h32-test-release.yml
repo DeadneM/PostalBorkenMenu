@@ -56,8 +56,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view "V2A42-H32-TEST" --repo "${{ github.repository }}" *> $null
-          if ($LASTEXITCODE -eq 0) {
-            gh release delete "V2A42-H32-TEST" --repo "${{ github.repository }}" --yes --cleanup-tag
-          }
           gh release create "V2A42-H32-TEST" Postal_H32.zip --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "V2A42-H32 TEST - Native RCLogo Startup Skip" --notes "Test candidate from validated H13. ASI-only. Skips only startup logos via RCLogoComponent. No scene redirection, no level0/level1/globalgamemanagers patching, no global memory scan." --prerelease
