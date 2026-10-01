@@ -511,7 +511,7 @@ static BOOL InstallSplashReadHookH36() {
     return FALSE;
 }
 
-static int StrLenA(const char* s) { int n=0; if (!s) return 0; while (s[n]) ++n; return n; }
+static void LogA(const char* s);\nstatic int StrLenA(const char* s) { int n=0; if (!s) return 0; while (s[n]) ++n; return n; }
 static int StrLenW(const WCHAR* s) { int n=0; if (!s) return 0; while (s[n]) ++n; return n; }
 static BOOL StrEqA(const char* a, const char* b) {
     if (!a || !b) return FALSE;
