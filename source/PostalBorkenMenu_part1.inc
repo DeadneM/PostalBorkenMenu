@@ -349,6 +349,7 @@ struct Il2CppApi {
     const MethodInfo* (*class_get_methods)(Il2CppClass*, void**);
     const FieldInfo* (*class_get_fields)(Il2CppClass*, void**);
     const char* (*field_get_name)(const FieldInfo*);
+    const Il2CppType* (*field_get_type)(const FieldInfo*);
     const char* (*method_get_name)(const MethodInfo*);
     const Il2CppType* (*method_get_param)(const MethodInfo*, unsigned int);
     const Il2CppType* (*method_get_return_type)(const MethodInfo*);
@@ -496,6 +497,7 @@ static BOOL ResolveIl2CppApi() {
 
     // V2A33 catalog-only helpers are optional so startup compatibility is
     // unchanged if a future IL2CPP build does not export these convenience APIs.
+    g_il2cpp.field_get_type=(decltype(g_il2cpp.field_get_type))Proc("il2cpp_field_get_type");
     g_il2cpp.string_chars=(decltype(g_il2cpp.string_chars))Proc("il2cpp_string_chars");
     g_il2cpp.string_length=(decltype(g_il2cpp.string_length))Proc("il2cpp_string_length");
     return TRUE;
