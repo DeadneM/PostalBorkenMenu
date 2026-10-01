@@ -5,6 +5,9 @@ GetWindowThreadProcessId
 SetWindowLongPtrW
 CallWindowProcW
 PostMessageW
+SetWindowsHookExW
+UnhookWindowsHookEx
+CallNextHookEx
 ShowWindow
 CreateWindowExW
 DefWindowProcW
