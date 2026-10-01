@@ -153,6 +153,21 @@ static void EnsureAsiLoaded() {
         return;
     }
 
+    // H37: synchronous ASI early-start callback.
+    // LoadLibrary has returned, so we are outside the ASI's DllMain. This call
+    // completes before the proxy forwards the real CreateDXGIFactory request.
+    typedef DWORD (__stdcall *PFN_PostalEarlySplashPatch)(void);
+    PFN_PostalEarlySplashPatch early=(PFN_PostalEarlySplashPatch)GetProcAddress(g_asi,"PostalEarlySplashPatch");
+    if(early) {
+        DWORD patched=early();
+        if(patched)
+            Log("[DXGI LOADER] H37: exact PlayerSettings splash block patched in RAM before DXGI factory.");
+        else
+            Log("[DXGI LOADER] H37: exact PlayerSettings splash block not found before DXGI factory.");
+    } else {
+        Log("[DXGI LOADER] H37: PostalEarlySplashPatch export missing.");
+    }
+
     Log("[DXGI LOADER] OK: PostalBorkenMenu.asi loaded.");
     InterlockedExchange(&g_asiState,2);
 }
