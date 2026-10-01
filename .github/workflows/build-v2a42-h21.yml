@@ -1,4 +1,4 @@
-name: Build V2A42-H21 Static Startup Asset Scan
+name: Build V2A42-H21 PlatformIntro Metadata Audit
 
 on:
   push:
