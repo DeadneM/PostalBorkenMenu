@@ -10,9 +10,7 @@
 
 ## Current diagnostic candidate
 
-**V2A42-H23** audits the `SceneCluster` transition data model exposed by H21/H22, including `SceneField`, `SceneClusterSerializer`, `ReadyTexts` and `<LoadClusterAfterFadeIn>d__12`.
-
-H23 remains metadata-only. It does not invoke any cluster-loading method and keeps validated H13 gameplay/source behavior.
+**V2A42-H24** identifies the exact owner/signatures of the SceneManager cluster-transition methods discovered by H21-H23 and logs typed SceneManager metadata. It remains strictly read-only and does not invoke any scene/cluster transition.
 
 ## Current canonical base
 
