@@ -1,3 +1,11 @@
+## V2A42-H24 - SceneManager / cluster-loader owner audit
+
+Status: **diagnostic candidate, not canonical**.
+
+H23 proved the SceneCluster data model and showed that the generated `<LoadClusterAfterFadeIn>d__12` coroutine contains only iterator state/current fields. H24 therefore performs a read-only Assembly-CSharp metadata scan to identify the owning class and signatures of `LoadClusterAfterFadeIn`, `LoadIntroCluster`, `LoadTitleCluster`, and `LoadCluster`. It also performs a typed `SceneManager` metadata audit.
+
+No method is invoked and no runtime object/field is touched. Canonical remains **V2A42-H13**.
+
 # PostalBorkenMenu - Technical Project Notebook
 
 This file is the cumulative engineering notebook for **PostalBorkenMenu**.
