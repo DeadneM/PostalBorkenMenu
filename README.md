@@ -1,3 +1,7 @@
+## Current test candidate
+
+**V2A42-H26** tests the H24-proven native `SceneManager.LoadIntroCluster()` transition at the earliest valid main-thread moment. It waits for the real static `_introCluster` to become non-null, logs the cluster's actual scene names, invokes once, and immediately removes its temporary hook. This distinguishes an H25 timing failure from a missing PlatformIntro unload step.
+
 <p align="center">
   <img src="assets/banner.png" alt="PostalBorkenMenu banner" width="100%">
 </p>
