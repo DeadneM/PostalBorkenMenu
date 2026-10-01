@@ -89,6 +89,8 @@ __declspec(dllimport) HANDLE __stdcall CreateFileW(LPCWSTR, DWORD, DWORD, void*,
 __declspec(dllimport) BOOL __stdcall WriteFile(HANDLE, const void*, DWORD, DWORD*, void*);
 __declspec(dllimport) DWORD __stdcall SetFilePointer(HANDLE, LONG, LONG*, DWORD);
 __declspec(dllimport) BOOL __stdcall CloseHandle(HANDLE);
+__declspec(dllimport) BOOL __stdcall ReadFile(HANDLE, void*, DWORD, DWORD*, void*);
+__declspec(dllimport) BOOL __stdcall VirtualProtect(void*, SIZE_T, DWORD, DWORD*);
 
 __declspec(dllimport) HWND __stdcall GetForegroundWindow(void);
 __declspec(dllimport) DWORD __stdcall GetWindowThreadProcessId(HWND, DWORD*);
@@ -135,6 +137,11 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 #define FILE_ATTRIBUTE_NORMAL 0x00000080UL
 #define FILE_END 2UL
 #define INVALID_HANDLE_VALUE ((HANDLE)(LONG_PTR)-1)
+#define PAGE_READWRITE 0x00000004UL
+#define IMAGE_DOS_SIGNATURE 0x5A4D
+#define IMAGE_NT_SIGNATURE 0x00004550UL
+#define IMAGE_NT_OPTIONAL_HDR64_MAGIC 0x20B
+#define IMAGE_DIRECTORY_ENTRY_IMPORT 1
 
 #define WS_OVERLAPPED 0x00000000L
 #define WS_CAPTION 0x00C00000L
@@ -233,6 +240,12 @@ static volatile LONG g_menuVisible = 0;
 static volatile LONG g_shuttingDown = 0;
 static volatile LONG g_noCrosshair = 0;
 static volatile LONG g_skipIntroVideos = 1;
+static volatile LONG g_skipStartupLogos = 1;
+static volatile LONG g_startupHooksInstalled = 0;
+static volatile LONG g_startupSceneMapPatched = 0;
+static volatile LONG g_startupRedirectDone = 0;
+static volatile LONG g_startupManagersSeen = 0;
+static HANDLE g_startupManagersHandle = 0;
 static volatile LONG g_introSkipPulseSent = 0;
 static DWORD g_lastCrosshairTick = 0;
 static volatile LONG g_crosshairReapplyCountdown = 0;
@@ -256,6 +269,265 @@ static const int VISIBLE_ROWS = (OVERLAY_H - ROW_Y - 48) / ROW_H;
 
 static int StrLenA(const char* s) { int n=0; if (!s) return 0; while (s[n]) ++n; return n; }
 static int StrLenW(const WCHAR* s) { int n=0; if (!s) return 0; while (s[n]) ++n; return n; }
+
+/*
+ H31 startup-logo experiment, ASI-only and bounded.
+
+ H30 is rejected because it scanned the whole process address space from a
+ Unity file-open callback, causing severe stalls. H31 never scans process RAM.
+
+ Instead:
+ - UnityPlayer.dll's CreateFileW and ReadFile imports are hooked temporarily.
+ - If Unity opens "globalgamemanagers", we remember only that HANDLE.
+ - Only ReadFile buffers returned for that HANDLE are inspected.
+ - If the exact adjacent serialized PlatformIntro/Intro block is present,
+   those 72 bytes are swapped in the returned RAM buffer only.
+ - level0 is redirected to level1 only after that exact buffer patch occurred.
+ - At the first level0 request, both hooks are removed whether the experiment
+   succeeds or fails. Therefore there is no persistent file-I/O overhead.
+
+ No game file is modified on disk.
+*/
+struct PBM_IMAGE_DOS_HEADER {
+    WORD e_magic;
+    BYTE pad[58];
+    LONG e_lfanew;
+};
+struct PBM_IMAGE_FILE_HEADER {
+    WORD Machine;
+    WORD NumberOfSections;
+    DWORD TimeDateStamp;
+    DWORD PointerToSymbolTable;
+    DWORD NumberOfSymbols;
+    WORD SizeOfOptionalHeader;
+    WORD Characteristics;
+};
+struct PBM_IMAGE_DATA_DIRECTORY { DWORD VirtualAddress; DWORD Size; };
+struct PBM_IMAGE_OPTIONAL_HEADER64 {
+    WORD Magic;
+    BYTE MajorLinkerVersion;
+    BYTE MinorLinkerVersion;
+    DWORD SizeOfCode;
+    DWORD SizeOfInitializedData;
+    DWORD SizeOfUninitializedData;
+    DWORD AddressOfEntryPoint;
+    DWORD BaseOfCode;
+    ULONGLONG ImageBase;
+    DWORD SectionAlignment;
+    DWORD FileAlignment;
+    WORD MajorOperatingSystemVersion;
+    WORD MinorOperatingSystemVersion;
+    WORD MajorImageVersion;
+    WORD MinorImageVersion;
+    WORD MajorSubsystemVersion;
+    WORD MinorSubsystemVersion;
+    DWORD Win32VersionValue;
+    DWORD SizeOfImage;
+    DWORD SizeOfHeaders;
+    DWORD CheckSum;
+    WORD Subsystem;
+    WORD DllCharacteristics;
+    ULONGLONG SizeOfStackReserve;
+    ULONGLONG SizeOfStackCommit;
+    ULONGLONG SizeOfHeapReserve;
+    ULONGLONG SizeOfHeapCommit;
+    DWORD LoaderFlags;
+    DWORD NumberOfRvaAndSizes;
+    PBM_IMAGE_DATA_DIRECTORY DataDirectory[16];
+};
+struct PBM_IMAGE_NT_HEADERS64 {
+    DWORD Signature;
+    PBM_IMAGE_FILE_HEADER FileHeader;
+    PBM_IMAGE_OPTIONAL_HEADER64 OptionalHeader;
+};
+struct PBM_IMAGE_IMPORT_DESCRIPTOR {
+    DWORD OriginalFirstThunk;
+    DWORD TimeDateStamp;
+    DWORD ForwarderChain;
+    DWORD Name;
+    DWORD FirstThunk;
+};
+
+typedef HANDLE (__stdcall *PBM_CreateFileWFn)(LPCWSTR, DWORD, DWORD, void*, DWORD, DWORD, HANDLE);
+typedef BOOL (__stdcall *PBM_ReadFileFn)(HANDLE, void*, DWORD, DWORD*, void*);
+
+static PBM_CreateFileWFn g_startupOriginalCreateFileW=0;
+static PBM_ReadFileFn g_startupOriginalReadFile=0;
+static ULONG_PTR* g_startupCreateFileWIatSlot=0;
+static ULONG_PTR* g_startupReadFileIatSlot=0;
+
+static const BYTE g_sceneMapOriginalH31[72] = {
+    0x21,0x00,0x00,0x00,
+    'A','s','s','e','t','s','/','S','c','e','n','e','s','/','P','l','a','t','f','o','r','m','I','n','t','r','o','.','u','n','i','t','y',0x00,0x00,0x00,
+    0x19,0x00,0x00,0x00,
+    'A','s','s','e','t','s','/','S','c','e','n','e','s','/','I','n','t','r','o','.','u','n','i','t','y',0x00,0x00,0x00
+};
+static const BYTE g_sceneMapSwappedH31[72] = {
+    0x19,0x00,0x00,0x00,
+    'A','s','s','e','t','s','/','S','c','e','n','e','s','/','I','n','t','r','o','.','u','n','i','t','y',0x00,0x00,0x00,
+    0x21,0x00,0x00,0x00,
+    'A','s','s','e','t','s','/','S','c','e','n','e','s','/','P','l','a','t','f','o','r','m','I','n','t','r','o','.','u','n','i','t','y',0x00,0x00,0x00
+};
+
+static BOOL BytesEqual72H31(const BYTE* a,const BYTE* b) {
+    for(int i=0;i<72;i++) if(a[i]!=b[i]) return FALSE;
+    return TRUE;
+}
+
+static BOOL EndsWithWAsciiInsensitive(const WCHAR* path,const WCHAR* tail) {
+    if(!path || !tail) return FALSE;
+    int pn=StrLenW(path), tn=StrLenW(tail);
+    if(tn<=0 || pn<tn) return FALSE;
+    const WCHAR* p=path+(pn-tn);
+    for(int i=0;i<tn;i++) {
+        WCHAR a=p[i], b=tail[i];
+        if(a>=L'A' && a<=L'Z') a=(WCHAR)(a-L'A'+L'a');
+        if(b>=L'A' && b<=L'Z') b=(WCHAR)(b-L'A'+L'a');
+        if(a!=b) return FALSE;
+    }
+    return TRUE;
+}
+
+static BOOL IsLevel0PathH31(const WCHAR* path) {
+    return EndsWithWAsciiInsensitive(path,L"level0");
+}
+
+static void RestoreStartupIoHooksH31() {
+    DWORD oldProtect=0,ignored=0;
+    if(g_startupCreateFileWIatSlot && g_startupOriginalCreateFileW &&
+       VirtualProtect(g_startupCreateFileWIatSlot,sizeof(ULONG_PTR),PAGE_READWRITE,&oldProtect)) {
+        *g_startupCreateFileWIatSlot=(ULONG_PTR)g_startupOriginalCreateFileW;
+        VirtualProtect(g_startupCreateFileWIatSlot,sizeof(ULONG_PTR),oldProtect,&ignored);
+    }
+    if(g_startupReadFileIatSlot && g_startupOriginalReadFile &&
+       VirtualProtect(g_startupReadFileIatSlot,sizeof(ULONG_PTR),PAGE_READWRITE,&oldProtect)) {
+        *g_startupReadFileIatSlot=(ULONG_PTR)g_startupOriginalReadFile;
+        VirtualProtect(g_startupReadFileIatSlot,sizeof(ULONG_PTR),oldProtect,&ignored);
+    }
+    g_startupCreateFileWIatSlot=0;
+    g_startupReadFileIatSlot=0;
+    g_startupHooksInstalled=0;
+}
+
+static BOOL PatchSceneMapInReadBufferH31(void* buffer,DWORD bytesRead) {
+    if(!buffer || bytesRead<72 || g_startupSceneMapPatched) return g_startupSceneMapPatched?TRUE:FALSE;
+    BYTE* p=(BYTE*)buffer;
+    DWORD limit=bytesRead-72;
+    for(DWORD i=0;i<=limit;i++) {
+        if(p[i]!=0x21 || p[i+4]!='A') continue;
+        if(!BytesEqual72H31(p+i,g_sceneMapOriginalH31)) continue;
+        volatile BYTE* dst=(volatile BYTE*)(p+i);
+        for(int j=0;j<72;j++) dst[j]=g_sceneMapSwappedH31[j];
+        g_startupSceneMapPatched=1;
+        return TRUE;
+    }
+    return FALSE;
+}
+
+static BOOL __stdcall StartupReadFileHookH31(HANDLE h,void* buffer,DWORD toRead,DWORD* readOut,void* ov) {
+    PBM_ReadFileFn realFn=g_startupOriginalReadFile;
+    if(!realFn) return FALSE;
+    BOOL ok=realFn(h,buffer,toRead,readOut,ov);
+    if(ok && h==g_startupManagersHandle && readOut && *readOut)
+        PatchSceneMapInReadBufferH31(buffer,*readOut);
+    return ok;
+}
+
+static HANDLE __stdcall StartupCreateFileWHookH31(
+    LPCWSTR fileName,DWORD desiredAccess,DWORD shareMode,void* securityAttributes,
+    DWORD creationDisposition,DWORD flagsAndAttributes,HANDLE templateFile)
+{
+    PBM_CreateFileWFn realFn=g_startupOriginalCreateFileW;
+    if(!realFn) return INVALID_HANDLE_VALUE;
+
+    if(g_skipStartupLogos && fileName && EndsWithWAsciiInsensitive(fileName,L"globalgamemanagers")) {
+        HANDLE h=realFn(fileName,desiredAccess,shareMode,securityAttributes,
+                        creationDisposition,flagsAndAttributes,templateFile);
+        if(h!=INVALID_HANDLE_VALUE) {
+            g_startupManagersHandle=h;
+            g_startupManagersSeen=1;
+        }
+        return h;
+    }
+
+    if(g_skipStartupLogos && IsLevel0PathH31(fileName)) {
+        if(g_startupSceneMapPatched) {
+            int n=StrLenW(fileName);
+            if(n>0 && n<MAX_PATH_W) {
+                WCHAR redirected[MAX_PATH_W];
+                volatile WCHAR* dst=redirected;
+                for(int i=0;i<=n;i++) dst[i]=fileName[i];
+                redirected[n-1]=L'1';
+                HANDLE h=realFn(redirected,desiredAccess,shareMode,securityAttributes,
+                                creationDisposition,flagsAndAttributes,templateFile);
+                if(h!=INVALID_HANDLE_VALUE) {
+                    g_startupRedirectDone=1;
+                    RestoreStartupIoHooksH31();
+                    return h;
+                }
+            }
+        }
+
+        // Fail closed. No full-memory scan, no redirect if the exact streamed
+        // globalgamemanagers scene-map block was not patched.
+        RestoreStartupIoHooksH31();
+    }
+
+    return realFn(fileName,desiredAccess,shareMode,securityAttributes,
+                  creationDisposition,flagsAndAttributes,templateFile);
+}
+
+static BOOL InstallStartupIoHooksH31() {
+    if(!g_skipStartupLogos) return TRUE;
+    HMODULE unity=GetModuleHandleW(L"UnityPlayer.dll");
+    HMODULE k32=GetModuleHandleW(L"kernel32.dll");
+    if(!unity || !k32) return FALSE;
+
+    ULONG_PTR createTarget=(ULONG_PTR)GetProcAddress(k32,"CreateFileW");
+    ULONG_PTR readTarget=(ULONG_PTR)GetProcAddress(k32,"ReadFile");
+    if(!createTarget || !readTarget) return FALSE;
+
+    BYTE* base=(BYTE*)unity;
+    PBM_IMAGE_DOS_HEADER* dos=(PBM_IMAGE_DOS_HEADER*)base;
+    if(dos->e_magic!=IMAGE_DOS_SIGNATURE || dos->e_lfanew<=0) return FALSE;
+    PBM_IMAGE_NT_HEADERS64* nt=(PBM_IMAGE_NT_HEADERS64*)(base+dos->e_lfanew);
+    if(nt->Signature!=IMAGE_NT_SIGNATURE || nt->OptionalHeader.Magic!=IMAGE_NT_OPTIONAL_HDR64_MAGIC) return FALSE;
+    DWORD importRva=nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+    if(!importRva) return FALSE;
+
+    PBM_IMAGE_IMPORT_DESCRIPTOR* desc=(PBM_IMAGE_IMPORT_DESCRIPTOR*)(base+importRva);
+    for(;desc->FirstThunk;++desc) {
+        ULONG_PTR* slot=(ULONG_PTR*)(base+desc->FirstThunk);
+        for(;*slot;++slot) {
+            if(!g_startupCreateFileWIatSlot && *slot==createTarget)
+                g_startupCreateFileWIatSlot=slot;
+            else if(!g_startupReadFileIatSlot && *slot==readTarget)
+                g_startupReadFileIatSlot=slot;
+        }
+    }
+    if(!g_startupCreateFileWIatSlot || !g_startupReadFileIatSlot) {
+        g_startupCreateFileWIatSlot=0;
+        g_startupReadFileIatSlot=0;
+        return FALSE;
+    }
+
+    DWORD oldProtect=0,ignored=0;
+    if(!VirtualProtect(g_startupCreateFileWIatSlot,sizeof(ULONG_PTR),PAGE_READWRITE,&oldProtect)) return FALSE;
+    g_startupOriginalCreateFileW=(PBM_CreateFileWFn)(*g_startupCreateFileWIatSlot);
+    *g_startupCreateFileWIatSlot=(ULONG_PTR)&StartupCreateFileWHookH31;
+    VirtualProtect(g_startupCreateFileWIatSlot,sizeof(ULONG_PTR),oldProtect,&ignored);
+
+    if(!VirtualProtect(g_startupReadFileIatSlot,sizeof(ULONG_PTR),PAGE_READWRITE,&oldProtect)) {
+        RestoreStartupIoHooksH31();
+        return FALSE;
+    }
+    g_startupOriginalReadFile=(PBM_ReadFileFn)(*g_startupReadFileIatSlot);
+    *g_startupReadFileIatSlot=(ULONG_PTR)&StartupReadFileHookH31;
+    VirtualProtect(g_startupReadFileIatSlot,sizeof(ULONG_PTR),oldProtect,&ignored);
+
+    g_startupHooksInstalled=1;
+    return TRUE;
+}
 static BOOL StrEqA(const char* a, const char* b) {
     if (!a || !b) return FALSE;
     while (*a && *b) { if (*a != *b) return FALSE; ++a; ++b; }
