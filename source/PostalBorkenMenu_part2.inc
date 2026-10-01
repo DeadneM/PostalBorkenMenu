@@ -375,6 +375,168 @@ static void CatalogManagedStringToAscii(Il2CppString* str, char* out, int cap) {
     out[n]=0;
 }
 
+
+static HHOOK g_splashHookH35=0;
+static const MethodInfo* g_splashStopH35=0;
+static const MethodInfo* g_splashFinishedGetterH35=0;
+static volatile LONG g_splashStopAttemptedH35=0;
+static volatile LONG g_splashStopSucceededH35=0;
+
+static void RemoveSplashHookH35(const char* reason) {
+    HHOOK old=g_splashHookH35;
+    g_splashHookH35=0;
+    if (old) UnhookWindowsHookEx(old);
+    if (reason) LogA(reason);
+}
+
+static LRESULT __stdcall SplashStopCallWndProcH35(int code, WPARAM wp, LPARAM lp) {
+    HHOOK current=g_splashHookH35;
+    if (code>=0 && current && !g_shuttingDown && g_skipStartupLogos && !g_splashStopAttemptedH35) {
+        g_splashStopAttemptedH35=1;
+
+        BOOL attached=FALSE; void* thread=0;
+        if (EnsureIl2CppThread(&attached,&thread)) {
+            BOOL beforeFinished=FALSE;
+            if (g_splashFinishedGetterH35) {
+                Il2CppException* ex=0;
+                Il2CppObject* boxed=g_il2cpp.runtime_invoke(g_splashFinishedGetterH35,0,0,&ex);
+                if (!ex && boxed) {
+                    void* p=g_il2cpp.object_unbox(boxed);
+                    if (p) beforeFinished=(*(BOOL*)p) ? TRUE : FALSE;
+                }
+                if (ex) {
+                    LogA("[SPLASH H35] get_isFinished threw before Stop:");
+                    FormatExceptionToLog(ex);
+                }
+            }
+            LogIntA("[SPLASH H35] isFinished before StopImmediate: ",beforeFinished ? 1 : 0);
+
+            int stopImmediate=0;
+            void* pars[1]; pars[0]=&stopImmediate;
+            Il2CppException* ex=0;
+            g_il2cpp.runtime_invoke(g_splashStopH35,0,pars,&ex);
+            if (ex) {
+                LogA("[SPLASH H35] SplashScreen.Stop(StopImmediate) threw:");
+                FormatExceptionToLog(ex);
+            } else {
+                g_splashStopSucceededH35=1;
+                LogA("[SPLASH H35] SUCCESS: Unity SplashScreen.Stop(StopImmediate) invoked on Unity window thread.");
+            }
+
+            ReleaseIl2CppThread(attached,thread);
+        } else {
+            LogA("[SPLASH H35] Could not attach Unity window thread to IL2CPP.");
+        }
+
+        RemoveSplashHookH35("[SPLASH H35] One-shot main-thread hook removed.");
+    }
+    return CallNextHookEx(current,code,wp,lp);
+}
+
+static BOOL InstallUnitySplashStopH35() {
+    if (!g_skipStartupLogos) {
+        LogA("[SPLASH H35] SkipStartupLogos disabled.");
+        return FALSE;
+    }
+
+    LogA("[SPLASH H35] Resolving UnityEngine.Rendering.SplashScreen only.");
+
+    for (int k=0;k<800 && !g_gameAssembly;k++) {
+        g_gameAssembly=GetModuleHandleW(L"GameAssembly.dll");
+        if (!g_gameAssembly) Sleep(10);
+    }
+    if (!g_gameAssembly) {
+        LogA("[SPLASH H35] GameAssembly.dll unavailable; vanilla splash retained.");
+        return FALSE;
+    }
+    if (!ResolveIl2CppApi()) {
+        LogA("[SPLASH H35] IL2CPP exports unavailable; vanilla splash retained.");
+        return FALSE;
+    }
+
+    for (int k=0;k<300 && !g_domain;k++) {
+        g_domain=g_il2cpp.domain_get();
+        if (!g_domain) Sleep(10);
+    }
+    if (!g_domain) {
+        LogA("[SPLASH H35] IL2CPP domain not ready; vanilla splash retained.");
+        return FALSE;
+    }
+
+    BOOL attached=FALSE; void* thread=0;
+    if (!EnsureIl2CppThread(&attached,&thread)) {
+        LogA("[SPLASH H35] Metadata worker attach failed; vanilla splash retained.");
+        return FALSE;
+    }
+
+    const Il2CppAssembly* coreAss=0;
+    for (int k=0;k<300 && !coreAss;k++) {
+        coreAss=g_il2cpp.domain_assembly_open(g_domain,"UnityEngine.CoreModule");
+        if (!coreAss) Sleep(10);
+    }
+    const Il2CppImage* coreImage=coreAss ? g_il2cpp.assembly_get_image(coreAss) : 0;
+    Il2CppClass* splashClass=coreImage ?
+        g_il2cpp.class_from_name(coreImage,"UnityEngine.Rendering","SplashScreen") : 0;
+
+    g_splashStopH35=splashClass ? g_il2cpp.class_get_method_from_name(splashClass,"Stop",1) : 0;
+    g_splashFinishedGetterH35=splashClass ? g_il2cpp.class_get_method_from_name(splashClass,"get_isFinished",0) : 0;
+
+    BOOL stopOk=(g_splashStopH35 &&
+                 !g_il2cpp.method_is_instance(g_splashStopH35) &&
+                 g_il2cpp.method_get_param_count(g_splashStopH35)==1);
+
+    LogIntA("[SPLASH H35] UnityEngine.Rendering.SplashScreen class: ",splashClass ? 1 : 0);
+    LogIntA("[SPLASH H35] Stop(static,1 param) signature OK: ",stopOk ? 1 : 0);
+    LogIntA("[SPLASH H35] get_isFinished available: ",g_splashFinishedGetterH35 ? 1 : 0);
+
+    ReleaseIl2CppThread(attached,thread);
+
+    if (!stopOk) {
+        LogA("[SPLASH H35] Signature guard failed; vanilla splash retained.");
+        return FALSE;
+    }
+
+    DWORD pid=GetCurrentProcessId();
+    HWND hwnd=0; DWORD tid=0;
+    for (int k=0;k<800;k++) {
+        HWND h=GetForegroundWindow();
+        if (h && IsWindow(h)) {
+            DWORD wp=0;
+            DWORD wt=GetWindowThreadProcessId(h,&wp);
+            RECT r={};
+            if (wp==pid && wt && GetClientRect(h,&r) &&
+                (r.right-r.left)>=320 && (r.bottom-r.top)>=200) {
+                hwnd=h; tid=wt; break;
+            }
+        }
+        Sleep(10);
+    }
+    if (!hwnd || !tid) {
+        LogA("[SPLASH H35] Unity game window/thread unavailable while splash active; vanilla splash retained.");
+        return FALSE;
+    }
+
+    g_splashStopAttemptedH35=0;
+    g_splashStopSucceededH35=0;
+    g_splashHookH35=SetWindowsHookExW(WH_CALLWNDPROC,SplashStopCallWndProcH35,g_self,tid);
+    if (!g_splashHookH35) {
+        LogA("[SPLASH H35] SetWindowsHookExW failed; vanilla splash retained.");
+        return FALSE;
+    }
+
+    LogA("[SPLASH H35] One-shot Unity window-thread hook installed.");
+    PostMessageW(hwnd,WM_NULL,0,0);
+
+    for (int k=0;k<200 && g_splashHookH35;k++)
+        Sleep(10);
+
+    if (g_splashHookH35)
+        RemoveSplashHookH35("[SPLASH H35] Callback window expired; hook removed.");
+
+    LogIntA("[SPLASH H35] StopImmediate call succeeded: ",g_splashStopSucceededH35 ? 1 : 0);
+    return g_splashStopSucceededH35 ? TRUE : FALSE;
+}
+
 static BOOL RunWeaponCatalog() {
     Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
     Il2CppClass* inventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerInventoryComponent") : 0;
