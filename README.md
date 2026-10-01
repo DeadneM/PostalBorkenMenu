@@ -1,3 +1,7 @@
+## Current test candidate
+
+**V2A42-H25** is the first active native startup-logo bypass test. It starts strictly from H13 and uses the H24-proven static `SceneManager.LoadIntroCluster()` transition to target `PlatformIntro` only. A separate `SkipStartupLogos=1` setting keeps this independent from the actual intro-video preference.
+
 <p align="center">
   <img src="assets/banner.png" alt="PostalBorkenMenu banner" width="100%">
 </p>
