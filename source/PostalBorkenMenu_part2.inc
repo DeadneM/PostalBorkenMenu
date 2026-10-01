@@ -2055,6 +2055,117 @@ static void RunTargetedNoVideoAndCrosshairAuditH13() {
     LogA("[H13 META] ===== audit end =====");
 }
 
+
+static char LowerAsciiH22(char c) {
+    return (c>='A' && c<='Z') ? (char)(c+('a'-'A')) : c;
+}
+static BOOL ContainsAsciiInsensitiveH22(const char* text, const char* needle) {
+    if (!text || !needle || !needle[0]) return FALSE;
+    for (int i=0;text[i];++i) {
+        int j=0;
+        while (needle[j] && text[i+j] && LowerAsciiH22(text[i+j])==LowerAsciiH22(needle[j])) ++j;
+        if (!needle[j]) return TRUE;
+    }
+    return FALSE;
+}
+static BOOL StartupNameMatchH22(const char* name) {
+    if (!name) return FALSE;
+    return ContainsAsciiInsensitiveH22(name,"intro") ||
+           ContainsAsciiInsensitiveH22(name,"logo") ||
+           ContainsAsciiInsensitiveH22(name,"ready") ||
+           ContainsAsciiInsensitiveH22(name,"title") ||
+           ContainsAsciiInsensitiveH22(name,"cluster") ||
+           ContainsAsciiInsensitiveH22(name,"splash") ||
+           ContainsAsciiInsensitiveH22(name,"startup") ||
+           ContainsAsciiInsensitiveH22(name,"boot");
+}
+static void LogTypeMetadataH22(const char* label, const Il2CppType* type) {
+    if (label) LogA(label);
+    if (!type) { LogA("[H22 META TYPE] unresolved"); return; }
+    Il2CppClass* tc=g_il2cpp.class_from_type(type);
+    if (!tc) { LogA("[H22 META TYPE] class_from_type unresolved"); return; }
+    const char* ns=g_il2cpp.class_get_namespace(tc);
+    const char* name=g_il2cpp.class_get_name(tc);
+    LogA("[H22 META TYPE NAMESPACE]");
+    LogA((ns && ns[0]) ? ns : "<global>");
+    LogA("[H22 META TYPE NAME]");
+    LogA(name ? name : "<unnamed>");
+}
+static void LogClassMetadataH22(const char* simpleName) {
+    LogA("[H22 META] ------------------------------------------------------------");
+    LogA("[H22 META CLASS QUERY]");
+    LogA(simpleName ? simpleName : "<null>");
+    Il2CppClass* klass=simpleName ? FindClassBySimpleName(simpleName) : 0;
+    if (!klass) { LogA("[H22 META] class unresolved"); return; }
+
+    const char* ns=g_il2cpp.class_get_namespace(klass);
+    const char* name=g_il2cpp.class_get_name(klass);
+    LogA("[H22 META CLASS NAMESPACE]");
+    LogA((ns && ns[0]) ? ns : "<global>");
+    LogA("[H22 META CLASS NAME]");
+    LogA(name ? name : "<unnamed>");
+
+    void* mi=0;
+    const MethodInfo* m=0;
+    int mc=0;
+    while ((m=g_il2cpp.class_get_methods(klass,&mi))!=0 && mc<192) {
+        const char* mn=g_il2cpp.method_get_name(m);
+        unsigned int pc=g_il2cpp.method_get_param_count(m);
+        LogA("[H22 META METHOD]");
+        LogA(mn ? mn : "<unnamed>");
+        LogIntA("[H22 META] parameter count: ",(int)pc);
+        LogIntA("[H22 META] instance method: ",g_il2cpp.method_is_instance(m) ? 1 : 0);
+        LogTypeMetadataH22("[H22 META RETURN TYPE]",g_il2cpp.method_get_return_type(m));
+        unsigned int cap=pc; if (cap>16) cap=16;
+        for (unsigned int pi=0;pi<cap;++pi) {
+            LogIntA("[H22 META PARAM INDEX] ",(int)pi);
+            LogTypeMetadataH22("[H22 META PARAM TYPE]",g_il2cpp.method_get_param(m,pi));
+        }
+        ++mc;
+    }
+    LogIntA("[H22 META] methods logged: ",mc);
+
+    void* fi=0;
+    const FieldInfo* fld=0;
+    int fc=0;
+    while ((fld=g_il2cpp.class_get_fields(klass,&fi))!=0 && fc<192) {
+        const char* fn=g_il2cpp.field_get_name(fld);
+        LogA("[H22 META FIELD]");
+        LogA(fn ? fn : "<unnamed>");
+        ++fc;
+    }
+    LogIntA("[H22 META] fields logged: ",fc);
+}
+static void RunStartupClassInventoryH22() {
+    LogA("[H22 INVENTORY] ===== Assembly-CSharp startup-related class inventory =====");
+    LogA("[H22 INVENTORY] Metadata names only. No Unity object enumeration and no method invocation.");
+    if (!g_assemblyCSharp) {
+        LogA("[H22 INVENTORY] Assembly-CSharp image unavailable");
+        return;
+    }
+    SIZE_T count=g_il2cpp.image_get_class_count(g_assemblyCSharp);
+    int hits=0;
+    for (SIZE_T i=0;i<count && hits<240;++i) {
+        Il2CppClass* k=g_il2cpp.image_get_class(g_assemblyCSharp,i);
+        if (!k) continue;
+        const char* name=g_il2cpp.class_get_name(k);
+        if (!StartupNameMatchH22(name)) continue;
+        const char* ns=g_il2cpp.class_get_namespace(k);
+        LogA("[H22 INVENTORY CLASS]");
+        LogA(name ? name : "<unnamed>");
+        LogA("[H22 INVENTORY NAMESPACE]");
+        LogA((ns && ns[0]) ? ns : "<global>");
+        ++hits;
+    }
+    LogIntA("[H22 INVENTORY] matching classes logged: ",hits);
+    if (hits>=240) LogA("[H22 INVENTORY] hit cap reached");
+    LogA("[H22 INVENTORY] ===== inventory end =====");
+
+    LogA("[H22 META] ===== SceneCluster targeted metadata audit =====");
+    LogClassMetadataH22("SceneCluster");
+    LogA("[H22 META] ===== SceneCluster targeted metadata audit end =====");
+}
+
 static BOOL SetCrosshairVisualAlpha(float alpha) {
     if (!g_crosshairControllerClass || !g_currentCrosshairField || !g_componentGetGameObject ||
         !g_gameObjectGetComponentsInChildren || !g_canvasRendererSetAlpha || !g_canvasRendererTypeObject) {
@@ -2349,6 +2460,7 @@ static BOOL InitIl2Cpp() {
     g_currentCrosshairField=g_crosshairControllerClass ? g_il2cpp.class_get_field_from_name(g_crosshairControllerClass,"_currentCrosshair") : 0;
 
     RunTargetedNoVideoAndCrosshairAuditH13();
+    RunStartupClassInventoryH22();
 
     g_timeManagerClass=FindClassBySimpleName("TimeManager");
     g_timeScaleSetter=g_timeManagerClass ? FindMethodExact(g_timeManagerClass,"SetGameTimeScale",1,g_floatClass) : 0;
