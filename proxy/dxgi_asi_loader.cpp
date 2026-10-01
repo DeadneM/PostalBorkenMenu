@@ -87,6 +87,14 @@ static void BuildLogPath() {
     CopyW(g_logPath,1024,dir);
     AppendW(g_logPath,1024,L"PostalBorkenMenu.log");
 }
+static void ResetLogForThisProcess() {
+    BuildLogPath();
+    if(!g_logPath[0]) return;
+    // CREATE_ALWAYS = 2. Truncate any previous-session log before this process writes.
+    HANDLE h=CreateFileW(g_logPath,GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE,0,2,FILE_ATTRIBUTE_NORMAL,0);
+    if(h!=INVALID_HANDLE_VALUE) CloseHandle(h);
+}
+
 static void Log(const char* s) {
     if(!s) return;
     BuildLogPath();
@@ -168,6 +176,10 @@ extern "C" void __stdcall EnsureRealDxgi() {
         if(s==2) EnsureAsiLoaded();
         return;
     }
+
+    // One clean PostalBorkenMenu.log per game launch.
+    // Only the first-time DXGI initialization owner reaches this point.
+    ResetLogForThisProcess();
 
     SetForwardersToFallback();
 
