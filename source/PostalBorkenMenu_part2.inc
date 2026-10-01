@@ -375,6 +375,214 @@ static void CatalogManagedStringToAscii(Il2CppString* str, char* out, int cap) {
     out[n]=0;
 }
 
+
+static HHOOK g_logoHookH32=0;
+static HWND g_logoWindowH32=0;
+static Il2CppClass* g_rcLogoClassH32=0;
+static const MethodInfo* g_rcLogoOnPointerClickH32=0;
+static volatile LONG g_logoClicksH32=0;
+static volatile LONG g_logoMissLoggedH32=0;
+static ULONGLONG g_logoLastAttemptMsH32=0;
+
+static Il2CppObject* FindActiveLogoH32() {
+    if (!g_rcLogoClassH32 || !g_findObjectOfType2) return 0;
+    const Il2CppType* t=g_il2cpp.class_get_type(g_rcLogoClassH32);
+    if (!t) return 0;
+    Il2CppObject* typeObj=g_il2cpp.type_get_object(t);
+    if (!typeObj) return 0;
+
+    BOOL includeInactive=FALSE;
+    void* pars[2]; pars[0]=typeObj; pars[1]=&includeInactive;
+    Il2CppException* ex=0;
+    Il2CppObject* obj=g_il2cpp.runtime_invoke(g_findObjectOfType2,0,pars,&ex);
+    if (ex) {
+        LogA("[LOGO H32] FindObjectOfType(RCLogoComponent,false) threw:");
+        FormatExceptionToLog(ex);
+        return 0;
+    }
+    return obj;
+}
+
+static void RemoveNativeLogoHookH32(const char* reason) {
+    HHOOK old=g_logoHookH32;
+    g_logoHookH32=0;
+    if (old) UnhookWindowsHookEx(old);
+    if (reason) LogA(reason);
+}
+
+static LRESULT __stdcall NativeLogoCallWndProcH32(int code, WPARAM wp, LPARAM lp) {
+    HHOOK currentHook=g_logoHookH32;
+
+    if (code>=0 && currentHook && g_skipStartupLogos && !g_shuttingDown &&
+        g_logoClicksH32<3 && g_rcLogoClassH32 && g_rcLogoOnPointerClickH32 &&
+        g_findObjectOfType2) {
+
+        ULONGLONG now=GetTickCount64();
+        if (!g_logoLastAttemptMsH32 || now-g_logoLastAttemptMsH32>=350ULL) {
+            g_logoLastAttemptMsH32=now;
+
+            BOOL attached=FALSE; void* thread=0;
+            if (EnsureIl2CppThread(&attached,&thread)) {
+                Il2CppObject* logo=FindActiveLogoH32();
+                if (logo) {
+                    void* pars[1]; pars[0]=0; // PointerEventData is not used for a synthetic native skip attempt.
+                    Il2CppException* ex=0;
+                    g_il2cpp.runtime_invoke(g_rcLogoOnPointerClickH32,logo,pars,&ex);
+                    if (ex) {
+                        LogA("[LOGO H32] RCLogoComponent.OnPointerClick threw; native-logo skip disabled.");
+                        FormatExceptionToLog(ex);
+                        ReleaseIl2CppThread(attached,thread);
+                        RemoveNativeLogoHookH32("[LOGO H32] Main-thread hook removed after managed exception.");
+                        return CallNextHookEx(currentHook,code,wp,lp);
+                    }
+
+                    ++g_logoClicksH32;
+                    LogIntA("[LOGO H32] Native RCLogoComponent.OnPointerClick calls completed: ",(int)g_logoClicksH32);
+                    g_logoMissLoggedH32=0;
+
+                    if (g_logoClicksH32>=3) {
+                        ReleaseIl2CppThread(attached,thread);
+                        RemoveNativeLogoHookH32("[LOGO H32] Three native logo-skip calls completed; hook removed.");
+                        return CallNextHookEx(currentHook,code,wp,lp);
+                    }
+                } else if (!g_logoMissLoggedH32) {
+                    g_logoMissLoggedH32=1;
+                    LogA("[LOGO H32] RCLogoComponent not active yet; waiting.");
+                }
+                ReleaseIl2CppThread(attached,thread);
+            }
+        }
+    }
+
+    return CallNextHookEx(currentHook,code,wp,lp);
+}
+
+static BOOL InstallNativeLogoSkipH32() {
+    if (!g_skipStartupLogos) {
+        LogA("[LOGO H32] SkipStartupLogos disabled.");
+        return FALSE;
+    }
+
+    LogA("[LOGO H32] Resolving only RCLogoComponent + Unity FindObjectOfType metadata.");
+    for (int k=0;k<600 && !g_gameAssembly;k++) {
+        g_gameAssembly=GetModuleHandleW(L"GameAssembly.dll");
+        if (!g_gameAssembly) Sleep(10);
+    }
+    if (!g_gameAssembly) {
+        LogA("[LOGO H32] GameAssembly.dll unavailable; vanilla logos retained.");
+        return FALSE;
+    }
+    if (!ResolveIl2CppApi()) {
+        LogA("[LOGO H32] IL2CPP exports unavailable; vanilla logos retained.");
+        return FALSE;
+    }
+
+    for (int k=0;k<150 && !g_domain;k++) {
+        g_domain=g_il2cpp.domain_get();
+        if (!g_domain) Sleep(10);
+    }
+    if (!g_domain) {
+        LogA("[LOGO H32] IL2CPP domain not ready; vanilla logos retained.");
+        return FALSE;
+    }
+
+    BOOL attached=FALSE; void* thread=0;
+    if (!EnsureIl2CppThread(&attached,&thread)) {
+        LogA("[LOGO H32] Could not attach metadata worker; vanilla logos retained.");
+        return FALSE;
+    }
+
+    const Il2CppAssembly* ass=0;
+    for (int k=0;k<150 && !ass;k++) {
+        ass=g_il2cpp.domain_assembly_open(g_domain,"Assembly-CSharp");
+        if (!ass) Sleep(10);
+    }
+    if (!ass) {
+        ReleaseIl2CppThread(attached,thread);
+        LogA("[LOGO H32] Assembly-CSharp not ready; vanilla logos retained.");
+        return FALSE;
+    }
+
+    g_assemblyCSharp=g_il2cpp.assembly_get_image(ass);
+    g_rcLogoClassH32=g_assemblyCSharp ?
+        g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.Ready","RCLogoComponent") : 0;
+    if (!g_rcLogoClassH32) g_rcLogoClassH32=FindClassBySimpleName("RCLogoComponent");
+
+    g_rcLogoOnPointerClickH32=g_rcLogoClassH32 ?
+        g_il2cpp.class_get_method_from_name(g_rcLogoClassH32,"OnPointerClick",1) : 0;
+
+    BOOL clickSignatureOk=(g_rcLogoOnPointerClickH32 &&
+                           g_il2cpp.method_is_instance(g_rcLogoOnPointerClickH32) &&
+                           g_il2cpp.method_get_param_count(g_rcLogoOnPointerClickH32)==1);
+
+    const Il2CppAssembly* coreAss=g_il2cpp.domain_assembly_open(g_domain,"UnityEngine.CoreModule");
+    if (coreAss) g_coreImage=g_il2cpp.assembly_get_image(coreAss);
+    const Il2CppImage* corlib=g_il2cpp.get_corlib();
+    if (corlib) {
+        g_systemTypeClass=g_il2cpp.class_from_name(corlib,"System","Type");
+        g_boolClass=g_il2cpp.class_from_name(corlib,"System","Boolean");
+    }
+    Il2CppClass* objectClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Object") : 0;
+    if (objectClass && g_systemTypeClass && g_boolClass)
+        g_findObjectOfType2=FindMethodExact(objectClass,"FindObjectOfType",2,g_systemTypeClass,g_boolClass);
+
+    ReleaseIl2CppThread(attached,thread);
+
+    LogIntA("[LOGO H32] RCLogoComponent class resolved: ",g_rcLogoClassH32 ? 1 : 0);
+    LogIntA("[LOGO H32] OnPointerClick(instance,1 param) signature OK: ",clickSignatureOk ? 1 : 0);
+    LogIntA("[LOGO H32] Unity FindObjectOfType(Type,bool) bridge: ",g_findObjectOfType2 ? 1 : 0);
+
+    if (!clickSignatureOk || !g_findObjectOfType2) {
+        LogA("[LOGO H32] Metadata guard failed; vanilla logos retained.");
+        return FALSE;
+    }
+
+    HWND hwnd=0; DWORD tid=0;
+    for (int k=0;k<250;k++) {
+        HWND h=GetForegroundWindow();
+        if (h && IsWindow(h)) {
+            DWORD pid=0;
+            DWORD t=GetWindowThreadProcessId(h,&pid);
+            RECT r={};
+            if (pid==GetCurrentProcessId() && t && GetClientRect(h,&r) &&
+                (r.right-r.left)>=320 && (r.bottom-r.top)>=200) {
+                hwnd=h; tid=t; break;
+            }
+        }
+        Sleep(10);
+    }
+    if (!hwnd || !tid) {
+        LogA("[LOGO H32] Game window/thread unavailable in startup window; vanilla logos retained.");
+        return FALSE;
+    }
+
+    g_logoWindowH32=hwnd;
+    g_logoClicksH32=0;
+    g_logoMissLoggedH32=0;
+    g_logoLastAttemptMsH32=0;
+
+    g_logoHookH32=SetWindowsHookExW(WH_CALLWNDPROC,NativeLogoCallWndProcH32,g_self,tid);
+    if (!g_logoHookH32) {
+        LogA("[LOGO H32] SetWindowsHookExW failed; vanilla logos retained.");
+        return FALSE;
+    }
+
+    LogA("[LOGO H32] Temporary Unity main-thread hook installed. Only RCLogoComponent will be touched.");
+
+    // Drive a few harmless WM_NULL messages so the main-thread hook gets
+    // opportunities even during quiet logo frames. This is not keyboard/mouse input.
+    for (int k=0;k<120 && g_logoHookH32 && g_logoClicksH32<3;k++) {
+        PostMessageW(hwnd,WM_NULL,0,0);
+        Sleep(50);
+    }
+
+    if (g_logoHookH32) {
+        RemoveNativeLogoHookH32("[LOGO H32] Startup window ended; hook removed.");
+    }
+    LogIntA("[LOGO H32] Final native logo-skip call count: ",(int)g_logoClicksH32);
+    return g_logoClicksH32>0 ? TRUE : FALSE;
+}
+
 static BOOL RunWeaponCatalog() {
     Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
     Il2CppClass* inventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerInventoryComponent") : 0;
