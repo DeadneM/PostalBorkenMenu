@@ -428,7 +428,7 @@ static void LogSceneClusterNamesH26(const char* label, Il2CppObject* cluster) {
     }
 }
 
-static LRESULT CALLBACK EarlyLogoCallWndProcH26(int code, WPARAM wp, LPARAM lp) {
+static LRESULT __stdcall EarlyLogoCallWndProcH26(int code, WPARAM wp, LPARAM lp) {
     if (code>=0 && g_skipStartupLogos && !g_shuttingDown &&
         !g_earlyLogoAttemptedH26 && g_il2cpp.field_static_get_value &&
         g_introClusterFieldH26 && g_loadIntroClusterH26) {
