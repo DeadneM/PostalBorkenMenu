@@ -38,6 +38,16 @@ typedef DWORD (__stdcall *LPTHREAD_START_ROUTINE)(void*);
 typedef LRESULT (__stdcall *WNDPROC)(HWND, UINT, WPARAM, LPARAM);
 
 struct POINT { LONG x; LONG y; };
+struct PBM_MEMORY_BASIC_INFORMATION {
+    PVOID BaseAddress;
+    PVOID AllocationBase;
+    DWORD AllocationProtect;
+    WORD PartitionId;
+    SIZE_T RegionSize;
+    DWORD State;
+    DWORD Protect;
+    DWORD Type;
+};
 struct RECT { LONG left; LONG top; LONG right; LONG bottom; };
 typedef HANDLE HDC;
 typedef HANDLE HGDIOBJ;
@@ -89,6 +99,8 @@ __declspec(dllimport) HANDLE __stdcall CreateFileW(LPCWSTR, DWORD, DWORD, void*,
 __declspec(dllimport) BOOL __stdcall WriteFile(HANDLE, const void*, DWORD, DWORD*, void*);
 __declspec(dllimport) DWORD __stdcall SetFilePointer(HANDLE, LONG, LONG*, DWORD);
 __declspec(dllimport) BOOL __stdcall CloseHandle(HANDLE);
+__declspec(dllimport) SIZE_T __stdcall VirtualQuery(const void*, PBM_MEMORY_BASIC_INFORMATION*, SIZE_T);
+__declspec(dllimport) BOOL __stdcall VirtualProtect(void*, SIZE_T, DWORD, DWORD*);
 
 __declspec(dllimport) HWND __stdcall GetForegroundWindow(void);
 __declspec(dllimport) DWORD __stdcall GetWindowThreadProcessId(HWND, DWORD*);
@@ -135,6 +147,17 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 #define FILE_ATTRIBUTE_NORMAL 0x00000080UL
 #define FILE_END 2UL
 #define INVALID_HANDLE_VALUE ((HANDLE)(LONG_PTR)-1)
+#define MEM_COMMIT 0x00001000UL
+#define MEM_PRIVATE 0x00020000UL
+#define MEM_MAPPED 0x00040000UL
+#define PAGE_NOACCESS 0x01UL
+#define PAGE_READONLY 0x02UL
+#define PAGE_READWRITE 0x04UL
+#define PAGE_WRITECOPY 0x08UL
+#define PAGE_EXECUTE_READ 0x20UL
+#define PAGE_EXECUTE_READWRITE 0x40UL
+#define PAGE_EXECUTE_WRITECOPY 0x80UL
+#define PAGE_GUARD 0x100UL
 
 #define WS_OVERLAPPED 0x00000000L
 #define WS_CAPTION 0x00C00000L
@@ -234,6 +257,10 @@ static volatile LONG g_shuttingDown = 0;
 static volatile LONG g_noCrosshair = 0;
 static volatile LONG g_skipIntroVideos = 1;
 static volatile LONG g_introSkipPulseSent = 0;
+static volatile LONG g_h37EarlyScanRan = 0;
+static volatile LONG g_h37RegionsScanned = 0;
+static volatile LONG g_h37ExactMatches = 0;
+static volatile LONG g_h37Patched = 0;
 static DWORD g_lastCrosshairTick = 0;
 static volatile LONG g_crosshairReapplyCountdown = 0;
 static int g_scrollRow = 0;
@@ -253,6 +280,106 @@ static const int OVERLAY_H = 600;
 static const int ROW_Y = 112;
 static const int ROW_H = 29;
 static const int VISIBLE_ROWS = (OVERLAY_H - ROW_Y - 48) / ROW_H;
+
+
+/*
+    H37: early RAM-only PlayerSettings splash suppression.
+
+    The DXGI proxy calls PostalEarlySplashPatch() synchronously immediately after
+    LoadLibraryW("PostalBorkenMenu.asi") and before forwarding CreateDXGIFactory.
+    This is intentionally earlier than the normal H13 worker thread.
+
+    We search only committed readable MEM_PRIVATE/MEM_MAPPED regions for the exact
+    120-byte retail PlayerSettings sequence beginning at m_ShowUnitySplashScreen.
+    It includes the complete three-logo vector:
+      LOGO_RWS          pathID 5944, 2.0 s
+      LOGO_Hyperstrange pathID 5943, 3.0 s
+      LOGOS_Rest        pathID 5942, 3.0 s
+
+    No disk file is touched. Only byte 0 of an exact 120-byte RAM match changes
+    from 1 to 0. Maximum 8 exact matches are patched, fail-closed otherwise.
+*/
+static const BYTE g_h37PlayerSettingsSignature[120]={
+    0x01,0x00,0x00,0x00,0x00,0x00,0x80,0x3f,0x01,0x00,0x00,0x00,0x01,0x00,0x00,0x00,
+    0x01,0x00,0x00,0x00,0x00,0x00,0x80,0x3f,0x00,0x00,0x80,0x3f,0x00,0x00,0x80,0x3f,
+    0x00,0x00,0x80,0x3f,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x80,0x3f,
+    0x00,0x00,0x80,0x3f,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x80,0x3f,
+    0x00,0x00,0x80,0x3f,0x03,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x38,0x17,0x00,0x00,
+    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x40,0x01,0x00,0x00,0x00,0x37,0x17,0x00,0x00,
+    0x00,0x00,0x00,0x00,0x00,0x00,0x40,0x40,0x01,0x00,0x00,0x00,0x36,0x17,0x00,0x00,
+    0x00,0x00,0x00,0x00,0x00,0x00,0x40,0x40
+};
+
+static BOOL H37ReadableProtect(DWORD p) {
+    if (p & PAGE_GUARD) return FALSE;
+    DWORD base=p & 0xffUL;
+    return base==PAGE_READONLY || base==PAGE_READWRITE || base==PAGE_WRITECOPY ||
+           base==PAGE_EXECUTE_READ || base==PAGE_EXECUTE_READWRITE || base==PAGE_EXECUTE_WRITECOPY;
+}
+
+static BOOL H37Exact120(const BYTE* p) {
+    if (!p) return FALSE;
+    // Fast anchors first: flag, logo count, then first logo pathID.
+    if (p[0]!=0x01 || p[68]!=0x03 || p[72]!=0x01 || p[76]!=0x38 || p[77]!=0x17)
+        return FALSE;
+    for (int i=0;i<120;i++) if (p[i]!=g_h37PlayerSettingsSignature[i]) return FALSE;
+    return TRUE;
+}
+
+extern "C" __declspec(dllexport) DWORD __stdcall PostalEarlySplashPatch(void) {
+    if (g_h37EarlyScanRan) return (DWORD)g_h37Patched;
+    g_h37EarlyScanRan=1;
+
+    ULONG_PTR addr=0x10000ULL;
+    const ULONG_PTR maxAddr=0x00007FFFFFFEFFFFULL;
+    int patched=0;
+
+    while (addr<maxAddr && patched<8) {
+        PBM_MEMORY_BASIC_INFORMATION mbi={};
+        SIZE_T q=VirtualQuery((const void*)addr,&mbi,sizeof(mbi));
+        if (!q || !mbi.RegionSize) break;
+
+        ULONG_PTR base=(ULONG_PTR)mbi.BaseAddress;
+        ULONG_PTR next=base+(ULONG_PTR)mbi.RegionSize;
+        if (next<=addr) break;
+
+        if (mbi.State==MEM_COMMIT &&
+            (mbi.Type==MEM_PRIVATE || mbi.Type==MEM_MAPPED) &&
+            H37ReadableProtect(mbi.Protect) &&
+            mbi.RegionSize>=120)
+        {
+            g_h37RegionsScanned++;
+            BYTE* p=(BYTE*)mbi.BaseAddress;
+            SIZE_T limit=mbi.RegionSize-120;
+
+            __try {
+                for (SIZE_T i=0;i<=limit && patched<8;i++) {
+                    BYTE* s=p+i;
+                    // 0x44 points at the exact m_SplashScreenLogos count.
+                    if (s[0]!=0x01 || s[68]!=0x03 || s[72]!=0x01) continue;
+                    if (!H37Exact120(s)) continue;
+
+                    g_h37ExactMatches++;
+                    DWORD oldProtect=0;
+                    BOOL madeWritable=VirtualProtect(s,1,PAGE_READWRITE,&oldProtect);
+                    if (madeWritable) {
+                        s[0]=0;
+                        DWORD ignored=0;
+                        VirtualProtect(s,1,oldProtect,&ignored);
+                        g_h37Patched++;
+                        patched++;
+                    }
+                }
+            } __except(1) {
+                // A region changed protection during startup. Skip it and continue.
+            }
+        }
+
+        addr=next;
+    }
+
+    return (DWORD)g_h37Patched;
+}
 
 static int StrLenA(const char* s) { int n=0; if (!s) return 0; while (s[n]) ++n; return n; }
 static int StrLenW(const WCHAR* s) { int n=0; if (!s) return 0; while (s[n]) ++n; return n; }
