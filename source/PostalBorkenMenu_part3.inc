@@ -48,6 +48,7 @@ static void LoadConfig() {
     }
     g_noCrosshair=(LONG)GetPrivateProfileIntW(L"Settings",L"NoCrosshair",0,g_iniPath);
     g_skipIntroVideos=(LONG)GetPrivateProfileIntW(L"Settings",L"SkipIntroVideos",1,g_iniPath);
+    g_skipStartupLogos=(LONG)GetPrivateProfileIntW(L"Settings",L"SkipStartupLogos",1,g_iniPath);
 }
 
 // GDI is resolved dynamically so the ASI remains linked only to kernel32/user32.
@@ -642,20 +643,37 @@ static BOOL HookGameWindow() {
 
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
+    LoadConfig();
+
+    BOOL startupHookOk=TRUE;
+    if (g_skipStartupLogos)
+        startupHookOk=InstallStartupCreateFileHook();
+
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42 CLEAN ARSENAL + FIVE TABS + SKIP INTRO TEST");
+    LogA("PostalBorkenMenu V2A42-H30 ASI-ONLY MEMORY SCENE-MAP TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
-    LogA("No EXE/GameAssembly patching is performed.");
-    LoadConfig();
+    LogA("No EXE/GameAssembly/Unity asset patching is performed.");
+    if (g_skipStartupLogos)
+        LogA(startupHookOk
+            ? "[STARTUP H30] Fail-closed UnityPlayer CreateFileW hook installed."
+            : "[STARTUP H30] ERROR: startup hook could not be installed; vanilla startup preserved.");
+    else
+        LogA("[STARTUP H30] SkipStartupLogos disabled in INI.");
     if (g_dormantExactNameResolver)
         LogA("[OK] Exact-name WeaponId resolver linked; cleaned Arsenal/Special dispatcher active.");
     else
         LogA("[ERROR] Exact-name WeaponId resolver was not retained.");
     LogA(g_skipIntroVideos ? "[INTRO] Skip Intro Videos config: ENABLED (default)." : "[INTRO] Skip Intro Videos config: DISABLED.");
-    if (!InitIl2Cpp()) return 0;
-    if (!CreateOverlayWindow()) return 0;
-    if (!HookGameWindow()) return 0;
+    if (!InitIl2Cpp()) { RestoreStartupCreateFileHook(); return 0; }
+    if (g_skipStartupLogos) {
+        if (g_startupRedirectDone && g_sceneMapPatched)
+            LogA("[STARTUP H30] SUCCESS: scene map swapped in memory and level0 redirected to level1.");
+        else if (!g_startupRedirectDone)
+            LogA("[STARTUP H30] No safe redirect committed; vanilla startup path retained.");
+    }
+    if (!CreateOverlayWindow()) { RestoreStartupCreateFileHook(); return 0; }
+    if (!HookGameWindow()) { RestoreStartupCreateFileHook(); return 0; }
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
     LogA("[READY] Five tabs active. Arsenal has 14 single weapons, Special has 4 non-Dong entries. Skip Intro checkbox persists in INI.");
 
@@ -673,6 +691,7 @@ static DWORD __stdcall ModThread(void*) {
         Sleep(10);
     }
 
+    RestoreStartupCreateFileHook();
     // Same-thread overlay destruction. No Unity/IL2CPP calls are made here.
     if (g_menuHwnd && IsWindow(g_menuHwnd)) DestroyWindow(g_menuHwnd);
     g_menuHwnd=0;
