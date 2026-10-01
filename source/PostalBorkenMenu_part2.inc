@@ -61,6 +61,9 @@ static Il2CppObject* g_canvasRendererTypeObject = 0;
 static Il2CppClass* g_timeManagerClass = 0;
 static const MethodInfo* g_timeScaleSetter = 0;
 static const MethodInfo* g_timeScaleGetter = 0;
+static Il2CppClass* g_sceneManagerClassH25 = 0;
+static const MethodInfo* g_loadIntroClusterH25 = 0;
+static volatile LONG g_startupLogoBypassAttemptedH25 = 0;
 
 static BOOL IsSynthetic(const char* n) {
     return n && n[0]=='_' && n[1]=='_';
@@ -82,6 +85,50 @@ static BOOL EnsureIl2CppThread(BOOL* attachedByUs, void** threadOut) {
 static void ReleaseIl2CppThread(BOOL attachedByUs, void* thread) {
     if (attachedByUs && thread && g_il2cpp.thread_detach) g_il2cpp.thread_detach(thread);
 }
+
+
+static BOOL InvokeStartupLogoBypassH25() {
+    if (!g_skipStartupLogos) {
+        LogA("[H25 LOGOS] SkipStartupLogos disabled; native transition not invoked.");
+        return TRUE;
+    }
+    if (g_startupLogoBypassAttemptedH25) {
+        LogA("[H25 LOGOS] Bypass already attempted; duplicate request ignored.");
+        return TRUE;
+    }
+    g_startupLogoBypassAttemptedH25=1;
+
+    if (!g_loadIntroClusterH25) {
+        LogA("[H25 LOGOS] SceneManager.LoadIntroCluster unresolved; no transition invoked.");
+        return FALSE;
+    }
+    if (g_il2cpp.method_is_instance(g_loadIntroClusterH25) ||
+        g_il2cpp.method_get_param_count(g_loadIntroClusterH25)!=0) {
+        LogA("[H25 LOGOS] LoadIntroCluster signature guard failed; no transition invoked.");
+        return FALSE;
+    }
+
+    BOOL attached=FALSE; void* thread=0;
+    if (!EnsureIl2CppThread(&attached,&thread)) {
+        LogA("[H25 LOGOS] Could not attach game-window thread to IL2CPP.");
+        return FALSE;
+    }
+
+    LogA("[H25 LOGOS] Invoking static SceneManager.LoadIntroCluster() on game-window thread.");
+    Il2CppException* ex=0;
+    g_il2cpp.runtime_invoke(g_loadIntroClusterH25,0,0,&ex);
+    if (ex) {
+        LogA("[H25 LOGOS] LoadIntroCluster threw:");
+        FormatExceptionToLog(ex);
+        ReleaseIl2CppThread(attached,thread);
+        return FALSE;
+    }
+
+    ReleaseIl2CppThread(attached,thread);
+    LogA("[H25 LOGOS] LoadIntroCluster returned without managed exception.");
+    return TRUE;
+}
+
 
 static int ParseArgsToAscii(const WCHAR* src, char out[8][128]) {
     int count=0; int i=0;
@@ -2349,6 +2396,19 @@ static BOOL InitIl2Cpp() {
     g_currentCrosshairField=g_crosshairControllerClass ? g_il2cpp.class_get_field_from_name(g_crosshairControllerClass,"_currentCrosshair") : 0;
 
     RunTargetedNoVideoAndCrosshairAuditH13();
+
+    // H25: resolve the exact static transition proven by H24. Invocation is
+    // deliberately deferred to the game-window WndProc, never this worker.
+    g_sceneManagerClassH25=FindClassBySimpleName("SceneManager");
+    g_loadIntroClusterH25=g_sceneManagerClassH25 ? g_il2cpp.class_get_method_from_name(g_sceneManagerClassH25,"LoadIntroCluster",0) : 0;
+    if (g_loadIntroClusterH25 &&
+        !g_il2cpp.method_is_instance(g_loadIntroClusterH25) &&
+        g_il2cpp.method_get_param_count(g_loadIntroClusterH25)==0)
+        LogA("[H25 LOGOS] SceneManager.LoadIntroCluster static bridge resolved.");
+    else {
+        g_loadIntroClusterH25=0;
+        LogA("[H25 LOGOS] SceneManager.LoadIntroCluster bridge unresolved/signature mismatch.");
+    }
 
     g_timeManagerClass=FindClassBySimpleName("TimeManager");
     g_timeScaleSetter=g_timeManagerClass ? FindMethodExact(g_timeManagerClass,"SetGameTimeScale",1,g_floatClass) : 0;
