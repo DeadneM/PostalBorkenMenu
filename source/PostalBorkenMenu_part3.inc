@@ -643,10 +643,13 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42 CLEAN ARSENAL + FIVE TABS + SKIP INTRO TEST");
+    LogA("PostalBorkenMenu V2A42-H37 EARLY PLAYERSETTINGS RAM SPLASH TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
-    LogA("No EXE/GameAssembly patching is performed.");
+    LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
+    LogIntA("[SPLASH H37] committed readable regions scanned before DXGI: ",(int)g_h37RegionsScanned);
+    LogIntA("[SPLASH H37] exact 120-byte PlayerSettings matches: ",(int)g_h37ExactMatches);
+    LogIntA("[SPLASH H37] m_ShowUnitySplashScreen RAM patches: ",(int)g_h37Patched);
     LoadConfig();
     if (g_dormantExactNameResolver)
         LogA("[OK] Exact-name WeaponId resolver linked; cleaned Arsenal/Special dispatcher active.");
