@@ -437,9 +437,12 @@ static LRESULT __stdcall EarlyLogoCallWndProcH26(int code, WPARAM wp, LPARAM lp)
         g_il2cpp.field_static_get_value(g_introClusterFieldH26,&intro);
 
         if (!intro) {
-            if (InterlockedCompareExchange(&g_earlyLogoNullLoggedH26,1,0)==0)
+            if (!g_earlyLogoNullLoggedH26) {
+                g_earlyLogoNullLoggedH26=1;
                 LogA("[H26 EARLY] _introCluster is still null; waiting on Unity main-thread messages.");
-        } else if (InterlockedCompareExchange(&g_earlyLogoAttemptedH26,1,0)==0) {
+            }
+        } else if (!g_earlyLogoAttemptedH26) {
+            g_earlyLogoAttemptedH26=1;
             BOOL attached=FALSE; void* thread=0;
             if (!EnsureIl2CppThread(&attached,&thread)) {
                 LogA("[H26 EARLY] Main-thread IL2CPP attachment check failed; bypass aborted.");
