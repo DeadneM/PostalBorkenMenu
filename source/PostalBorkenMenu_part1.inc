@@ -380,7 +380,8 @@ static HANDLE __stdcall StartupSceneCreateFileWHook(
         int n=StrLenW(fileName);
         if (n>0 && n<MAX_PATH_W) {
             WCHAR redirected[MAX_PATH_W];
-            for (int i=0;i<=n;i++) redirected[i]=fileName[i];
+            volatile WCHAR* redirectedVolatile=redirected;
+            for (int i=0;i<=n;i++) redirectedVolatile[i]=fileName[i];
             redirected[n-1]=L'1';
 
             HANDLE h=realFn(redirected,desiredAccess,shareMode,securityAttributes,
