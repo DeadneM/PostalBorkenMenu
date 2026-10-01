@@ -1,9 +1,9 @@
-name: Build V2A42-H27 Early IntroCluster Hook
+name: Build V2A42-H27 Instance IntroCluster Hook
 
 on:
   push:
     branches:
-      - dev/v2a42-h27-early-introcluster-hook
+      - dev/v2a42-h27-instance-introcluster-hook
   workflow_dispatch:
 
 permissions:
