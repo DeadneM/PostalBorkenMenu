@@ -375,6 +375,104 @@ static void CatalogManagedStringToAscii(Il2CppString* str, char* out, int cap) {
     out[n]=0;
 }
 
+
+static BOOL ContainsAsciiNoCaseH34(const char* text,const char* needle) {
+    if (!text || !needle || !needle[0]) return FALSE;
+    for (int i=0;text[i];i++) {
+        int j=0;
+        while (needle[j] && text[i+j]) {
+            char a=text[i+j], b=needle[j];
+            if (a>='A' && a<='Z') a=(char)(a-'A'+'a');
+            if (b>='A' && b<='Z') b=(char)(b-'A'+'a');
+            if (a!=b) break;
+            ++j;
+        }
+        if (!needle[j]) return TRUE;
+    }
+    return FALSE;
+}
+
+static BOOL StartsWithAsciiH34(const char* text,const char* prefix) {
+    if (!text || !prefix) return FALSE;
+    int i=0;
+    while (prefix[i]) {
+        if (text[i]!=prefix[i]) return FALSE;
+        ++i;
+    }
+    return TRUE;
+}
+
+static BOOL IsInterestingStartupClassH34(const char* ns,const char* name) {
+    if (ns && StartsWithAsciiH34(ns,"Hyperstrange.PBD.Ready")) return TRUE;
+    if (!name) return FALSE;
+    const char* keys[]={"logo","splash","intro","boot","startup","start","publisher","platform","ready","cinematic","video","movie"};
+    for (int i=0;i<(int)(sizeof(keys)/sizeof(keys[0]));i++)
+        if (ContainsAsciiNoCaseH34(name,keys[i])) return TRUE;
+    return FALSE;
+}
+
+static void DumpStartupClassH34(Il2CppClass* klass) {
+    if (!klass) return;
+    const char* ns=g_il2cpp.class_get_namespace(klass);
+    const char* name=g_il2cpp.class_get_name(klass);
+
+    LogA("[LOGO H34 CLASS] ========================================");
+    LogA("[LOGO H34] Namespace:");
+    LogA(ns && ns[0] ? ns : "<empty>");
+    LogA("[LOGO H34] Class:");
+    LogA(name && name[0] ? name : "<unnamed>");
+
+    void* mi=0;
+    const MethodInfo* m=0;
+    int mc=0;
+    while ((m=g_il2cpp.class_get_methods(klass,&mi))!=0 && mc<128) {
+        const char* mn=g_il2cpp.method_get_name(m);
+        LogA("[LOGO H34 METHOD]");
+        LogA(mn ? mn : "<unnamed>");
+        LogIntA("[LOGO H34] param count: ",(int)g_il2cpp.method_get_param_count(m));
+        LogIntA("[LOGO H34] instance: ",g_il2cpp.method_is_instance(m) ? 1 : 0);
+        ++mc;
+    }
+    LogIntA("[LOGO H34] methods logged: ",mc);
+
+    void* fi=0;
+    const FieldInfo* f=0;
+    int fc=0;
+    while ((f=g_il2cpp.class_get_fields(klass,&fi))!=0 && fc<128) {
+        const char* fn=g_il2cpp.field_get_name(f);
+        LogA("[LOGO H34 FIELD]");
+        LogA(fn ? fn : "<unnamed>");
+        ++fc;
+    }
+    LogIntA("[LOGO H34] fields logged: ",fc);
+}
+
+static void RunStartupNamespaceAuditH34() {
+    LogA("[LOGO H34] ===== STARTUP / READY METADATA AUDIT =====");
+    if (!g_assemblyCSharp) {
+        LogA("[LOGO H34] Assembly-CSharp image unavailable.");
+        return;
+    }
+
+    SIZE_T n=g_il2cpp.image_get_class_count(g_assemblyCSharp);
+    int matched=0;
+    for (SIZE_T i=0;i<n;i++) {
+        Il2CppClass* c=g_il2cpp.image_get_class(g_assemblyCSharp,i);
+        if (!c) continue;
+        const char* ns=g_il2cpp.class_get_namespace(c);
+        const char* name=g_il2cpp.class_get_name(c);
+        if (!IsInterestingStartupClassH34(ns,name)) continue;
+        ++matched;
+        DumpStartupClassH34(c);
+        if (matched>=256) {
+            LogA("[LOGO H34] Defensive candidate cap reached.");
+            break;
+        }
+    }
+    LogIntA("[LOGO H34] Candidate classes logged: ",matched);
+    LogA("[LOGO H34] ===== AUDIT END =====");
+}
+
 static BOOL RunWeaponCatalog() {
     Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
     Il2CppClass* inventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerInventoryComponent") : 0;
@@ -2348,6 +2446,7 @@ static BOOL InitIl2Cpp() {
     g_crosshairControllerClass=FindClassBySimpleName("PlayerCrosshairController");
     g_currentCrosshairField=g_crosshairControllerClass ? g_il2cpp.class_get_field_from_name(g_crosshairControllerClass,"_currentCrosshair") : 0;
 
+    RunStartupNamespaceAuditH34();
     RunTargetedNoVideoAndCrosshairAuditH13();
 
     g_timeManagerClass=FindClassBySimpleName("TimeManager");
