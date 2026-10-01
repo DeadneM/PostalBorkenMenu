@@ -273,6 +273,8 @@ static const int ROW_Y = 112;
 static const int ROW_H = 29;
 static const int VISIBLE_ROWS = (OVERLAY_H - ROW_Y - 48) / ROW_H;
 
+static void LogA(const char* s);
+
 
 /*
     H36 ASI-only Unity splash suppression.
@@ -511,7 +513,7 @@ static BOOL InstallSplashReadHookH36() {
     return FALSE;
 }
 
-static void LogA(const char* s);\nstatic int StrLenA(const char* s) { int n=0; if (!s) return 0; while (s[n]) ++n; return n; }
+static int StrLenA(const char* s) { int n=0; if (!s) return 0; while (s[n]) ++n; return n; }
 static int StrLenW(const WCHAR* s) { int n=0; if (!s) return 0; while (s[n]) ++n; return n; }
 static BOOL StrEqA(const char* a, const char* b) {
     if (!a || !b) return FALSE;
