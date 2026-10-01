@@ -1,3 +1,43 @@
+PostalBorkenMenu V2A42-H24 SCENEMANAGER OWNER AUDIT TEST
+POSTAL: Brain-Damaged
+
+STATUS
+Diagnostic candidate only. Canonical gameplay/source remains V2A42-H13.
+H23 completed safely and provided typed SceneCluster transition metadata.
+
+H23 FINDINGS
+- SceneField carries scene name (String), UnityEngine.Object scene asset, and Ready SceneData.
+- SceneCluster owns SceneField[] _scenes and exposes Load().
+- SceneClusterSerializer is a Ready VFS serializer/deserializer, not identified as the startup controller.
+- <LoadClusterAfterFadeIn>d__12 captures only coroutine state/current, with no captured SceneCluster or instance field.
+
+H24 OBJECTIVE
+Identify the exact owner/signature of:
+- LoadClusterAfterFadeIn
+- LoadIntroCluster
+- LoadTitleCluster
+- LoadCluster
+
+H24 also performs a typed metadata audit of SceneManager, including field types when il2cpp_field_get_type is available.
+
+SAFETY
+- metadata inspection only
+- no Unity object enumeration
+- no field writes
+- no runtime_invoke
+- no cluster load calls
+- no simulated input
+- no PEB/process command-line modification
+- no game binary patching
+- H13 gameplay/menu behavior unchanged
+
+TEST
+Launch normally to the main menu, exit, and send PostalBorkenMenu.log.
+
+======================================================================
+H23 DIAGNOSTIC HISTORY
+======================================================================
+
 PostalBorkenMenu V2A42-H23 SCENECLUSTER TRANSITION METADATA TEST
 POSTAL: Brain-Damaged
 
