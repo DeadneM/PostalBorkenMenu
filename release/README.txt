@@ -1,37 +1,47 @@
-PostalBorkenMenu V2A42-H26 EARLY INTROCLUSTER HOOK TEST
+PostalBorkenMenu V2A42-H27 INSTANCE INTROCLUSTER HOOK TEST
 POSTAL: Brain-Damaged
 
 STATUS
 Active diagnostic candidate only. Canonical remains V2A42-H13.
 
-H25 RESULT
-H25 resolved and invoked static SceneManager.LoadIntroCluster() without a managed exception, but the user observed that nothing was visually skipped. H25 invoked only after the normal 2500 ms IL2CPP delay plus the H13 three-second stable-window wait, so timing remained an unresolved variable.
+H26 RESULT
+H26 correctly resolved static SceneManager.LoadIntroCluster(), but its startup guard incorrectly required SceneManager._introCluster and _titleCluster to be static fields.
+The user log proves both fields exist but neither carries the static flag, so H26 aborted before installing the early transition and recorded zero LoadIntroCluster attempts.
 
-H26 OBJECTIVE
-Determine whether LoadIntroCluster can skip PlatformIntro when invoked at the earliest valid native point, and log the actual cluster contents used by the game.
+H27 OBJECTIVE
+Repeat H26 with exactly one architectural correction: treat _introCluster and _titleCluster as fields on the live SceneManager instance, while keeping LoadIntroCluster() as the same one-shot transition target.
 
-H26 ARCHITECTURE
-- Starts strictly from V2A42-H13.
-- Adds independent [Settings] SkipStartupLogos=1.
-- Resolves only the minimal early metadata needed for SceneManager.LoadIntroCluster and SceneManager._introCluster.
-- Requires _introCluster to be a real static field.
+H27 ARCHITECTURE
+- Starts from the H26 branch but preserves V2A42-H13 as the canonical gameplay base.
+- Adds no EXE/GameAssembly/UnityPlayer patching.
+- Adds no simulated keyboard or mouse input.
+- Resolves the same static SceneManager.LoadIntroCluster() method.
+- Resolves _introCluster and _titleCluster without requiring static field flags.
+- Resolves UnityEngine.Object.FindObjectOfType(Type,bool) early.
 - Installs a one-shot WH_CALLWNDPROC hook on the game's own UI thread.
-- Does NOT synthesize keyboard or mouse input.
-- Waits until _introCluster becomes non-null.
-- Logs the actual SceneField names in _introCluster and, when available, _titleCluster.
-- Invokes SceneManager.LoadIntroCluster() exactly once on the Unity/window thread.
+- On Unity/window-thread messages, searches for the live SceneManager instance.
+- Reads _introCluster and _titleCluster from that instance with il2cpp_field_get_value.
+- Waits until the real instance _introCluster becomes non-null.
+- Logs the SceneField contents of the intro cluster and title cluster when available.
+- Invokes SceneManager.LoadIntroCluster() exactly once.
 - Removes the temporary hook immediately after the attempt.
-- If the early trigger never becomes valid, the hook is removed after normal H13 window setup with NO late fallback.
-- Normal H13 initialization, overlay, gameplay features and shutdown fencing remain intact.
-- DXGI log reset behavior is preserved so each launch starts a fresh log.
+- If the live SceneManager or intro cluster never becomes ready before normal H13 window setup, the hook is removed with no late fallback.
+- Normal H13 overlay, hotkeys, Give All Weapons, No Crosshair, TimeScale and clean shutdown remain unchanged.
+- DXGI one-launch-one-log behavior remains unchanged.
 
 INTERPRETATION
-- If H26 visibly skips startup logos, H25 was too late.
-- If H26 invokes early with a valid non-null intro cluster but nothing is skipped, LoadIntroCluster is not sufficient to remove PlatformIntro and the next target must be the PlatformIntro unload/transition completion path.
-- If _introCluster never becomes non-null during the early window, no active transition is attempted.
+- If H27 visibly skips PlatformIntro, H25 was too late and H26 failed only because of the static-field assumption.
+- If H27 logs a live SceneManager, a non-null _introCluster and a successful early LoadIntroCluster() call but nothing is skipped, LoadIntroCluster is conclusively the wrong transition target. The next build should target PlatformIntro completion/unload rather than keep retrying this method.
+- If the SceneManager exists but _introCluster stays null, the next diagnostic should identify where that field is initialized.
 
 TEST
-Launch normally. Note exactly which logos/video/menu screens appear. Quit normally and send PostalBorkenMenu.log.
+Launch normally with SkipStartupLogos=1. Note exactly which startup logos/video/menu screens appear. Quit normally and send PostalBorkenMenu.log.
+
+PACKAGE
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
 
 ======================================================================
 V2A42-H13 CANONICAL HISTORY
