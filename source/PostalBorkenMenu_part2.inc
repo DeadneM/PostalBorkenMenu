@@ -2277,6 +2277,145 @@ static void ExecuteCommandIndex(int i) {
     ReleaseIl2CppThread(attached,thread);
 }
 
+
+
+// -----------------------------------------------------------------------------
+// Direct PlatformIntro scene bypass
+// -----------------------------------------------------------------------------
+// The developer/publisher logo sequence lives in Assets/Scenes/PlatformIntro.unity.
+// The separate opening cinematic lives in Assets/Scenes/Intro.unity and must remain
+// untouched by this path.  Instead of touching game SceneManager clusters, redirect
+// Unity itself from PlatformIntro to Intro at the first safe main-thread callback.
+
+static HHOOK g_platformIntroSceneHook=0;
+static const MethodInfo* g_unityLoadSceneByName=0;
+static volatile LONG g_platformIntroSceneAttempted=0;
+
+static LRESULT __stdcall PlatformIntroSceneHookProc(int code, WPARAM wp, LPARAM lp) {
+    HHOOK currentHook=g_platformIntroSceneHook;
+
+    if (code>=0 && !g_shuttingDown && !g_platformIntroSceneAttempted && g_unityLoadSceneByName) {
+        BOOL attached=FALSE; void* thread=0;
+        if (EnsureIl2CppThread(&attached,&thread)) {
+            g_platformIntroSceneAttempted=1;
+            LogA("[PLATFORMINTRO] Unity main-thread callback reached; redirecting PlatformIntro -> Intro.");
+
+            Il2CppString* sceneName=g_il2cpp.string_new("Intro");
+            if (!sceneName) {
+                LogA("[PLATFORMINTRO] Failed to allocate managed scene name.");
+            } else {
+                void* pars[1]; pars[0]=sceneName;
+                Il2CppException* ex=0;
+                g_il2cpp.runtime_invoke(g_unityLoadSceneByName,0,pars,&ex);
+                if (ex) {
+                    LogA("[PLATFORMINTRO] Unity SceneManager.LoadScene(\"Intro\") threw:");
+                    FormatExceptionToLog(ex);
+                } else {
+                    LogA("[PLATFORMINTRO] Unity SceneManager.LoadScene(\"Intro\") returned without managed exception.");
+                }
+            }
+
+            ReleaseIl2CppThread(attached,thread);
+
+            HHOOK old=g_platformIntroSceneHook;
+            g_platformIntroSceneHook=0;
+            if (old) UnhookWindowsHookEx(old);
+            currentHook=old;
+            LogA("[PLATFORMINTRO] One-shot startup-scene hook removed.");
+        }
+    }
+
+    return CallNextHookEx(currentHook,code,wp,lp);
+}
+
+static BOOL InstallPlatformIntroSceneBypass() {
+    LogA("[PLATFORMINTRO] Direct scene bypass enabled: PlatformIntro -> Intro.");
+
+    for (int k=0;k<600 && !g_gameAssembly;k++) {
+        g_gameAssembly=GetModuleHandleW(L"GameAssembly.dll");
+        if (!g_gameAssembly) Sleep(10);
+    }
+    if (!g_gameAssembly) {
+        LogA("[PLATFORMINTRO] GameAssembly.dll unavailable in early window.");
+        return FALSE;
+    }
+    if (!ResolveIl2CppApi()) {
+        LogA("[PLATFORMINTRO] IL2CPP export resolution failed.");
+        return FALSE;
+    }
+
+    for (int k=0;k<200 && !g_domain;k++) {
+        g_domain=g_il2cpp.domain_get();
+        if (!g_domain) Sleep(10);
+    }
+    if (!g_domain) {
+        LogA("[PLATFORMINTRO] IL2CPP domain unavailable in early window.");
+        return FALSE;
+    }
+
+    BOOL attached=FALSE; void* thread=0;
+    if (!EnsureIl2CppThread(&attached,&thread)) {
+        LogA("[PLATFORMINTRO] Could not attach early metadata worker.");
+        return FALSE;
+    }
+
+    const Il2CppAssembly* coreAss=0;
+    for (int k=0;k<200 && !coreAss;k++) {
+        coreAss=g_il2cpp.domain_assembly_open(g_domain,"UnityEngine.CoreModule");
+        if (!coreAss) Sleep(10);
+    }
+    g_coreImage=coreAss ? g_il2cpp.assembly_get_image(coreAss) : 0;
+
+    const Il2CppImage* corlib=g_il2cpp.get_corlib();
+    g_stringClass=corlib ? g_il2cpp.class_from_name(corlib,"System","String") : 0;
+
+    Il2CppClass* unitySceneManager=g_coreImage ?
+        g_il2cpp.class_from_name(g_coreImage,"UnityEngine.SceneManagement","SceneManager") : 0;
+
+    g_unityLoadSceneByName=(unitySceneManager && g_stringClass) ?
+        FindMethodExact(unitySceneManager,"LoadScene",1,g_stringClass) : 0;
+
+    ReleaseIl2CppThread(attached,thread);
+
+    LogIntA("[PLATFORMINTRO] Unity SceneManager class: ",unitySceneManager ? 1 : 0);
+    LogIntA("[PLATFORMINTRO] LoadScene(string) resolved: ",g_unityLoadSceneByName ? 1 : 0);
+
+    if (!g_unityLoadSceneByName) {
+        LogA("[PLATFORMINTRO] Direct scene redirect metadata guard failed.");
+        return FALSE;
+    }
+
+    HWND hwnd=0; DWORD tid=0;
+    for (int k=0;k<300;k++) {
+        HWND h=GetForegroundWindow();
+        if (h && IsWindow(h)) {
+            DWORD pid=0;
+            DWORD t=GetWindowThreadProcessId(h,&pid);
+            RECT r={};
+            if (pid==GetCurrentProcessId() && t && GetClientRect(h,&r) &&
+                (r.right-r.left)>=320 && (r.bottom-r.top)>=200) {
+                hwnd=h; tid=t; break;
+            }
+        }
+        Sleep(10);
+    }
+
+    if (!hwnd || !tid) {
+        LogA("[PLATFORMINTRO] Game window/thread unavailable in early window.");
+        return FALSE;
+    }
+
+    g_platformIntroSceneHook=SetWindowsHookExW(WH_CALLWNDPROC,PlatformIntroSceneHookProc,g_self,tid);
+    if (!g_platformIntroSceneHook) {
+        LogA("[PLATFORMINTRO] SetWindowsHookExW failed.");
+        return FALSE;
+    }
+
+    LogA("[PLATFORMINTRO] One-shot Unity main-thread hook installed.");
+    PostMessageW(hwnd,WM_NULL,0,0);
+    return TRUE;
+}
+
 static BOOL InitIl2Cpp() {
     LogA("[ .. ] Waiting for GameAssembly.dll...");
     for (int k=0;k<600 && !g_gameAssembly;k++) { g_gameAssembly=GetModuleHandleW(L"GameAssembly.dll"); if(!g_gameAssembly) Sleep(100); }
