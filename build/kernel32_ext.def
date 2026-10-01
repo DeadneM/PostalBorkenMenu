@@ -19,3 +19,5 @@ CloseHandle
 FindFirstFileW
 FindNextFileW
 FindClose
+VirtualQuery
+VirtualProtect
