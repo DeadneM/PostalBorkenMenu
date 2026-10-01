@@ -48,6 +48,7 @@ static void LoadConfig() {
     }
     g_noCrosshair=(LONG)GetPrivateProfileIntW(L"Settings",L"NoCrosshair",0,g_iniPath);
     g_skipIntroVideos=(LONG)GetPrivateProfileIntW(L"Settings",L"SkipIntroVideos",1,g_iniPath);
+    g_skipStartupLogos=(LONG)GetPrivateProfileIntW(L"Settings",L"SkipStartupLogos",1,g_iniPath);
 }
 
 // GDI is resolved dynamically so the ASI remains linked only to kernel32/user32.
@@ -422,6 +423,11 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         ExecuteNativeDlcWheel(lp ? TRUE : FALSE);
         return 0;
     }
+    if (msg==WM_APP_STARTUPLOGOS) {
+        if (g_ready && !g_shuttingDown) InvokeStartupLogoBypassH25();
+        return 0;
+    }
+
     if (msg==WM_APP_CROSSHAIR) {
         if (g_ready && !g_shuttingDown) {
             BOOL attached=FALSE; void* thread=0;
@@ -643,7 +649,7 @@ static BOOL HookGameWindow() {
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42 CLEAN ARSENAL + FIVE TABS + SKIP INTRO TEST");
+    LogA("PostalBorkenMenu V2A42-H25 NATIVE STARTUP LOGO BYPASS TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly patching is performed.");
@@ -653,9 +659,14 @@ static DWORD __stdcall ModThread(void*) {
     else
         LogA("[ERROR] Exact-name WeaponId resolver was not retained.");
     LogA(g_skipIntroVideos ? "[INTRO] Skip Intro Videos config: ENABLED (default)." : "[INTRO] Skip Intro Videos config: DISABLED.");
+    LogA(g_skipStartupLogos ? "[H25 LOGOS] SkipStartupLogos config: ENABLED (default)." : "[H25 LOGOS] SkipStartupLogos config: DISABLED.");
     if (!InitIl2Cpp()) return 0;
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
+    if (g_skipStartupLogos && g_loadIntroClusterH25) {
+        LogA("[H25 LOGOS] Queuing one native PlatformIntro -> Intro transition on game-window thread.");
+        PostMessageW(g_gameHwnd,WM_APP_STARTUPLOGOS,0,0);
+    }
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
     LogA("[READY] Five tabs active. Arsenal has 14 single weapons, Special has 4 non-Dong entries. Skip Intro checkbox persists in INI.");
 
