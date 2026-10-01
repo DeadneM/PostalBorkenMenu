@@ -36,6 +36,8 @@ typedef const char* LPCSTR;
 typedef char* LPSTR;
 typedef DWORD (__stdcall *LPTHREAD_START_ROUTINE)(void*);
 typedef LRESULT (__stdcall *WNDPROC)(HWND, UINT, WPARAM, LPARAM);
+typedef HANDLE HHOOK;
+typedef LRESULT (__stdcall *HOOKPROC)(int, WPARAM, LPARAM);
 
 struct POINT { LONG x; LONG y; };
 struct RECT { LONG left; LONG top; LONG right; LONG bottom; };
@@ -78,6 +80,7 @@ __declspec(dllimport) void* __stdcall GetProcAddress(HMODULE, LPCSTR);
 __declspec(dllimport) HMODULE __stdcall LoadLibraryW(LPCWSTR);
 __declspec(dllimport) HANDLE __stdcall CreateThread(void*, SIZE_T, LPTHREAD_START_ROUTINE, void*, DWORD, DWORD*);
 __declspec(dllimport) void __stdcall Sleep(DWORD);
+__declspec(dllimport) ULONGLONG __stdcall GetTickCount64(void);
 __declspec(dllimport) DWORD __stdcall GetCurrentProcessId(void);
 __declspec(dllimport) DWORD __stdcall GetModuleFileNameW(HMODULE, LPWSTR, DWORD);
 __declspec(dllimport) UINT __stdcall GetSystemDirectoryW(LPWSTR, UINT);
@@ -95,6 +98,9 @@ __declspec(dllimport) DWORD __stdcall GetWindowThreadProcessId(HWND, DWORD*);
 __declspec(dllimport) LONG_PTR __stdcall SetWindowLongPtrW(HWND, int, LONG_PTR);
 __declspec(dllimport) LRESULT __stdcall CallWindowProcW(WNDPROC, HWND, UINT, WPARAM, LPARAM);
 __declspec(dllimport) BOOL __stdcall PostMessageW(HWND, UINT, WPARAM, LPARAM);
+__declspec(dllimport) HHOOK __stdcall SetWindowsHookExW(int, HOOKPROC, HINSTANCE, DWORD);
+__declspec(dllimport) BOOL __stdcall UnhookWindowsHookEx(HHOOK);
+__declspec(dllimport) LRESULT __stdcall CallNextHookEx(HHOOK, int, WPARAM, LPARAM);
 __declspec(dllimport) BOOL __stdcall ShowWindow(HWND, int);
 __declspec(dllimport) HWND __stdcall CreateWindowExW(DWORD, LPCWSTR, LPCWSTR, DWORD, int, int, int, int, HWND, HMENU, HINSTANCE, void*);
 __declspec(dllimport) LRESULT __stdcall DefWindowProcW(HWND, UINT, WPARAM, LPARAM);
@@ -154,7 +160,9 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 #define SW_SHOWNORMAL 1
 #define SW_SHOW 5
 #define GWLP_WNDPROC (-4)
+#define WH_CALLWNDPROC 4
 
+#define WM_NULL 0x0000
 #define WM_DESTROY 0x0002
 #define WM_NCDESTROY 0x0082
 #define WM_CLOSE 0x0010
@@ -233,6 +241,7 @@ static volatile LONG g_menuVisible = 0;
 static volatile LONG g_shuttingDown = 0;
 static volatile LONG g_noCrosshair = 0;
 static volatile LONG g_skipIntroVideos = 1;
+static volatile LONG g_skipStartupLogos = 1;
 static volatile LONG g_introSkipPulseSent = 0;
 static DWORD g_lastCrosshairTick = 0;
 static volatile LONG g_crosshairReapplyCountdown = 0;
