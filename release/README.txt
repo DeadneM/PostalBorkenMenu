@@ -1,3 +1,47 @@
+PostalBorkenMenu V2A42-H25 NATIVE STARTUP LOGO BYPASS TEST
+POSTAL: Brain-Damaged
+
+STATUS
+Active test candidate only. Canonical remains V2A42-H13.
+
+PURPOSE
+H24 proved that Hyperstrange.PBD.SceneManager exposes two distinct static zero-argument transitions:
+- LoadIntroCluster()
+- LoadTitleCluster()
+
+The current target is ONLY the developer/publisher startup logos (PlatformIntro).
+The real opening cinematic / VIDEO_Intro remains a separate concern controlled by SkipIntroVideos.
+
+H25 TEST
+- Adds [Settings] SkipStartupLogos=1, enabled by default for this candidate.
+- Resolves SceneManager.LoadIntroCluster() by IL2CPP metadata.
+- Does NOT invoke it from the startup worker.
+- After the validated H13 game-window subclass is installed, queues one private WM_APP message.
+- The game-window WndProc invokes static SceneManager.LoadIntroCluster() exactly once.
+- Expected transition: PlatformIntro -> Intro cluster.
+- No LoadTitleCluster() call is made, so H25 is not intentionally skipping the real opening cinematic.
+
+SAFETY / GUARDS
+- starts strictly from V2A42-H13
+- requires static, zero-parameter LoadIntroCluster signature
+- one attempt maximum per process
+- managed exceptions are logged
+- no simulated keyboard/mouse input
+- no PEB/process command-line modification
+- no EXE/GameAssembly patching
+- H13 gameplay, weapons, crosshair, wheels, overlay and shutdown paths retained
+
+TEST
+1. Leave SkipStartupLogos=1.
+2. Launch the game normally.
+3. Observe whether the developer/publisher logos are bypassed and whether the normal intro cinematic still appears.
+4. Quit normally.
+5. Send PostalBorkenMenu.log and report exactly what appeared on screen.
+
+======================================================================
+V2A42-H13 CANONICAL HISTORY
+======================================================================
+
 PostalBorkenMenu V2A42-H13 RECOVERY + DLC CROSSHAIR AUDIT
 POSTAL: Brain-Damaged
 
