@@ -24,6 +24,7 @@ typedef unsigned long long ULONGLONG;
 typedef unsigned long long SIZE_T;
 typedef long LONG;
 typedef long long LONG_PTR;
+typedef long long LONGLONG;
 typedef unsigned long long ULONG_PTR;
 typedef ULONG_PTR WPARAM;
 typedef LONG_PTR LPARAM;
@@ -38,6 +39,13 @@ typedef DWORD (__stdcall *LPTHREAD_START_ROUTINE)(void*);
 typedef LRESULT (__stdcall *WNDPROC)(HWND, UINT, WPARAM, LPARAM);
 
 struct POINT { LONG x; LONG y; };
+struct PBM_OVERLAPPED {
+    ULONG_PTR Internal;
+    ULONG_PTR InternalHigh;
+    DWORD Offset;
+    DWORD OffsetHigh;
+    HANDLE hEvent;
+};
 struct RECT { LONG left; LONG top; LONG right; LONG bottom; };
 typedef HANDLE HDC;
 typedef HANDLE HGDIOBJ;
@@ -87,6 +95,10 @@ __declspec(dllimport) DWORD __stdcall GetPrivateProfileStringW(LPCWSTR, LPCWSTR,
 __declspec(dllimport) BOOL __stdcall WritePrivateProfileStringW(LPCWSTR, LPCWSTR, LPCWSTR, LPCWSTR);
 __declspec(dllimport) HANDLE __stdcall CreateFileW(LPCWSTR, DWORD, DWORD, void*, DWORD, DWORD, HANDLE);
 __declspec(dllimport) BOOL __stdcall WriteFile(HANDLE, const void*, DWORD, DWORD*, void*);
+__declspec(dllimport) BOOL __stdcall ReadFile(HANDLE, void*, DWORD, DWORD*, void*);
+__declspec(dllimport) BOOL __stdcall GetFileSizeEx(HANDLE, LONGLONG*);
+__declspec(dllimport) BOOL __stdcall SetFilePointerEx(HANDLE, LONGLONG, LONGLONG*, DWORD);
+__declspec(dllimport) BOOL __stdcall VirtualProtect(void*, SIZE_T, DWORD, DWORD*);
 __declspec(dllimport) DWORD __stdcall SetFilePointer(HANDLE, LONG, LONG*, DWORD);
 __declspec(dllimport) BOOL __stdcall CloseHandle(HANDLE);
 
@@ -133,8 +145,14 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 #define FILE_SHARE_WRITE 0x00000002UL
 #define OPEN_ALWAYS 4UL
 #define FILE_ATTRIBUTE_NORMAL 0x00000080UL
+#define FILE_CURRENT 1UL
 #define FILE_END 2UL
 #define INVALID_HANDLE_VALUE ((HANDLE)(LONG_PTR)-1)
+#define PAGE_READWRITE 0x04UL
+#define IMAGE_DOS_SIGNATURE 0x5A4D
+#define IMAGE_NT_SIGNATURE 0x00004550
+#define IMAGE_NT_OPTIONAL_HDR64_MAGIC 0x20b
+#define IMAGE_DIRECTORY_ENTRY_IMPORT 1
 
 #define WS_OVERLAPPED 0x00000000L
 #define WS_CAPTION 0x00C00000L
@@ -233,6 +251,7 @@ static volatile LONG g_menuVisible = 0;
 static volatile LONG g_shuttingDown = 0;
 static volatile LONG g_noCrosshair = 0;
 static volatile LONG g_skipIntroVideos = 1;
+static volatile LONG g_skipStartupLogos = 1;
 static volatile LONG g_introSkipPulseSent = 0;
 static DWORD g_lastCrosshairTick = 0;
 static volatile LONG g_crosshairReapplyCountdown = 0;
@@ -253,6 +272,244 @@ static const int OVERLAY_H = 600;
 static const int ROW_Y = 112;
 static const int ROW_H = 29;
 static const int VISIBLE_ROWS = (OVERLAY_H - ROW_Y - 48) / ROW_H;
+
+
+/*
+    H36 ASI-only Unity splash suppression.
+
+    Evidence from the exact retail globalgamemanagers:
+      PlayerSettings object absolute file offset: 0x1000
+      m_ShowUnitySplashScreen absolute file offset: 0x1070
+      original value: 1
+      m_ShowUnitySplashLogo: 0
+      m_SplashScreenLogos count: 3
+      Sprite refs: LOGO_RWS (2s), LOGO_Hyperstrange (3s), LOGOS_Rest (3s)
+
+    We do not alter the file on disk. UnityPlayer.dll's in-process ReadFile IAT
+    is temporarily redirected. Only a read from a file whose exact size matches
+    the validated globalgamemanagers is considered. If that read contains
+    byte 0x1070, the returned buffer is changed from 1 to 0 before Unity parses it.
+    The IAT hook is removed immediately after success.
+*/
+struct PBM_IMAGE_DOS_HEADER {
+    WORD e_magic;
+    BYTE pad[58];
+    LONG e_lfanew;
+};
+struct PBM_IMAGE_FILE_HEADER {
+    WORD Machine;
+    WORD NumberOfSections;
+    DWORD TimeDateStamp;
+    DWORD PointerToSymbolTable;
+    DWORD NumberOfSymbols;
+    WORD SizeOfOptionalHeader;
+    WORD Characteristics;
+};
+struct PBM_IMAGE_DATA_DIRECTORY { DWORD VirtualAddress; DWORD Size; };
+struct PBM_IMAGE_OPTIONAL_HEADER64 {
+    WORD Magic;
+    BYTE MajorLinkerVersion;
+    BYTE MinorLinkerVersion;
+    DWORD SizeOfCode;
+    DWORD SizeOfInitializedData;
+    DWORD SizeOfUninitializedData;
+    DWORD AddressOfEntryPoint;
+    DWORD BaseOfCode;
+    ULONGLONG ImageBase;
+    DWORD SectionAlignment;
+    DWORD FileAlignment;
+    WORD MajorOperatingSystemVersion;
+    WORD MinorOperatingSystemVersion;
+    WORD MajorImageVersion;
+    WORD MinorImageVersion;
+    WORD MajorSubsystemVersion;
+    WORD MinorSubsystemVersion;
+    DWORD Win32VersionValue;
+    DWORD SizeOfImage;
+    DWORD SizeOfHeaders;
+    DWORD CheckSum;
+    WORD Subsystem;
+    WORD DllCharacteristics;
+    ULONGLONG SizeOfStackReserve;
+    ULONGLONG SizeOfStackCommit;
+    ULONGLONG SizeOfHeapReserve;
+    ULONGLONG SizeOfHeapCommit;
+    DWORD LoaderFlags;
+    DWORD NumberOfRvaAndSizes;
+    PBM_IMAGE_DATA_DIRECTORY DataDirectory[16];
+};
+struct PBM_IMAGE_NT_HEADERS64 {
+    DWORD Signature;
+    PBM_IMAGE_FILE_HEADER FileHeader;
+    PBM_IMAGE_OPTIONAL_HEADER64 OptionalHeader;
+};
+struct PBM_IMAGE_IMPORT_DESCRIPTOR {
+    DWORD OriginalFirstThunk;
+    DWORD TimeDateStamp;
+    DWORD ForwarderChain;
+    DWORD Name;
+    DWORD FirstThunk;
+};
+
+typedef BOOL (__stdcall *PBM_ReadFileFn)(HANDLE, void*, DWORD, DWORD*, void*);
+static PBM_ReadFileFn g_unityOriginalReadFileH36=0;
+static ULONG_PTR* g_unityReadFileIatSlotH36=0;
+static volatile LONG g_splashReadHookInstalledH36=0;
+static volatile LONG g_splashFlagVirtualizedH36=0;
+static volatile LONG g_splashCandidateReadsH36=0;
+
+static const ULONGLONG H36_GGM_SIZE=4518416ULL;
+static const ULONGLONG H36_SPLASH_FLAG_OFFSET=0x1070ULL;
+static const ULONGLONG H36_LOGO_COUNT_OFFSET=0x10B4ULL;
+
+static DWORD ReadU32LEH36(const BYTE* p) {
+    return ((DWORD)p[0]) | ((DWORD)p[1]<<8) | ((DWORD)p[2]<<16) | ((DWORD)p[3]<<24);
+}
+static ULONGLONG ReadU64LEH36(const BYTE* p) {
+    ULONGLONG v=0;
+    for (int i=0;i<8;i++) v |= ((ULONGLONG)p[i]) << (i*8);
+    return v;
+}
+
+static void RestoreSplashReadHookH36() {
+    if (!g_unityReadFileIatSlotH36 || !g_unityOriginalReadFileH36) {
+        g_splashReadHookInstalledH36=0;
+        return;
+    }
+    DWORD oldProtect=0;
+    if (VirtualProtect(g_unityReadFileIatSlotH36,sizeof(ULONG_PTR),PAGE_READWRITE,&oldProtect)) {
+        *g_unityReadFileIatSlotH36=(ULONG_PTR)g_unityOriginalReadFileH36;
+        DWORD ignored=0;
+        VirtualProtect(g_unityReadFileIatSlotH36,sizeof(ULONG_PTR),oldProtect,&ignored);
+    }
+    g_unityReadFileIatSlotH36=0;
+    g_splashReadHookInstalledH36=0;
+}
+
+static BOOL VerifySplashPlayerSettingsH36(BYTE* buffer, ULONGLONG start, DWORD got) {
+    if (!buffer) return FALSE;
+    ULONGLONG end=start+(ULONGLONG)got;
+
+    // Exact flag neighborhood from the validated retail PlayerSettings.
+    if (start<=H36_SPLASH_FLAG_OFFSET && end>=H36_SPLASH_FLAG_OFFSET+8) {
+        SIZE_T i=(SIZE_T)(H36_SPLASH_FLAG_OFFSET-start);
+        const BYTE expect[8]={1,0,0,0,0,0,0x80,0x3f};
+        for (int k=0;k<8;k++) if (buffer[i+k]!=expect[k]) return FALSE;
+    } else {
+        return FALSE;
+    }
+
+    // If the logo vector is present in the same read, verify all three exact refs.
+    if (start<=H36_LOGO_COUNT_OFFSET && end>=H36_LOGO_COUNT_OFFSET+52) {
+        SIZE_T i=(SIZE_T)(H36_LOGO_COUNT_OFFSET-start);
+        if (ReadU32LEH36(buffer+i)!=3) return FALSE;
+        i+=4;
+        const ULONGLONG paths[3]={5944ULL,5943ULL,5942ULL};
+        const DWORD durations[3]={0x40000000UL,0x40400000UL,0x40400000UL};
+        for (int n=0;n<3;n++) {
+            if (ReadU32LEH36(buffer+i)!=1) return FALSE;
+            if (ReadU64LEH36(buffer+i+4)!=paths[n]) return FALSE;
+            if (ReadU32LEH36(buffer+i+12)!=durations[n]) return FALSE;
+            i+=16;
+        }
+    }
+    return TRUE;
+}
+
+static BOOL __stdcall UnityReadFileHookH36(HANDLE hFile, void* outBuffer, DWORD toRead, DWORD* bytesRead, void* overlappedRaw) {
+    PBM_ReadFileFn realFn=g_unityOriginalReadFileH36;
+    if (!realFn) return FALSE;
+
+    BOOL candidate=FALSE;
+    ULONGLONG start=~0ULL;
+
+    if (g_skipStartupLogos && !g_splashFlagVirtualizedH36) {
+        LONGLONG fileSize=0;
+        if (GetFileSizeEx(hFile,&fileSize) && (ULONGLONG)fileSize==H36_GGM_SIZE) {
+            candidate=TRUE;
+            g_splashCandidateReadsH36++;
+            if (overlappedRaw) {
+                PBM_OVERLAPPED* ov=(PBM_OVERLAPPED*)overlappedRaw;
+                start=((ULONGLONG)ov->OffsetHigh<<32) | (ULONGLONG)ov->Offset;
+            } else {
+                LONGLONG pos=0;
+                if (SetFilePointerEx(hFile,0,&pos,FILE_CURRENT))
+                    start=(ULONGLONG)pos;
+            }
+        }
+    }
+
+    BOOL ok=realFn(hFile,outBuffer,toRead,bytesRead,overlappedRaw);
+    if (!ok || !candidate || !outBuffer || start==~0ULL || g_splashFlagVirtualizedH36)
+        return ok;
+
+    DWORD got=bytesRead ? *bytesRead : toRead;
+    if (!got) return ok;
+
+    ULONGLONG end=start+(ULONGLONG)got;
+    if (start<=H36_SPLASH_FLAG_OFFSET && end>H36_SPLASH_FLAG_OFFSET) {
+        BYTE* b=(BYTE*)outBuffer;
+        SIZE_T idx=(SIZE_T)(H36_SPLASH_FLAG_OFFSET-start);
+
+        if (VerifySplashPlayerSettingsH36(b,start,got)) {
+            b[idx]=0;
+            g_splashFlagVirtualizedH36=1;
+            LogA("[SPLASH H36] SUCCESS: virtualized m_ShowUnitySplashScreen 1 -> 0 in Unity read buffer.");
+            LogA("[SPLASH H36] Disk globalgamemanagers was not modified.");
+            RestoreSplashReadHookH36();
+        } else {
+            LogA("[SPLASH H36] Exact PlayerSettings signature mismatch; buffer left untouched.");
+        }
+    }
+
+    return ok;
+}
+
+static BOOL InstallSplashReadHookH36() {
+    if (!g_skipStartupLogos) return TRUE;
+    if (g_splashReadHookInstalledH36) return TRUE;
+
+    HMODULE unity=GetModuleHandleW(L"UnityPlayer.dll");
+    HMODULE k32=GetModuleHandleW(L"kernel32.dll");
+    if (!unity || !k32) return FALSE;
+
+    void* readFileAddr=GetProcAddress(k32,"ReadFile");
+    if (!readFileAddr) return FALSE;
+
+    BYTE* base=(BYTE*)unity;
+    PBM_IMAGE_DOS_HEADER* dos=(PBM_IMAGE_DOS_HEADER*)base;
+    if (dos->e_magic!=IMAGE_DOS_SIGNATURE || dos->e_lfanew<=0) return FALSE;
+
+    PBM_IMAGE_NT_HEADERS64* nt=(PBM_IMAGE_NT_HEADERS64*)(base+dos->e_lfanew);
+    if (nt->Signature!=IMAGE_NT_SIGNATURE ||
+       nt->OptionalHeader.Magic!=IMAGE_NT_OPTIONAL_HDR64_MAGIC ||
+       nt->OptionalHeader.NumberOfRvaAndSizes<=IMAGE_DIRECTORY_ENTRY_IMPORT) return FALSE;
+
+    DWORD importRva=nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+    if (!importRva) return FALSE;
+
+    PBM_IMAGE_IMPORT_DESCRIPTOR* desc=(PBM_IMAGE_IMPORT_DESCRIPTOR*)(base+importRva);
+    ULONG_PTR target=(ULONG_PTR)readFileAddr;
+
+    for (; desc->FirstThunk; ++desc) {
+        ULONG_PTR* slot=(ULONG_PTR*)(base+desc->FirstThunk);
+        for (; *slot; ++slot) {
+            if (*slot!=target) continue;
+            DWORD oldProtect=0;
+            if (!VirtualProtect(slot,sizeof(ULONG_PTR),PAGE_READWRITE,&oldProtect)) return FALSE;
+
+            g_unityOriginalReadFileH36=(PBM_ReadFileFn)(*slot);
+            g_unityReadFileIatSlotH36=slot;
+            *slot=(ULONG_PTR)&UnityReadFileHookH36;
+
+            DWORD ignored=0;
+            VirtualProtect(slot,sizeof(ULONG_PTR),oldProtect,&ignored);
+            g_splashReadHookInstalledH36=1;
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
 
 static int StrLenA(const char* s) { int n=0; if (!s) return 0; while (s[n]) ++n; return n; }
 static int StrLenW(const WCHAR* s) { int n=0; if (!s) return 0; while (s[n]) ++n; return n; }
