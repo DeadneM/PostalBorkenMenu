@@ -1,3 +1,11 @@
+## V2A42-H25 - native PlatformIntro -> Intro cluster bypass
+
+Status: **active test candidate, not canonical**. Base: **V2A42-H13**.
+
+H24 established that `Hyperstrange.PBD.SceneManager.LoadIntroCluster()` and `LoadTitleCluster()` are distinct static zero-parameter `void` methods. Because the requested target is the developer/publisher startup-logo sequence rather than the actual `VIDEO_Intro` cinematic, H25 targets `LoadIntroCluster()`, not `LoadTitleCluster()`.
+
+A new independent `[Settings] SkipStartupLogos=1` switch defaults on for the candidate. The startup worker resolves and signature-checks the method but never invokes it. Once H13's stable game-window subclass is installed, H25 posts one private window message; the game-window WndProc attaches to IL2CPP if required and invokes `LoadIntroCluster()` once. Managed exceptions are logged. No synthetic input, PEB mutation, binary patching, object enumeration, or repeated polling is introduced.
+
 # PostalBorkenMenu - Technical Project Notebook
 
 This file is the cumulative engineering notebook for **PostalBorkenMenu**.
