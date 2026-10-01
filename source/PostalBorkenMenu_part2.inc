@@ -376,43 +376,45 @@ static void CatalogManagedStringToAscii(Il2CppString* str, char* out, int cap) {
 }
 
 
-static HHOOK g_earlyLogoHookH26=0;
-static const MethodInfo* g_loadIntroClusterH26=0;
-static const FieldInfo* g_introClusterFieldH26=0;
-static const FieldInfo* g_titleClusterFieldH26=0;
-static Il2CppClass* g_sceneClusterClassH26=0;
-static Il2CppClass* g_sceneFieldClassH26=0;
-static volatile LONG g_earlyLogoAttemptedH26=0;
-static volatile LONG g_earlyLogoNullLoggedH26=0;
+static HHOOK g_earlyLogoHookH27=0;
+static Il2CppClass* g_sceneManagerClassH27=0;
+static const MethodInfo* g_loadIntroClusterH27=0;
+static const FieldInfo* g_introClusterFieldH27=0;
+static const FieldInfo* g_titleClusterFieldH27=0;
+static Il2CppClass* g_sceneClusterClassH27=0;
+static Il2CppClass* g_sceneFieldClassH27=0;
+static volatile LONG g_earlyLogoAttemptedH27=0;
+static volatile LONG g_earlyLogoManagerLoggedH27=0;
+static volatile LONG g_earlyLogoNullLoggedH27=0;
 
-static void LogSceneClusterNamesH26(const char* label, Il2CppObject* cluster) {
+static void LogSceneClusterNamesH27(const char* label, Il2CppObject* cluster) {
     LogA(label);
-    if (!cluster) { LogA("[H26 EARLY] cluster = <null>"); return; }
-    if (!g_sceneClusterClassH26 || !g_sceneFieldClassH26) {
-        LogA("[H26 EARLY] SceneCluster/SceneField metadata unavailable.");
+    if (!cluster) { LogA("[H27 EARLY] cluster = <null>"); return; }
+    if (!g_sceneClusterClassH27 || !g_sceneFieldClassH27) {
+        LogA("[H27 EARLY] SceneCluster/SceneField metadata unavailable.");
         return;
     }
 
-    const MethodInfo* getScenes=g_il2cpp.class_get_method_from_name(g_sceneClusterClassH26,"get_Scenes",0);
-    const MethodInfo* getSceneName=g_il2cpp.class_get_method_from_name(g_sceneFieldClassH26,"get_SceneName",0);
+    const MethodInfo* getScenes=g_il2cpp.class_get_method_from_name(g_sceneClusterClassH27,"get_Scenes",0);
+    const MethodInfo* getSceneName=g_il2cpp.class_get_method_from_name(g_sceneFieldClassH27,"get_SceneName",0);
     if (!getScenes || !getSceneName) {
-        LogA("[H26 EARLY] SceneCluster getters unresolved.");
+        LogA("[H27 EARLY] SceneCluster getters unresolved.");
         return;
     }
 
     Il2CppException* ex=0;
     Il2CppObject* arrObj=g_il2cpp.runtime_invoke(getScenes,cluster,0,&ex);
     if (ex) {
-        LogA("[H26 EARLY] SceneCluster.get_Scenes threw:");
+        LogA("[H27 EARLY] SceneCluster.get_Scenes threw:");
         FormatExceptionToLog(ex);
         return;
     }
-    if (!arrObj) { LogA("[H26 EARLY] SceneCluster.get_Scenes returned null."); return; }
+    if (!arrObj) { LogA("[H27 EARLY] SceneCluster.get_Scenes returned null."); return; }
 
     Il2CppArray* arr=(Il2CppArray*)arrObj;
     SIZE_T n=g_il2cpp.array_length(arr);
     if (n>64) n=64;
-    LogIntA("[H26 EARLY] SceneField count: ",(int)n);
+    LogIntA("[H27 EARLY] SceneField count: ",(int)n);
     unsigned int hdr=g_il2cpp.array_object_header_size();
     Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
 
@@ -423,73 +425,91 @@ static void LogSceneClusterNamesH26(const char* label, Il2CppObject* cluster) {
         Il2CppObject* nameObj=g_il2cpp.runtime_invoke(getSceneName,sf,0,&ex);
         if (ex || !nameObj) continue;
         char name[256]; CatalogManagedStringToAscii((Il2CppString*)nameObj,name,256);
-        LogIntA("[H26 EARLY] Scene index: ",(int)i);
+        LogIntA("[H27 EARLY] Scene index: ",(int)i);
         LogA(name[0] ? name : "<empty scene name>");
     }
 }
 
-static LRESULT __stdcall EarlyLogoCallWndProcH26(int code, WPARAM wp, LPARAM lp) {
+static LRESULT __stdcall EarlyLogoCallWndProcH27(int code, WPARAM wp, LPARAM lp) {
     if (code>=0 && g_skipStartupLogos && !g_shuttingDown &&
-        !g_earlyLogoAttemptedH26 && g_il2cpp.field_static_get_value &&
-        g_introClusterFieldH26 && g_loadIntroClusterH26) {
+        !g_earlyLogoAttemptedH27 && g_il2cpp.field_get_value &&
+        g_sceneManagerClassH27 && g_introClusterFieldH27 &&
+        g_loadIntroClusterH27 && g_findObjectOfType2) {
+
+        BOOL attached=FALSE; void* thread=0;
+        if (!EnsureIl2CppThread(&attached,&thread)) {
+            return CallNextHookEx(g_earlyLogoHookH27,code,wp,lp);
+        }
+
+        Il2CppObject* sceneManager=FindLiveObject(g_sceneManagerClassH27);
+        if (!sceneManager) {
+            if (!g_earlyLogoManagerLoggedH27) {
+                g_earlyLogoManagerLoggedH27=1;
+                LogA("[H27 EARLY] SceneManager instance not live yet; waiting on Unity main-thread messages.");
+            }
+            ReleaseIl2CppThread(attached,thread);
+            return CallNextHookEx(g_earlyLogoHookH27,code,wp,lp);
+        }
+
+        if (g_earlyLogoManagerLoggedH27!=2) {
+            g_earlyLogoManagerLoggedH27=2;
+            LogA("[H27 EARLY] Live SceneManager instance found.");
+        }
 
         Il2CppObject* intro=0;
-        g_il2cpp.field_static_get_value(g_introClusterFieldH26,&intro);
+        g_il2cpp.field_get_value(sceneManager,g_introClusterFieldH27,&intro);
 
         if (!intro) {
-            if (!g_earlyLogoNullLoggedH26) {
-                g_earlyLogoNullLoggedH26=1;
-                LogA("[H26 EARLY] _introCluster is still null; waiting on Unity main-thread messages.");
+            if (!g_earlyLogoNullLoggedH27) {
+                g_earlyLogoNullLoggedH27=1;
+                LogA("[H27 EARLY] SceneManager._introCluster is still null; waiting.");
             }
-        } else if (!g_earlyLogoAttemptedH26) {
-            g_earlyLogoAttemptedH26=1;
-            BOOL attached=FALSE; void* thread=0;
-            if (!EnsureIl2CppThread(&attached,&thread)) {
-                LogA("[H26 EARLY] Main-thread IL2CPP attachment check failed; bypass aborted.");
-            } else {
-                LogA("[H26 EARLY] _introCluster became non-null. Triggering at first safe main-thread opportunity.");
-                LogSceneClusterNamesH26("[H26 EARLY] INTRO CLUSTER CONTENTS",intro);
-
-                Il2CppObject* title=0;
-                if (g_titleClusterFieldH26)
-                    g_il2cpp.field_static_get_value(g_titleClusterFieldH26,&title);
-                LogSceneClusterNamesH26("[H26 EARLY] TITLE CLUSTER CONTENTS AT TRIGGER",title);
-
-                Il2CppException* ex=0;
-                g_il2cpp.runtime_invoke(g_loadIntroClusterH26,0,0,&ex);
-                if (ex) {
-                    LogA("[H26 EARLY] SceneManager.LoadIntroCluster threw:");
-                    FormatExceptionToLog(ex);
-                } else {
-                    LogA("[H26 EARLY] SceneManager.LoadIntroCluster returned without managed exception.");
-                }
-                ReleaseIl2CppThread(attached,thread);
-            }
-
-            HHOOK old=g_earlyLogoHookH26;
-            g_earlyLogoHookH26=0;
-            if (old) UnhookWindowsHookEx(old);
-            LogA("[H26 EARLY] One-shot Unity-thread hook removed.");
+            ReleaseIl2CppThread(attached,thread);
+            return CallNextHookEx(g_earlyLogoHookH27,code,wp,lp);
         }
+
+        g_earlyLogoAttemptedH27=1;
+        LogA("[H27 EARLY] Instance _introCluster became non-null. Triggering at first safe main-thread opportunity.");
+        LogSceneClusterNamesH27("[H27 EARLY] INTRO CLUSTER CONTENTS",intro);
+
+        Il2CppObject* title=0;
+        if (g_titleClusterFieldH27)
+            g_il2cpp.field_get_value(sceneManager,g_titleClusterFieldH27,&title);
+        LogSceneClusterNamesH27("[H27 EARLY] TITLE CLUSTER CONTENTS AT TRIGGER",title);
+
+        Il2CppException* ex=0;
+        g_il2cpp.runtime_invoke(g_loadIntroClusterH27,0,0,&ex);
+        if (ex) {
+            LogA("[H27 EARLY] SceneManager.LoadIntroCluster threw:");
+            FormatExceptionToLog(ex);
+        } else {
+            LogA("[H27 EARLY] SceneManager.LoadIntroCluster returned without managed exception.");
+        }
+        ReleaseIl2CppThread(attached,thread);
+
+        HHOOK old=g_earlyLogoHookH27;
+        g_earlyLogoHookH27=0;
+        if (old) UnhookWindowsHookEx(old);
+        LogA("[H27 EARLY] One-shot Unity-thread hook removed.");
     }
-    return CallNextHookEx(g_earlyLogoHookH26,code,wp,lp);
+    return CallNextHookEx(g_earlyLogoHookH27,code,wp,lp);
 }
 
-static BOOL InstallEarlyStartupLogoHookH26() {
+static BOOL InstallEarlyStartupLogoHookH27() {
     if (!g_skipStartupLogos) {
-        LogA("[H26 EARLY] SkipStartupLogos disabled.");
+        LogA("[H27 EARLY] SkipStartupLogos disabled.");
         return FALSE;
     }
 
-    LogA("[H26 EARLY] Waiting for minimal IL2CPP metadata needed by startup-logo bypass...");
+    LogA("[H27 EARLY] Waiting for minimal IL2CPP metadata needed by corrected instance-field startup bypass...");
     for (int k=0;k<600 && !g_gameAssembly;k++) {
         g_gameAssembly=GetModuleHandleW(L"GameAssembly.dll");
         if (!g_gameAssembly) Sleep(10);
     }
-    if (!g_gameAssembly) { LogA("[H26 EARLY] GameAssembly.dll unavailable."); return FALSE; }
-    if (!ResolveIl2CppApi()) { LogA("[H26 EARLY] IL2CPP export resolution failed."); return FALSE; }
-    if (!g_il2cpp.field_static_get_value || !g_il2cpp.field_get_flags) {
-        LogA("[H26 EARLY] Required static-field inspection exports unavailable; fail closed.");
+    if (!g_gameAssembly) { LogA("[H27 EARLY] GameAssembly.dll unavailable."); return FALSE; }
+    if (!ResolveIl2CppApi()) { LogA("[H27 EARLY] IL2CPP export resolution failed."); return FALSE; }
+    if (!g_il2cpp.field_get_value || !g_il2cpp.field_get_flags) {
+        LogA("[H27 EARLY] Required instance-field inspection exports unavailable; fail closed.");
         return FALSE;
     }
 
@@ -497,11 +517,11 @@ static BOOL InstallEarlyStartupLogoHookH26() {
         g_domain=g_il2cpp.domain_get();
         if (!g_domain) Sleep(10);
     }
-    if (!g_domain) { LogA("[H26 EARLY] IL2CPP domain not ready in early window."); return FALSE; }
+    if (!g_domain) { LogA("[H27 EARLY] IL2CPP domain not ready in early window."); return FALSE; }
 
     BOOL attached=FALSE; void* thread=0;
     if (!EnsureIl2CppThread(&attached,&thread)) {
-        LogA("[H26 EARLY] Could not attach metadata worker.");
+        LogA("[H27 EARLY] Could not attach metadata worker.");
         return FALSE;
     }
 
@@ -512,42 +532,56 @@ static BOOL InstallEarlyStartupLogoHookH26() {
     }
     if (!ass) {
         ReleaseIl2CppThread(attached,thread);
-        LogA("[H26 EARLY] Assembly-CSharp not ready in early window.");
+        LogA("[H27 EARLY] Assembly-CSharp not ready in early window.");
         return FALSE;
     }
 
     g_assemblyCSharp=g_il2cpp.assembly_get_image(ass);
-    Il2CppClass* sceneManager=g_assemblyCSharp ?
+    g_sceneManagerClassH27=g_assemblyCSharp ?
         g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","SceneManager") : 0;
-    g_sceneClusterClassH26=g_assemblyCSharp ?
+    g_sceneClusterClassH27=g_assemblyCSharp ?
         g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","SceneCluster") : 0;
-    g_sceneFieldClassH26=g_assemblyCSharp ?
+    g_sceneFieldClassH27=g_assemblyCSharp ?
         g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","SceneField") : 0;
 
-    if (sceneManager) {
-        g_loadIntroClusterH26=g_il2cpp.class_get_method_from_name(sceneManager,"LoadIntroCluster",0);
-        g_introClusterFieldH26=g_il2cpp.class_get_field_from_name(sceneManager,"_introCluster");
-        g_titleClusterFieldH26=g_il2cpp.class_get_field_from_name(sceneManager,"_titleCluster");
+    if (g_sceneManagerClassH27) {
+        g_loadIntroClusterH27=g_il2cpp.class_get_method_from_name(g_sceneManagerClassH27,"LoadIntroCluster",0);
+        g_introClusterFieldH27=g_il2cpp.class_get_field_from_name(g_sceneManagerClassH27,"_introCluster");
+        g_titleClusterFieldH27=g_il2cpp.class_get_field_from_name(g_sceneManagerClassH27,"_titleCluster");
     }
 
-    BOOL signatureOk=(g_loadIntroClusterH26 &&
-                      !g_il2cpp.method_is_instance(g_loadIntroClusterH26) &&
-                      g_il2cpp.method_get_param_count(g_loadIntroClusterH26)==0);
-    BOOL introStatic=(g_introClusterFieldH26 &&
-                     (g_il2cpp.field_get_flags(g_introClusterFieldH26)&0x0010)!=0);
-    BOOL titleStatic=(g_titleClusterFieldH26 &&
-                     (g_il2cpp.field_get_flags(g_titleClusterFieldH26)&0x0010)!=0);
+    BOOL signatureOk=(g_loadIntroClusterH27 &&
+                      !g_il2cpp.method_is_instance(g_loadIntroClusterH27) &&
+                      g_il2cpp.method_get_param_count(g_loadIntroClusterH27)==0);
+    BOOL introPresent=(g_introClusterFieldH27!=0);
+    BOOL titlePresent=(g_titleClusterFieldH27!=0);
+    BOOL introStatic=(introPresent && (g_il2cpp.field_get_flags(g_introClusterFieldH27)&0x0010)!=0);
+    BOOL titleStatic=(titlePresent && (g_il2cpp.field_get_flags(g_titleClusterFieldH27)&0x0010)!=0);
+
+    const Il2CppAssembly* coreAss=g_il2cpp.domain_assembly_open(g_domain,"UnityEngine.CoreModule");
+    if (coreAss) g_coreImage=g_il2cpp.assembly_get_image(coreAss);
+    const Il2CppImage* corlib=g_il2cpp.get_corlib();
+    if (corlib) {
+        g_systemTypeClass=g_il2cpp.class_from_name(corlib,"System","Type");
+        g_boolClass=g_il2cpp.class_from_name(corlib,"System","Boolean");
+    }
+    Il2CppClass* objectClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Object") : 0;
+    if (objectClass && g_systemTypeClass && g_boolClass)
+        g_findObjectOfType2=FindMethodExact(objectClass,"FindObjectOfType",2,g_systemTypeClass,g_boolClass);
 
     ReleaseIl2CppThread(attached,thread);
 
-    LogIntA("[H26 EARLY] LoadIntroCluster signature OK: ",signatureOk ? 1 : 0);
-    LogIntA("[H26 EARLY] _introCluster static field: ",introStatic ? 1 : 0);
-    LogIntA("[H26 EARLY] _titleCluster static field: ",titleStatic ? 1 : 0);
-    if (!signatureOk || !introStatic) {
-        LogA("[H26 EARLY] Metadata guard failed; no early transition will be installed.");
+    LogIntA("[H27 EARLY] LoadIntroCluster signature OK: ",signatureOk ? 1 : 0);
+    LogIntA("[H27 EARLY] _introCluster field present: ",introPresent ? 1 : 0);
+    LogIntA("[H27 EARLY] _introCluster static flag (expected 0): ",introStatic ? 1 : 0);
+    LogIntA("[H27 EARLY] _titleCluster field present: ",titlePresent ? 1 : 0);
+    LogIntA("[H27 EARLY] _titleCluster static flag (expected 0): ",titleStatic ? 1 : 0);
+    LogIntA("[H27 EARLY] Unity Object.FindObjectOfType(Type,bool) bridge: ",g_findObjectOfType2 ? 1 : 0);
+
+    if (!signatureOk || !introPresent || !g_findObjectOfType2) {
+        LogA("[H27 EARLY] Metadata guard failed; no early transition will be installed.");
         return FALSE;
     }
-    if (!titleStatic) g_titleClusterFieldH26=0;
 
     HWND hwnd=0; DWORD tid=0;
     for (int k=0;k<200;k++) {
@@ -564,17 +598,17 @@ static BOOL InstallEarlyStartupLogoHookH26() {
         Sleep(10);
     }
     if (!hwnd || !tid) {
-        LogA("[H26 EARLY] Game window/thread not available in early window.");
+        LogA("[H27 EARLY] Game window/thread not available in early window.");
         return FALSE;
     }
 
-    g_earlyLogoHookH26=SetWindowsHookExW(WH_CALLWNDPROC,EarlyLogoCallWndProcH26,g_self,tid);
-    if (!g_earlyLogoHookH26) {
-        LogA("[H26 EARLY] SetWindowsHookExW failed; fail closed.");
+    g_earlyLogoHookH27=SetWindowsHookExW(WH_CALLWNDPROC,EarlyLogoCallWndProcH27,g_self,tid);
+    if (!g_earlyLogoHookH27) {
+        LogA("[H27 EARLY] SetWindowsHookExW failed; fail closed.");
         return FALSE;
     }
 
-    LogA("[H26 EARLY] One-shot Unity main-thread hook installed; waiting for _introCluster initialization.");
+    LogA("[H27 EARLY] One-shot Unity main-thread hook installed; waiting for live SceneManager + instance _introCluster.");
     PostMessageW(hwnd,WM_NULL,0,0);
     return TRUE;
 }
