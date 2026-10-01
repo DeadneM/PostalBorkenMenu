@@ -1,3 +1,13 @@
+## V2A42-H27 - live SceneManager instance IntroCluster trigger
+
+Status: **active diagnostic candidate, not canonical**. Canonical gameplay base remains **V2A42-H13**.
+
+H26 resolved `SceneManager.LoadIntroCluster()` correctly but assumed `_introCluster` and `_titleCluster` were static. The user log reported both static checks as zero, so H26 failed its metadata guard and never installed the early transition.
+
+H27 changes only that assumption. It resolves `UnityEngine.Object.FindObjectOfType(Type,bool)` during the early metadata window, installs the same one-shot `WH_CALLWNDPROC` hook, finds the live `Hyperstrange.PBD.SceneManager` instance on the Unity/window thread, reads `_introCluster` and `_titleCluster` with `il2cpp_field_get_value`, waits for the instance intro cluster to become non-null, logs both cluster contents, and invokes the same static `LoadIntroCluster()` exactly once. No synthetic input, no binary patch, no PEB mutation, and no late fallback are introduced.
+
+Interpretation is intentionally narrow: if H27 executes early with a valid instance cluster but still does not skip PlatformIntro, `LoadIntroCluster()` is no longer a useful target and the next branch should follow PlatformIntro completion/unload instead.
+
 ## V2A42-H26 - early initialized IntroCluster main-thread trigger
 
 Status: **active diagnostic candidate, not canonical**. Base: **V2A42-H13**.
