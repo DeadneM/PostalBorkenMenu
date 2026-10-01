@@ -151,6 +151,60 @@ IsDlcPurchasedOnGog(...)
 
 Future DLC work must preserve normal ownership checks. The intended feature is to use owned DLC weapons in the base campaign, not bypass DLC ownership.
 
+## V2A42-H21 - PlatformIntro metadata audit candidate
+
+Status: **diagnostic candidate, not canonical**.
+
+Base:
+- source/gameplay lineage reset to user-validated **V2A42-H13**
+- H20 code scanner is not inherited
+- H19 live early-object watcher remains rejected
+- H20 DXGI one-log-per-launch reset is preserved
+
+Evidence motivating H21:
+- H20 found `Assets/Scenes/PlatformIntro.unity`
+- H20 found `Assets/Scenes/Intro.unity`
+- H20 found `RCLogo` / `RCLogoImage` in `resources.assets`
+- H20 found `VIDEO_Intro` and `Assets/Videos/Cinematics/VIDEO_Intro.webm` in `sharedassets1.assets`
+- interpretation: PlatformIntro is the strongest current target for developer/publisher startup logos; VIDEO_Intro.webm is a separate opening cinematic. This remains an evidence-based inference until H21 metadata confirms the control path.
+
+H21 targets:
+- `RCLogoComponent`
+- `IntroController`
+- `SkipIntroController`
+- `SceneManager`
+
+H21 records metadata only:
+- namespace/class name
+- method name
+- parameter count
+- instance/static flag
+- return type
+- parameter types
+- field names
+
+H21 explicitly does **not**:
+- enumerate live Unity objects
+- write fields
+- call `runtime_invoke`
+- call startup/skip methods
+- create an early IL2CPP worker
+- simulate keyboard or mouse input
+- modify the PEB/process command line
+- patch game binaries
+
+Timing:
+- H13's normal 2500 ms IL2CPP startup delay remains intact
+- the audit runs during the already validated H13 metadata-resolution phase
+
+Packaging:
+- `dxgi.dll`
+- `PostalBorkenMenu.asi`
+- `PostalBorkenMenu.ini`
+- `README.txt`
+
+Canonical status remains **V2A42-H13** until explicit user validation.
+
 ## Build history
 
 ### V1A
@@ -1042,3 +1096,45 @@ Build:
 Canonical rule:
 - future gameplay/source changes start from V2A42-H13.
 - Skip Intro remains an open item and must be solved without simulated keyboard/mouse input.
+
+
+#### V2A42-H13 GitHub Release
+
+Published release:
+- tag: `V2A42-H13`
+- release title: `PostalBorkenMenu V2A42-H13`
+- asset: `POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H13.zip`
+- GitHub Actions publish run: `36346565155`
+
+Release-build SHA-256:
+- `PostalBorkenMenu.asi`
+  `2eb2f49f0ef3a1823a9c5a739f321dbc6f129e5ebd2c2e614f5f9a015683c92c`
+- `dxgi.dll`
+  `a71a24368479620ea93e58b35a7291ee175ec894ad85ab3122510eff580d52ef`
+- release ZIP
+  `2b3c4f233a0a706714b7f198be5867506b62e7e21b4491f401079f7efb8513f0`
+
+The release ZIP contains exactly:
+- `dxgi.dll`
+- `PostalBorkenMenu.asi`
+- `PostalBorkenMenu.ini`
+- `README.txt`
+
+Note:
+- these hashes are for the canonical GitHub Release rebuild.
+- they intentionally supersede the earlier H13 validation-artifact hashes for public distribution.
+- Skip Intro remains an open item and is not claimed fixed by this release.
+
+
+## Logging policy - one launch, one log
+
+From commit `1a97bd2d3ad8f43a2ff387a04cf3eb11cc7ce1c4`, the minimal DXGI ASI loader truncates `PostalBorkenMenu.log` exactly once at first DXGI initialization for each game process, before writing any loader or ASI diagnostic line. Subsequent writes in the same run remain append-only. This prevents diagnostics from multiple builds/runs being concatenated into one file.
+
+
+## V2A42-H19 - rejected: immediate crash during early Unity observation
+
+H19 resolved GameAssembly, the IL2CPP domain, Assembly-CSharp/CoreModule and all four target class metadata entries, then crashed before the first object-count result. The failure therefore occurred as the early watcher transitioned into Unity runtime object queries. H19 is rejected and must not be used as a future base.
+
+## V2A42-H20 - static startup asset scan
+
+Base: current main / validated H13 gameplay lineage, including one-launch-one-log reset. H20 removes the entire early Unity-observation concept. It performs only read-only Win32 file I/O against the game's Unity *_Data directory and scans selected Unity data files for printable ASCII strings related to startup logos, publishers, developers and intro/splash assets. No Unity or IL2CPP runtime method is called by the H20 diagnostic.
