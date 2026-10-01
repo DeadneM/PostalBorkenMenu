@@ -48,6 +48,7 @@ static void LoadConfig() {
     }
     g_noCrosshair=(LONG)GetPrivateProfileIntW(L"Settings",L"NoCrosshair",0,g_iniPath);
     g_skipIntroVideos=(LONG)GetPrivateProfileIntW(L"Settings",L"SkipIntroVideos",1,g_iniPath);
+    g_skipStartupLogos=(LONG)GetPrivateProfileIntW(L"Settings",L"SkipStartupLogos",1,g_iniPath);
 }
 
 // GDI is resolved dynamically so the ASI remains linked only to kernel32/user32.
@@ -642,20 +643,39 @@ static BOOL HookGameWindow() {
 
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
+    LoadConfig();
+
+    BOOL startupHooksOk=TRUE;
+    if (g_skipStartupLogos)
+        startupHooksOk=InstallStartupIoHooksH31();
+
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42 CLEAN ARSENAL + FIVE TABS + SKIP INTRO TEST");
+    LogA("PostalBorkenMenu V2A42-H31 ASI-ONLY STREAMED SCENE-MAP TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
-    LogA("No EXE/GameAssembly patching is performed.");
-    LoadConfig();
+    LogA("No EXE/GameAssembly/Unity asset patching is performed.");
+    if (g_skipStartupLogos)
+        LogA(startupHooksOk
+            ? "[STARTUP H31] Temporary CreateFileW + ReadFile hooks installed; no global RAM scan."
+            : "[STARTUP H31] ERROR: I/O hooks unavailable; vanilla startup preserved.");
+    else
+        LogA("[STARTUP H31] SkipStartupLogos disabled in INI.");
     if (g_dormantExactNameResolver)
         LogA("[OK] Exact-name WeaponId resolver linked; cleaned Arsenal/Special dispatcher active.");
     else
         LogA("[ERROR] Exact-name WeaponId resolver was not retained.");
     LogA(g_skipIntroVideos ? "[INTRO] Skip Intro Videos config: ENABLED (default)." : "[INTRO] Skip Intro Videos config: DISABLED.");
-    if (!InitIl2Cpp()) return 0;
-    if (!CreateOverlayWindow()) return 0;
-    if (!HookGameWindow()) return 0;
+    if (!InitIl2Cpp()) { RestoreStartupIoHooksH31(); return 0; }
+    if (g_skipStartupLogos) {
+        if (g_startupRedirectDone && g_startupSceneMapPatched)
+            LogA("[STARTUP H31] SUCCESS: streamed scene map patched in RAM and level0 redirected to level1.");
+        else if (g_startupManagersSeen && !g_startupSceneMapPatched)
+            LogA("[STARTUP H31] globalgamemanagers was opened, but exact scene-map block was not seen in ReadFile buffers.");
+        else if (!g_startupManagersSeen)
+            LogA("[STARTUP H31] globalgamemanagers open was not observed; vanilla startup retained.");
+    }
+    if (!CreateOverlayWindow()) { RestoreStartupIoHooksH31(); return 0; }
+    if (!HookGameWindow()) { RestoreStartupIoHooksH31(); return 0; }
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
     LogA("[READY] Five tabs active. Arsenal has 14 single weapons, Special has 4 non-Dong entries. Skip Intro checkbox persists in INI.");
 
@@ -673,6 +693,7 @@ static DWORD __stdcall ModThread(void*) {
         Sleep(10);
     }
 
+    RestoreStartupIoHooksH31();
     // Same-thread overlay destruction. No Unity/IL2CPP calls are made here.
     if (g_menuHwnd && IsWindow(g_menuHwnd)) DestroyWindow(g_menuHwnd);
     g_menuHwnd=0;
