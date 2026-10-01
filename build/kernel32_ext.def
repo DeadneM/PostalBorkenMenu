@@ -5,6 +5,7 @@ GetProcAddress
 LoadLibraryW
 CreateThread
 Sleep
+GetTickCount64
 GetCurrentProcessId
 GetModuleFileNameW
 GetSystemDirectoryW
