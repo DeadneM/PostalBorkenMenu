@@ -48,6 +48,7 @@ static void LoadConfig() {
     }
     g_noCrosshair=(LONG)GetPrivateProfileIntW(L"Settings",L"NoCrosshair",0,g_iniPath);
     g_skipIntroVideos=(LONG)GetPrivateProfileIntW(L"Settings",L"SkipIntroVideos",1,g_iniPath);
+    g_skipStartupLogos=(LONG)GetPrivateProfileIntW(L"Settings",L"SkipStartupLogos",1,g_iniPath);
 }
 
 // GDI is resolved dynamically so the ASI remains linked only to kernel32/user32.
@@ -642,18 +643,29 @@ static BOOL HookGameWindow() {
 
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
+    LoadConfig();
+    BOOL splashHookOk=FALSE;
+    if (g_skipStartupLogos) splashHookOk=InstallSplashReadHookH36();
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42 CLEAN ARSENAL + FIVE TABS + SKIP INTRO TEST");
+    LogA("PostalBorkenMenu V2A42-H36 ASI-ONLY UNITY SPLASH FLAG VIRTUALIZATION");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
-    LogA("No EXE/GameAssembly patching is performed.");
-    LoadConfig();
+    LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
     if (g_dormantExactNameResolver)
         LogA("[OK] Exact-name WeaponId resolver linked; cleaned Arsenal/Special dispatcher active.");
     else
         LogA("[ERROR] Exact-name WeaponId resolver was not retained.");
     LogA(g_skipIntroVideos ? "[INTRO] Skip Intro Videos config: ENABLED (default)." : "[INTRO] Skip Intro Videos config: DISABLED.");
-    if (!InitIl2Cpp()) return 0;
+    if (g_skipStartupLogos)
+        LogA(splashHookOk ? "[SPLASH H36] UnityPlayer ReadFile hook installed before normal H13 initialization." : "[SPLASH H36] ReadFile hook install failed; vanilla splash retained.");
+    else
+        LogA("[SPLASH H36] SkipStartupLogos disabled; vanilla splash retained.");
+    if (!InitIl2Cpp()) { if (g_splashReadHookInstalledH36) RestoreSplashReadHookH36(); return 0; }
+    if (g_splashReadHookInstalledH36) {
+        LogIntA("[SPLASH H36] exact-size globalgamemanagers reads observed: ",(int)g_splashCandidateReadsH36);
+        LogA(g_splashFlagVirtualizedH36 ? "[SPLASH H36] Splash flag virtualization already committed." : "[SPLASH H36] Target flag was not observed through ReadFile; restoring hook.");
+        RestoreSplashReadHookH36();
+    }
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
@@ -673,6 +685,7 @@ static DWORD __stdcall ModThread(void*) {
         Sleep(10);
     }
 
+    if (g_splashReadHookInstalledH36) RestoreSplashReadHookH36();
     // Same-thread overlay destruction. No Unity/IL2CPP calls are made here.
     if (g_menuHwnd && IsWindow(g_menuHwnd)) DestroyWindow(g_menuHwnd);
     g_menuHwnd=0;
