@@ -47,7 +47,7 @@ static void LoadConfig() {
         GetPrivateProfileStringW(L"Args",g_cmds[i].iniName,def,g_cmds[i].args,128,g_iniPath);
     }
     g_noCrosshair=(LONG)GetPrivateProfileIntW(L"Settings",L"NoCrosshair",0,g_iniPath);
-    g_skipIntroVideos=(LONG)GetPrivateProfileIntW(L"Settings",L"SkipIntroVideos",1,g_iniPath);
+    g_skipIntroVideos=0; // game already owns its own Skip Intro Videos option; mod leaves it alone
     g_skipStartupLogos=(LONG)GetPrivateProfileIntW(L"Settings",L"SkipStartupLogos",1,g_iniPath);
 }
 
@@ -82,8 +82,12 @@ static void Fill(HDC dc,int x1,int y1,int x2,int y2,COLORREF color) {
 }
 
 static int CommandMenuTab(int i) {
-    if(i<0 || i>=CMD_COUNT) return 0;
+    if(i<0 || i>=CMD_COUNT) return -1;
     const char* n=g_cmds[i].className;
+
+    // H43 safe cleanup: preserve command records/indices, hide only UI rows.
+    if (StrEqA(n,"Help") || StrEqA(n,"LogTime") || StrEqA(n,"__SkipIntroVideos"))
+        return -1;
 
     const char* exactName=0;
     BOOL special=FALSE;
@@ -656,7 +660,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H40 MENU STARTUP LOGO TOGGLE TEST");
+    LogA("PostalBorkenMenu V2A42-H43 SAFE MENU CLEANUP TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
@@ -669,13 +673,12 @@ static DWORD __stdcall ModThread(void*) {
         LogA("[OK] Exact-name WeaponId resolver linked; cleaned Arsenal/Special dispatcher active.");
     else
         LogA("[ERROR] Exact-name WeaponId resolver was not retained.");
-    LogA(g_skipIntroVideos ? "[INTRO] Skip Intro Videos config: ENABLED (default)." : "[INTRO] Skip Intro Videos config: DISABLED.");
     LogA(g_skipStartupLogos ? "[SPLASH H40] Skip Startup Logos config: ENABLED (default)." : "[SPLASH H40] Skip Startup Logos config: DISABLED.");
     if (!InitIl2Cpp()) return 0;
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] Five tabs active. Skip Intro Videos and Skip Startup Logos checkboxes persist in INI.");
+    LogA("[READY] Five tabs active. Help, Log Time and Skip Intro Videos are hidden; stable command indices preserved.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
