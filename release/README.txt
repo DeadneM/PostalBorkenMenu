@@ -1,63 +1,71 @@
-POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H43 SAFE MENU CLEANUP TEST
+POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H46 NATIVE DLC WHEEL ENTRY NO-AUDIT TEST
 
 BASE
 ----
-H43 starts directly from H40, the last known-good menu build.
+H46 starts directly from validated stable V2A42-H43.
 
-H41 REGRESSION
---------------
-H41 physically removed Help and Log Time from the internal g_cmds table.
-That shifted all later command indices and the user reported a crash.
+H45 STATUS
+----------
+H45 is REJECTED because its broad Assembly-CSharp metadata audit crashed.
 
-H43 SAFE CLEANUP
-----------------
-H43 does NOT remove any internal command records.
+The uploaded H45 log ends during metadata enumeration of ItemWheelButton.Move,
+before the actual DLC OnWheelDown test could be reached.
 
-The following rows are hidden from the overlay only:
-- Help
-- Log Time
-- Skip Intro Videos
+Therefore H45 did NOT disprove the native DLC entry hypothesis.
 
-Their original internal positions remain intact, preserving all command indices.
+USEFUL H45 DISCOVERY
+--------------------
+Before crashing, H45 found on Hyperstrange.PBD.Player:
+- get_IsWheelEnabled
+- field OnWheelWeaponSelected
+- field _playerWheelView
 
-SKIP INTRO VIDEOS
------------------
-The game already provides its own Skip Intro Videos option.
+These reinforce that the wheel is routed through a real native/game input path.
 
-Therefore H43:
-- hides the redundant mod-menu row,
-- removes SkipIntroVideos from the bundled PostalBorkenMenu.ini,
-- forces the mod-side g_skipIntroVideos state to 0,
-- does not attempt to manage or emulate the game's native setting.
+H46 TEST
+--------
+H46 removes the entire global Wheel/DLC/PTSD metadata scan.
 
-SKIP STARTUP LOGOS
-------------------
-This remains fully active and unchanged from validated H39/H40.
+Inside a real DLC level, it only:
 
-The Gameplay tab still contains:
-- Skip Startup Logos
+1. inspects the existing live wheel button categories;
+2. if DLC/PTSD buttons already exist, leaves every button untouched;
+3. calls PlayerWheelView.OnWheelDown() on press;
+4. calls PlayerWheelView.OnWheelUp() on release.
 
-It persists:
-[Settings]
-SkipStartupLogos=1 or 0
+No H8 remap.
+No button mutation.
+No SelectButton.
+No UpdateSelection.
+No global metadata scan.
 
-and applies on the next launch.
+EXPECTED DLC LAYOUT
+-------------------
+The real DLC level has already been observed with:
+- 4 base-category buttons
+- 5 DLC/PTSD-category buttons
 
-PRESERVED FEATURES
-------------------
-- validated H39 native startup-logo skip
-- Skip Startup Logos menu toggle
-- No Crosshair
-- Time Scale
-- Give All Weapons
-- DLC weapon support
-- Arsenal / Special tabs
-- Base / DLC weapon wheels
-- H13 gameplay/stability baseline
+That is the exact native 9-slot wheel shown in the user's screenshot.
+
+TEST
+----
+In the actual These Sunny Daze DLC level:
+
+1. Press and HOLD the mod's DLC Weapon Wheel shortcut.
+2. Move through the wheel.
+3. Release on another weapon.
+4. Check whether the real native DLC wheel appears and whether selection equips.
+5. Send PostalBorkenMenu.log.
+
+Key lines:
+[WHEEL H46] live native BASE buttons: 4
+[WHEEL H46] live native DLC/PTSD buttons: 5
+[WHEEL H46] TRUE native DLC layout detected. OnWheelDown() invoked with ZERO button mutation.
+[WHEEL H46] TRUE native DLC OnWheelUp() completed. No button restoration needed.
 
 PACKAGE
 -------
-The ZIP contains exactly:
+Exactly:
 - dxgi.dll
 - PostalBorkenMenu.asi
 - PostalBorkenMenu.ini
