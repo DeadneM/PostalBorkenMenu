@@ -1,215 +1,134 @@
-PostalBorkenMenu V2A42-H13 RECOVERY + DLC CROSSHAIR AUDIT
-POSTAL: Brain-Damaged
-
-STATUS
-VALIDATED by user.
-V2A42-H13 is the current canonical source/gameplay base.
-Built directly from H4.
-H9 / H10 / H11 / H12 wheel experiments are rejected and are NOT inherited.
-
-PRIMARY GOAL
-Restore the stable H4 behavior first, then isolate the two remaining issues:
-- No Crosshair in DLC.
-- Native Skip Intro / NO_VIDEO mechanism.
-
-WEAPON WHEELS
-- Base Weapon Wheel is exactly the H4 implementation again.
-- No H7-H12 controller Show/Hide/UpdateSelection/SelectButton experiments are present.
-- DLC Weapon Wheel is back to the H4 research implementation only.
-- This build is NOT a new DLC-wheel experiment.
-
-NO CROSSHAIR H13
-H4 targeted only the first PlayerCrosshairController returned by FindObjectOfType.
-H13 additionally resolves Resources.FindObjectsOfTypeAll(PlayerCrosshairController).
-
-When No Crosshair is applied:
-- every loaded PlayerCrosshairController is inspected,
-- only each controller's current Crosshair object is used,
-- only CanvasRenderer alpha is changed,
-- aim logic / target position / current crosshair object are never cleared or replaced,
-- the validated H4 single-controller path remains as fallback.
-
-The log records:
-- PlayerCrosshairController object count,
-- how many expose a current Crosshair,
-- how many CanvasRenderers were actually updated.
-
-SKIP INTRO H13
-- NO simulated keyboard or mouse input exists.
-- The old Escape implementation is removed.
-- H13 does NOT claim Skip Intro is fixed yet.
-- The existing menu preference is still stored in the INI.
-- H13 performs a targeted metadata audit of:
-  - Hyperstrange.PBD.DebugManager
-  - NO_VIDEO class if present
-  - PlayerCrosshairController
-This is intended to reveal the real internal NO_VIDEO path used by the game's working launch option.
-
-TEST
-1. Install all four files.
-2. Enter normal gameplay.
-3. Test Base Weapon Wheel first and confirm it behaves like H4.
-4. Enable No Crosshair and confirm the base-game reticle disappears.
-5. Enter the DLC / use DLC weapons and confirm whether the reticle remains hidden.
-6. Switch several weapons in the DLC.
-7. Exit normally.
-8. Send PostalBorkenMenu.log so the NO_VIDEO and DLC crosshair metadata can be read.
-
-VALIDATION RESULT
-- Base Weapon Wheel restored and validated.
-- No Crosshair behavior validated, including the DLC path tested by the user.
-- Grappling Hook validated behavior preserved.
-- H13 promoted to canonical base.
-
-KNOWN OPEN ITEM
-Skip Intro is NOT fixed in H13.
-The old Escape/input approach is permanently rejected.
-Future work must reproduce the game's native NO_VIDEO behavior without simulated user input.
-
-PACKAGE
-dxgi.dll
-PostalBorkenMenu.asi
-PostalBorkenMenu.ini
-README.txt
-
-======================================================================
-H4 BASE TECHNICAL HISTORY
-======================================================================
-
-PostalBorkenMenu V2A42-H4 CLEAN GRAPPLING MENU + DXGI LOADER
-POSTAL: Brain-Damaged
+POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H38 NATIVE UNITY SPLASH STATE TEST
 
 BASE
-Built from the user-validated V2A42-H3 grappling-hook fix.
-H3 is the validated gameplay basis for this cleanup build.
+----
+H38 starts directly from validated V2A42-H13.
 
-VALIDATED GRAPPLING FIX PRESERVED
-Special -> Grappling Hook uses the validated sequence:
-1. Resolve exact WEAPON_Hook.
-2. AddWeapon(WEAPON_Hook) only if required.
-3. Never use ordinary EquipWeapon for the Hook.
-4. Always call WeaponsInventory.InitHook() AFTER the AddWeapon/collected state.
-5. Verify get_Hook().
+EXACT UNITYPLAYER AUDIT
+-----------------------
+The exact retail UnityPlayer.dll supplied by the tester was analyzed directly:
 
-MENU CLEANUP ONLY
-- "Hook (Add Only)" renamed to "Grappling Hook".
-- Weapon Catalog menu entry removed.
-- DLC Hook Slot99 Test / InitHook menu entry removed.
-- Their command dispatch/menu routing entries are removed.
-- No other menu layout or behavior is changed.
+Size:
+  29,068,712 bytes
 
-DXGI ASI LOADER
-dxgi.dll remains the standard ASI loader.
-It forwards the real System32 DXGI exports and loads PostalBorkenMenu.asi.
-It does not hook Present, render anything, patch swapchains/vtables, or alter gameplay.
+SHA-256:
+  27b88589c217589675c976bd303984286bb4b71516ab68efac1c178401a31e94
 
-PACKAGE CONTENTS
-dxgi.dll
-PostalBorkenMenu.asi
-PostalBorkenMenu.ini
-README.txt
+Unity build:
+  2021.3.14f1
 
-======================================================================
-ORIGINAL V2A42 README
-======================================================================
+The native Unity scripting binding table contains:
 
-PostalBorkenMenu V2A42
-POSTAL: Brain-Damaged
+  UnityEngine.Rendering.SplashScreen::get_isFinished
+  UnityEngine.Rendering.SplashScreen::CancelSplashScreen
+  UnityEngine.Rendering.SplashScreen::BeginSplashScreenFade
+  UnityEngine.Rendering.SplashScreen::Begin
+  UnityEngine.Rendering.SplashScreen::Draw
+  UnityEngine.Rendering.SplashScreen::SetTime
 
-BASE
-Built from V2A41 while preserving the V2A40 stable-window subclass fix that the user validated.
+Recovered native function RVAs:
 
-THIS BUILD
-V2A42 reconstructs the desired five-tab overlay and cleans the named weapon lists.
+  get_isFinished         0x003C8660
+  CancelSplashScreen     0x003C2230
+  BeginSplashScreenFade  0x003C15A0
+  Begin                  0x003C15E0
+  Draw                   0x003C5210
 
-TABS
-- Gameplay
-- Weapons
-- Arsenal
-- Special
-- Visual
+Recovered native Splash state global:
 
-ARSENAL
-Only single WeaponId variants are exposed.
+  UnityPlayer + 0x01A36340
 
-Base:
-- Shovel
-- Pistol
-- Shotgun
-- Machine Gun
-- Rocket Launcher
-- Lightning Gun
-- Gatling Gun
-- Dildo Bow
-- Cat Canon
+The global points to the native Splash state object.
 
-These Sunny Daze / PTSD:
-- Um Drill
-- Piss Gun
-- Meat Shotgun
-- Bubble Gum Machine Gun
-- Nuclear Syringe
+State field:
+  +0x08
 
-All _Akimbo WeaponIds are intentionally removed from the overlay.
+Observed semantics from native code:
+  1 = Begin
+  2 = Fading out
+  3 = Done
 
-SPECIAL
-Kept:
-- Hook (Add Only)
-- Cutscene Weapon DLC
-- No Weapon
-- No Weapon DLC
+Active byte:
+  +0x70
 
-Removed:
-- Dong
-- Dong Confusion
-- Dong Fire
-- Dong Ice
+CancelSplashScreen does exactly:
+  state = 3
+  active = 0
 
-The Hook path remains AddWeapon-only and is never passed through EquipWeapon.
+H38 METHOD
+----------
+H38 modifies no UnityPlayer code.
 
-SKIP INTRO VIDEOS
-A new checkbox appears in the Gameplay tab.
+It uses two tightly bounded mechanisms:
 
-Default:
-SkipIntroVideos=1
+1. DXGI checkpoints
+   The proxy calls the native CancelSplashScreen path before and after each
+   CreateDXGIFactory/CreateDXGIFactory1/CreateDXGIFactory2 forwarding point,
+   but only if the exact audited UnityPlayer build and exact native function
+   byte signatures match.
 
-The value is persisted in PostalBorkenMenu.ini under [Settings].
-Changing the checkbox affects the next launch.
+2. Startup-only native state watcher
+   The H13 worker performs a bounded startup-only check of one exact known
+   pointer:
+     UnityPlayer + 0x01A36340
 
-Implementation for this test:
-- no game files are renamed or deleted
-- SAVE_DATA.cfg is not modified
-- no EXE/GameAssembly patching
-- while V2A40 qualifies the foreground game HWND, after the same HWND has remained valid for 1 second, the ASI sends exactly one synthetic Escape key pulse if Skip Intro Videos is enabled
-- the normal V2A40 WndProc subclass is still delayed until 3 seconds of HWND stability
-- no repeated key injection occurs
+   If state becomes 1 or 2, H38 changes only:
+     state  -> 3
+     active -> 0
 
-This deliberately targets startup only and does not touch normal in-game cutscenes.
+   Then the watcher exits immediately.
 
-STABILITY PRESERVED
-- V2A40: 3-second stable foreground HWND qualification before SetWindowLongPtrW
-- V2A8: early WM_CLOSE shutdown fencing
-- no permanent IL2CPP crosshair polling
-- V2A29 weapon-wheel behavior
-- exact-name WeaponId resolver remains targeted
-- no broad Assembly-CSharp scans
-- no startup Hook recovery
+This is NOT a process-wide scan.
+It does not search memory.
+It does not patch executable code.
+It does not call IL2CPP or SceneManager.
 
-TEST
-1. Launch normally with SkipIntroVideos=1.
-2. Confirm whether the intro video is skipped.
-3. Confirm the game reaches the menu and remains stable.
-4. Open F1.
-5. Check all five tabs.
-6. Confirm Arsenal contains no Akimbo entries.
-7. Confirm Special contains no Dong entries.
-8. Toggle Skip Intro Videos off and on once to verify checkbox persistence.
-9. Test one normal Arsenal weapon and, if owned, one DLC weapon.
-10. Exit normally and send PostalBorkenMenu.log.
+WHY H38 EXISTS
+--------------
+H34/H35 proved the three visible logos are the native Unity Splash system.
+Static PlayerSettings analysis found exactly three configured splash logos:
 
-PACKAGE CONTENTS
-PostalBorkenMenu.asi
-PostalBorkenMenu.ini
-README.txt
+  LOGO_RWS          2 seconds
+  LOGO_Hyperstrange 3 seconds
+  LOGOS_Rest        3 seconds
 
-PostalBorkenMenu.log is generated at runtime and is intentionally not included.
+H36 proved the original serialized PlayerSettings read occurs before the normal
+ASI worker hook.
+H37 proved the serialized 120-byte PlayerSettings block is no longer present
+in RAM when DXGI begins.
+
+H38 therefore targets the final native runtime state machine itself.
+
+NO GAME-FILE MODIFICATION
+-------------------------
+H38 does NOT modify:
+- POSTAL Brain Damaged.exe
+- UnityPlayer.dll on disk
+- GameAssembly.dll
+- globalgamemanagers
+- globalgamemanagers.assets
+- level0 / level1
+
+H38 does NOT:
+- redirect scenes
+- call SceneManager.LoadScene
+- simulate keyboard or mouse input
+- scan process memory
+- patch UnityPlayer executable code
+
+CONFIG
+------
+[Settings]
+SkipStartupLogos=1
+
+Set SkipStartupLogos=0 to disable H38 completely.
+
+EXPECTED LOG
+------------
+[SPLASH H38] UnityPlayer exact-build verification: 1
+[SPLASH H38] Native CancelSplashScreen calls: N
+[SPLASH H38] Direct native state stops: N
+[SPLASH H38] Last observed native splash state: N
+
+If either Native CancelSplashScreen calls or Direct native state stops is > 0,
+H38 reached the real native splash state.
