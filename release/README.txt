@@ -1,27 +1,12 @@
-POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H39 REAL NATIVE CANCELSPLASH TEST
+POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H40 MENU STARTUP LOGO TOGGLE TEST
 
 BASE
 ----
-H39 starts directly from validated V2A42-H13.
+H40 starts from H39, which is now validated by the tester:
+the three native Unity startup logos are successfully skipped.
 
-H38 RESULT
-----------
-H38 reached the real native Unity Splash state:
-- exact UnityPlayer verification = 1
-- native state observed = 1 (Begin)
-- direct state stop = 1
-
-But the visible startup logos remained.
-
-Why:
-H38 emulated only the final fields:
-  state = 3
-  active = 0
-
-Exact UnityPlayer disassembly shows that the real CancelSplashScreen does more.
-
-REAL NATIVE CANCELSPLASHSCREEN
-------------------------------
+H39 VALIDATED NATIVE FIX
+------------------------
 Exact retail UnityPlayer.dll:
 
 SHA-256:
@@ -33,65 +18,83 @@ Unity:
 Native CancelSplashScreen:
 RVA 0x003C2230
 
-Its code first calls:
-RVA 0x003CA820
+Native Splash state pointer:
+UnityPlayer + 0x01A36340
 
-with state = 3.
-
-That helper:
-- writes the native splash state,
-- dispatches registered Unity state-change callbacks,
-- processes/removes callback entries,
-- then returns to CancelSplashScreen.
-
-Only after that does CancelSplashScreen write:
-  active byte +0x70 = 0
-
-This callback dispatch was missing from H38.
-
-H39 METHOD
-----------
-H39 does not emulate CancelSplashScreen.
-
-It watches only the exact known native state object:
-  UnityPlayer + 0x01A36340
-
-When the state is:
+State field:
++0x08
   1 = Begin
-or
   2 = Fade
+  3 = Done
 
-H39 calls the real Unity native function:
-  UnityPlayer + 0x003C2230
-  CancelSplashScreen()
+Active byte:
++0x70
 
-After the call H39 verifies:
-  state == 3
-  active == 0
+H39 watches this exact native state during startup. When Unity enters Begin/Fade,
+H39 calls UnityPlayer's real native CancelSplashScreen(), including Unity's own
+internal callback dispatch. This method is validated in-game.
 
-It continues watching briefly so a later native Begin can be caught and cancelled
-again if Unity restarts the splash state.
+H40 CHANGE
+----------
+H40 keeps the validated H39 native fix unchanged and connects it to the mod menu.
 
-No memory scan.
-No UnityPlayer code patch.
-No file modification.
+Gameplay tab now contains:
+
+  Skip Intro Videos
+  Skip Startup Logos
+
+Skip Startup Logos uses the same checkbox presentation as Skip Intro Videos:
+
+  [X] ENABLED   NEXT LAUNCH
+  [ ] DISABLED  NEXT LAUNCH
+
+Clicking the action area changes:
+
+  [Settings]
+  SkipStartupLogos=1
+
+or:
+
+  [Settings]
+  SkipStartupLogos=0
+
+The setting is flushed immediately to PostalBorkenMenu.ini.
+
+IMPORTANT
+---------
+The startup-logo setting takes effect on the NEXT GAME LAUNCH.
+
+This is intentional: by the time the F1 menu is available, Unity's startup splash
+sequence has already happened.
+
+When enabled on the next launch:
+- H39's validated native CancelSplashScreen path is active.
+
+When disabled on the next launch:
+- H39 returns immediately and Unity's three native startup logos play normally.
+
+The three confirmed native splash logos are:
+- LOGO_RWS          2 seconds
+- LOGO_Hyperstrange 3 seconds
+- LOGOS_Rest        3 seconds
+
+NO GAME-FILE MODIFICATION
+-------------------------
+H40 does not modify:
+- POSTAL Brain Damaged.exe
+- UnityPlayer.dll on disk
+- GameAssembly.dll
+- globalgamemanagers
+- level0 / level1
+
 No scene redirect.
-No IL2CPP call is used for the splash fix.
+No process-wide memory scan.
+No input simulation.
 
-EXPECTED LOG
-------------
-[SPLASH H39] UnityPlayer exact-build verification: 1
-[SPLASH H39] Real CancelSplashScreen calls: N
-[SPLASH H39] Confirmed state=3/active=0 after cancel: N
-[SPLASH H39] Re-Begin events seen after cancel: N
-[SPLASH H39] Last observed native splash state: N
-
-If Real CancelSplashScreen calls > 0, H39 executed Unity's own complete native
-cancel path including its internal callback dispatch.
-
-CONFIG
-------
-[Settings]
-SkipStartupLogos=1
-
-Set to 0 to disable H39.
+PACKAGE
+-------
+The test ZIP contains exactly:
+- dxgi.dll
+- PostalBorkenMenu.asi
+- PostalBorkenMenu.ini
+- README.txt
