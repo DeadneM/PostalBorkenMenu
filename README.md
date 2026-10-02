@@ -10,23 +10,27 @@
 
 ## Current canonical base
 
-**V2A42-H13** is the current user-validated source/gameplay base.
+**V2A42-H43** is the current user-validated source/gameplay base.
 
-It supersedes the older V2A8 public baseline while preserving the validated V2A8 shutdown/lifetime model.
+It preserves the validated H13 gameplay/stability foundation and adds the now-validated native Unity startup-logo skip.
 
-Validated H13 behavior:
+Validated H43 behavior:
 
 - five-tab in-game menu
 - reliable configurable hotkeys and persistent INI
 - validated Grappling Hook path using exact `WEAPON_Hook` -> `AddWeapon` when required -> `WeaponsInventory.InitHook()`
-- Base Weapon Wheel restored to the H4 path after rejecting H9-H12 wheel experiments
-- visual-only `No Crosshair` preserved without clearing/replacing the native crosshair object
-- H13 extends No Crosshair across all loaded `PlayerCrosshairController` instances so the DLC path is covered
+- Base Weapon Wheel preserved on the validated H4/H13 path
+- visual-only `No Crosshair` across base-game and DLC crosshair controllers
 - Give All Weapons / named Arsenal and Special entries
 - TimeScale toggle behavior
+- native Unity startup-logo skip through the real `UnityPlayer.dll` `CancelSplashScreen()` path
+- persistent **Skip Startup Logos** menu toggle, applied on the next launch
+- redundant **Skip Intro Videos** mod option removed because the game already provides its own setting
+- Help and Log Time hidden from the overlay while their internal command records remain in place to preserve stable indices
 - V2A8 early shutdown fencing
+- one-launch-one-log diagnostics
 - x64 `dxgi.dll` proxy/ASI loader included in the current package
-- no on-disk patching of the game EXE, `GameAssembly.dll`, or `UnityPlayer.dll`
+- no on-disk patching of the game EXE, `GameAssembly.dll`, `UnityPlayer.dll`, or Unity asset files
 
 Current package contents:
 
@@ -39,20 +43,24 @@ README.txt
 
 ### Open work
 
-- **Skip Intro is not fixed in H13.** The old synthetic Escape/input method is rejected and must not return.
-- The next implementation must reproduce the game's native intro-skip / NO_VIDEO behavior without simulating keyboard or mouse input.
-- DLC Weapon Wheel research remains noncanonical. H9, H10, H11 and H12 are rejected.
+- DLC Weapon Wheel remains the next major target.
+- H9-H12 wheel experiments remain rejected and must not be reused as a base.
+- The game's own **Skip Intro Videos** setting is left to the game; PostalBorkenMenu no longer duplicates it.
 
 ### Download
 
-**[Download PostalBorkenMenu V2A42-H13](https://github.com/DeadneM/PostalBorkenMenu/releases/download/V2A42-H13/POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H13.zip)**  
-[View release notes](https://github.com/DeadneM/PostalBorkenMenu/releases/tag/V2A42-H13)
+**Latest stable release: V2A42-H43**
 
-Release ZIP SHA-256:
+The GitHub Release contains exactly:
 
-`2b3c4f233a0a706714b7f198be5867506b62e7e21b4491f401079f7efb8513f0`
+```text
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
+```
 
-The older V2A8 release remains available as historical packaging.
+The older H13 and V2A8 releases remain available as historical packaging.
 
 ## Important launch rule
 
@@ -70,7 +78,7 @@ PostalBorkenMenu calls the game's native developer systems directly and does not
 
 PostalBorkenMenu is an **x64 ASI** and requires a compatible ASI loader.
 
-The current V2A42-H13 release ZIP contains exactly:
+The current V2A42-H43 release ZIP contains exactly:
 
 ```text
 dxgi.dll
@@ -99,10 +107,11 @@ F7  Unlock All
 
 ## Developer commands currently exposed
 
-PostalBorkenMenu resolves and uses the game's native developer-command system where available:
+PostalBorkenMenu resolves and uses the game's native developer-command system where available.
+
+Visible native rows include:
 
 ```text
-Help
 NextLevel
 NoNpc
 ForceAggro
@@ -113,12 +122,13 @@ NoHud
 NoHudWithCrossHair
 NoModel
 TimeScale
-LogTime
 GiveAll
 UnlockAll
 NoMenu
 KillPresident
 ```
+
+`Help` and `LogTime` remain in the internal command table for index stability but are hidden from the overlay.
 
 PostalBorkenMenu also adds separate synthetic entries such as:
 
@@ -190,13 +200,16 @@ Development progressed through:
 - **V2A7**: CanvasRenderer visual crosshair method validated in-game, but exit regression remained
 - **V2A8**: early shutdown fencing + event-driven crosshair refresh; stable lifetime foundation
 - **V2A42-H3/H4**: validated Grappling Hook path and menu cleanup
-- **V2A42-H13**: validated recovery base; Base Weapon Wheel restored and No Crosshair extended across DLC crosshair controllers; current canonical base
+- **V2A42-H13**: validated recovery base; Base Weapon Wheel restored and No Crosshair extended across DLC crosshair controllers
+- **V2A42-H39**: validated native Unity startup-logo skip using the real `CancelSplashScreen()` path
+- **V2A42-H40**: added persistent Skip Startup Logos menu toggle
+- **V2A42-H43**: safe menu cleanup; Help, Log Time and redundant Skip Intro Videos hidden without shifting internal command indices; current canonical base
 
 The detailed engineering notebook is kept under `docs/`.
 
 ## Next major feature
 
-Once the developer-menu foundation is frozen, the next planned branch is support for using **owned These Sunny Daze DLC weapons in the base campaign**, while preserving normal DLC ownership checks.
+The next planned branch is the **DLC Weapon Wheel**: making owned *These Sunny Daze* DLC weapons usable through a proper wheel path without regressing the validated base weapon wheel.
 
 ## Disclaimer
 
