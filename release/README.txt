@@ -1,63 +1,81 @@
-POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H43 SAFE MENU CLEANUP TEST
+POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H49 FIELD-AWARE INPUTMANAGER WHEEL TEST
 
 BASE
 ----
-H43 starts directly from H40, the last known-good menu build.
+H49 starts directly from validated stable V2A42-H43.
 
-H41 REGRESSION
---------------
-H41 physically removed Help and Log Time from the internal g_cmds table.
-That shifted all later command indices and the user reported a crash.
+WHAT H48 PROVED
+---------------
+H48 found:
+- live native wheel = 4 base + 5 DLC/PTSD buttons
+- live Hyperstrange.PBD.InputManager object exists
+- InputManager.OnWheelDown field exists and is non-null
+- Player.IsWheelEnabled is 0 before the attempted event
+- the object read from OnWheelDown was Rewired.KeyboardMap
+- therefore our simple instance field read was wrong
+- no delegate Invoke() was called
+- Player.IsWheelEnabled remained 0
 
-H43 SAFE CLEANUP
-----------------
-H43 does NOT remove any internal command records.
+H49 FIX
+-------
+H49 no longer assumes InputManager.OnWheelDown / OnWheelUp are instance fields.
 
-The following rows are hidden from the overlay only:
-- Help
-- Log Time
-- Skip Intro Videos
+For the exact fields:
+- OnWheelDown
+- OnWheelUp
+- _wheelId
+- _wheelPreviousItemId
+- _wheelNextItemId
 
-Their original internal positions remain intact, preserving all command indices.
+H49 dynamically resolves:
+- il2cpp_field_get_flags
+- il2cpp_field_get_offset
+- il2cpp_field_get_type
+- il2cpp_field_static_get_value
 
-SKIP INTRO VIDEOS
------------------
-The game already provides its own Skip Intro Videos option.
+For each field it logs:
+- flags
+- whether the field is static
+- offset
+- declared IL2CPP type
 
-Therefore H43:
-- hides the redundant mod-menu row,
-- removes SkipIntroVideos from the bundled PostalBorkenMenu.ini,
-- forces the mod-side g_skipIntroVideos state to 0,
-- does not attempt to manage or emulate the game's native setting.
+For OnWheelDown / OnWheelUp:
+- if static, H49 reads the backing value through il2cpp_field_static_get_value
+- if instance, H49 uses the live InputManager object
+- H49 requires the declared field type to expose Invoke() with 0 parameters
+- H49 also requires the runtime object type to expose Invoke() with 0 parameters
+- only then is Invoke() executed
 
-SKIP STARTUP LOGOS
-------------------
-This remains fully active and unchanged from validated H39/H40.
+No broad metadata scan is used.
 
-The Gameplay tab still contains:
-- Skip Startup Logos
+TEST
+----
+Inside the actual These Sunny Daze DLC level:
 
-It persists:
-[Settings]
-SkipStartupLogos=1 or 0
+1. HOLD the mod's DLC Weapon Wheel shortcut.
+2. Move through the wheel.
+3. Release.
+4. Send PostalBorkenMenu.log.
 
-and applies on the next launch.
+Most important lines:
+[WHEEL H49 FIELD]
+OnWheelDown
+[WHEEL H49] field static: ...
+[WHEEL H49] declared field type:
+...
+[WHEEL H49] declared zero-arg Invoke present: ...
+[WHEEL H49] wheel event backing field read via STATIC/INSTANCE storage.
+[WHEEL H49] runtime event object type:
+...
+[WHEEL H49] runtime zero-arg Invoke present: ...
+[WHEEL H49] event Invoke() completed.
+[WHEEL H49] Player.IsWheelEnabled after event: ...
 
-PRESERVED FEATURES
-------------------
-- validated H39 native startup-logo skip
-- Skip Startup Logos menu toggle
-- No Crosshair
-- Time Scale
-- Give All Weapons
-- DLC weapon support
-- Arsenal / Special tabs
-- Base / DLC weapon wheels
-- H13 gameplay/stability baseline
+If the real backing field is a delegate, this should finally fire the exact InputManager multicast path instead of reading unrelated Rewired state.
 
 PACKAGE
 -------
-The ZIP contains exactly:
+Exactly:
 - dxgi.dll
 - PostalBorkenMenu.asi
 - PostalBorkenMenu.ini
