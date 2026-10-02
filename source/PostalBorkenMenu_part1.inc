@@ -519,7 +519,6 @@ struct CommandRec {
 };
 
 static CommandRec g_cmds[] = {
-    {"Help", L"Help", L"Help", 0,0,0,0,0,0,0,{0}},
     {"NextLevel", L"Next Level", L"NextLevel", 0,0,0,0,0,0,0,{0}},
     {"NoNpc", L"No NPC", L"NoNpc", 0,0,0,0,0,0,0,{0}},
     {"ForceAggro", L"Force Aggro", L"ForceAggro", 0,0,0,0,0,0,0,{0}},
@@ -531,7 +530,6 @@ static CommandRec g_cmds[] = {
     {"NoHudWithCrossHair", L"No HUD (keep crosshair)", L"NoHudWithCrossHair", 0,0,0,0,0,0,0,{0}},
     {"NoModel", L"No Player Model", L"NoModel", 0,0,0,0,0,0,0,{0}},
     {"TimeScale", L"Time Scale", L"TimeScale", 0,0,0,0,0,0,0,{L'0',L'.',L'5',0}},
-    {"LogTime", L"Log Time", L"LogTime", 0,0,0,0,0,0,0,{0}},
     {"GiveAll", L"Give All", L"GiveAll", VK_F6,0,0,0,0,0,0,{0}},
     {"__SkipIntroVideos", L"Skip Intro Videos", L"SkipIntroVideos", 0,0,0,0,0,0,0,{0}},
     {"__SkipStartupLogos", L"Skip Startup Logos", L"SkipStartupLogos", 0,0,0,0,0,0,0,{0}},
