@@ -534,6 +534,7 @@ static CommandRec g_cmds[] = {
     {"LogTime", L"Log Time", L"LogTime", 0,0,0,0,0,0,0,{0}},
     {"GiveAll", L"Give All", L"GiveAll", VK_F6,0,0,0,0,0,0,{0}},
     {"__SkipIntroVideos", L"Skip Intro Videos", L"SkipIntroVideos", 0,0,0,0,0,0,0,{0}},
+    {"__SkipStartupLogos", L"Skip Startup Logos", L"SkipStartupLogos", 0,0,0,0,0,0,0,{0}},
     {"__GiveAllWeapons", L"Give All Weapons", L"GiveAllWeapons", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_Shovel", L"Shovel", L"Arsenal_Shovel", 0,0,0,0,0,0,0,{0}},
     {"__Arsenal_WEAPON_Pistol", L"Pistol", L"Arsenal_Pistol", 0,0,0,0,0,0,0,{0}},
