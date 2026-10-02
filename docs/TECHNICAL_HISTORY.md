@@ -1075,3 +1075,83 @@ Note:
 ## Logging policy - one launch, one log
 
 From commit `1a97bd2d3ad8f43a2ff387a04cf3eb11cc7ce1c4`, the minimal DXGI ASI loader truncates `PostalBorkenMenu.log` exactly once at first DXGI initialization for each game process, before writing any loader or ASI diagnostic line. Subsequent writes in the same run remain append-only. This prevents diagnostics from multiple builds/runs being concatenated into one file.
+
+
+## V2A42-H39 through H43
+
+### V2A42-H39
+
+Validated startup-logo solution.
+
+Static PlayerSettings analysis had already identified the exact three Unity native splash entries:
+
+- `LOGO_RWS` - 2 seconds
+- `LOGO_Hyperstrange` - 3 seconds
+- `LOGOS_Rest` - 3 seconds
+
+Exact retail `UnityPlayer.dll` audit:
+
+- SHA-256: `27b88589c217589675c976bd303984286bb4b71516ab68efac1c178401a31e94`
+- Unity: 2021.3.14f1
+- native `CancelSplashScreen`: RVA `0x003C2230`
+- native Splash state pointer: `UnityPlayer + 0x01A36340`
+- state field: `+0x08`
+- active byte: `+0x70`
+
+H38 proved that writing only the terminal state fields was insufficient.
+
+H39 instead calls UnityPlayer's real native `CancelSplashScreen()` when the native splash state enters Begin/Fade, preserving Unity's internal state-change callback path.
+
+User validation:
+- all three startup logos are skipped successfully.
+- H39 becomes the validated startup-logo mechanism.
+
+### V2A42-H40
+
+Menu integration for the validated H39 mechanism.
+
+Added Gameplay option:
+- `Skip Startup Logos`
+
+Behavior:
+- persists `[Settings] SkipStartupLogos=1/0`
+- applies on next launch
+- enabled path uses the validated H39 native `CancelSplashScreen()` mechanism
+- disabled path leaves the Unity startup logos untouched
+
+### V2A42-H41
+
+Rejected.
+
+Attempted cleanup physically removed `Help` and `LogTime` from `g_cmds`.
+
+Result:
+- user reported a crash.
+
+Cause/rule:
+- physically removing command records shifts every later command index.
+- future cleanup must preserve the internal command table and hide rows only at the UI-routing layer.
+
+### V2A42-H43
+
+Validated safe menu cleanup, built directly from known-good H40.
+
+Visible overlay rows hidden:
+- Help
+- Log Time
+- Skip Intro Videos
+
+Important:
+- internal command records remain in place.
+- stable indices are preserved.
+- `SkipIntroVideos` was removed from the bundled mod INI because the retail game already provides its own native option.
+- mod-side `g_skipIntroVideos` is left disabled.
+- `Skip Startup Logos` remains active and unchanged.
+
+User validation:
+- H43 works correctly.
+- H43 becomes the current canonical source/gameplay base.
+
+Next target:
+- DLC Weapon Wheel.
+- rejected H9-H12 wheel branches remain noncanonical and must not be reused as a base.
