@@ -184,12 +184,14 @@ static void PaintOverlay(HWND hwnd) {
         Text(dc,g_cmds[i].displayName,25,y,326,y+ROW_H-2,C(232,233,236),DT_LEFT);
 
         BOOL isSkipIntro=StrEqA(g_cmds[i].className,"__SkipIntroVideos");
-        if (isSkipIntro) {
+        BOOL isSkipStartup=StrEqA(g_cmds[i].className,"__SkipStartupLogos");
+        if (isSkipIntro || isSkipStartup) {
+            BOOL enabled=isSkipIntro ? (g_skipIntroVideos?TRUE:FALSE) : (g_skipStartupLogos?TRUE:FALSE);
             Fill(dc,493,y+4,585,y+ROW_H-6,C(43,46,54));
             Fill(dc,501,y+7,517,y+ROW_H-9,C(28,30,35));
-            if(g_skipIntroVideos) Text(dc,L"X",501,y+5,517,y+ROW_H-7,C(120,230,150),DT_CENTER);
-            Text(dc,g_skipIntroVideos?L"ENABLED":L"DISABLED",522,y+4,585,y+ROW_H-6,
-                 g_skipIntroVideos?C(120,230,150):C(200,200,205),DT_CENTER);
+            if(enabled) Text(dc,L"X",501,y+5,517,y+ROW_H-7,C(120,230,150),DT_CENTER);
+            Text(dc,enabled?L"ENABLED":L"DISABLED",522,y+4,585,y+ROW_H-6,
+                 enabled?C(120,230,150):C(200,200,205),DT_CENTER);
             Fill(dc,600,y+4,738,y+ROW_H-6,C(38,41,49));
             Text(dc,L"NEXT LAUNCH",600,y+4,738,y+ROW_H-6,C(198,202,210),DT_CENTER);
             continue;
@@ -340,6 +342,10 @@ static BOOL HandleOverlayClick(int x,int y) {
         if(i>=0 && i<CMD_COUNT && ry<ROW_H-1) {
             if(StrEqA(g_cmds[i].className,"__SkipIntroVideos")) {
                 if(px>=493 && px<744) ToggleSkipIntroVideos();
+                return TRUE;
+            }
+            if(StrEqA(g_cmds[i].className,"__SkipStartupLogos")) {
+                if(px>=493 && px<744) ToggleSkipStartupLogos();
                 return TRUE;
             }
             if(px>=493 && px<590){ ExecuteCommandIndex(i); if(g_menuHwnd)InvalidateRect(g_menuHwnd,0,TRUE); return TRUE; }
@@ -650,7 +656,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H39 REAL NATIVE CANCELSPLASH TEST");
+    LogA("PostalBorkenMenu V2A42-H40 MENU STARTUP LOGO TOGGLE TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
@@ -664,12 +670,12 @@ static DWORD __stdcall ModThread(void*) {
     else
         LogA("[ERROR] Exact-name WeaponId resolver was not retained.");
     LogA(g_skipIntroVideos ? "[INTRO] Skip Intro Videos config: ENABLED (default)." : "[INTRO] Skip Intro Videos config: DISABLED.");
-    LogA(g_skipStartupLogos ? "[SPLASH H39] SkipStartupLogos config: ENABLED (default)." : "[SPLASH H39] SkipStartupLogos config: DISABLED.");
+    LogA(g_skipStartupLogos ? "[SPLASH H40] Skip Startup Logos config: ENABLED (default)." : "[SPLASH H40] Skip Startup Logos config: DISABLED.");
     if (!InitIl2Cpp()) return 0;
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] Five tabs active. Arsenal has 14 single weapons, Special has 4 non-Dong entries. Skip Intro checkbox persists in INI.");
+    LogA("[READY] Five tabs active. Skip Intro Videos and Skip Startup Logos checkboxes persist in INI.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
