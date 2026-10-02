@@ -2217,6 +2217,17 @@ static BOOL ToggleSkipIntroVideos() {
     return TRUE;
 }
 
+static BOOL ToggleSkipStartupLogos() {
+    g_skipStartupLogos = g_skipStartupLogos ? 0 : 1;
+    WritePrivateProfileStringW(L"Settings",L"SkipStartupLogos",g_skipStartupLogos?L"1":L"0",g_iniPath);
+    WritePrivateProfileStringW(0,0,0,g_iniPath);
+    LogA(g_skipStartupLogos
+        ? "[SPLASH H40] Skip Startup Logos ENABLED. H39 native CancelSplashScreen will apply on next launch."
+        : "[SPLASH H40] Skip Startup Logos DISABLED. Native Unity startup logos will play on next launch.");
+    if (g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
+    return TRUE;
+}
+
 static float ParseTimeScale(const WCHAR* a) {
     if (!a) return 1.0f;
     if (a[0]==L'0' && a[1]==L'.' && a[2]==L'5' && a[3]==0) return 0.5f;
@@ -2266,6 +2277,7 @@ static void ExecuteCommandIndex(int i) {
     else if (DecodeWeaponListCommand(i,&listCategory,&listSlot)) EquipMappedWeaponCategorySlot(listCategory,listSlot);
     else if (StrEqA(g_cmds[i].className,"__NoCrosshair")) ToggleNoCrosshair();
     else if (StrEqA(g_cmds[i].className,"__SkipIntroVideos")) ToggleSkipIntroVideos();
+    else if (StrEqA(g_cmds[i].className,"__SkipStartupLogos")) ToggleSkipStartupLogos();
     else if (StrEqA(g_cmds[i].className,"__GiveAllWeapons")) GiveAllWeaponsOnly();
     else if (StrEqA(g_cmds[i].className,"__GiveAllDlcWeapons")) GiveAllOwnedDlcWeapons();
     else if (StrEqA(g_cmds[i].className,"__WeaponKeysMode")) LogA("[KEYMAP] Weapon Keys Mode changed through its Argument field");
