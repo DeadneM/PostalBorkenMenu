@@ -1,63 +1,100 @@
-POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H43 SAFE MENU CLEANUP TEST
+POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H48 INPUTMANAGER WHEEL EVENT TEST
 
 BASE
 ----
-H43 starts directly from H40, the last known-good menu build.
+H48 starts directly from validated stable V2A42-H43.
 
-H41 REGRESSION
+WHAT H47 PROVED
+---------------
+The wheel call chain has a higher-level input event layer.
+
+Hyperstrange.PBD.InputManager exposes:
+- OnWheelDown
+- OnWheelUp
+- _wheelPreviousItemId
+- _wheelNextItemId
+- _wheelId
+
+PlayerWheelView itself exposes:
+- OnWheelDown
+- OnWheelUp
+- OnPlayerWheelViewShow
+- OnPlayerWheelViewHide
+- _wheelDown
+
+PlayerWeaponWheelComponent exposes:
+- OnPlayerWheelViewShow
+- OnPlayerWheelViewHide
+- OnWeaponDown
+- UpdateSelection
+- SelectButton
+- SelectButtonInSlot
+
+The live Player object also has:
+- IsWheelEnabled
+- OnWheelWeaponSelected
+- _playerWheelView
+
+H46 proved that directly calling PlayerWheelView.OnWheelDown/OnWheelUp is not enough:
+the methods execute without exception but the wheel remains invisible.
+
+H48 HYPOTHESIS
 --------------
-H41 physically removed Help and Log Time from the internal g_cmds table.
-That shifted all later command indices and the user reported a crash.
+PlayerWheelView is only one subscriber to the real InputManager wheel event.
 
-H43 SAFE CLEANUP
-----------------
-H43 does NOT remove any internal command records.
+Calling only PlayerWheelView.OnWheelDown skips the other subscribers that may:
+- arm Player.IsWheelEnabled
+- start time scaling
+- notify PlayerWeaponWheelComponent
+- show the view
+- enable selection handling
 
-The following rows are hidden from the overlay only:
-- Help
-- Log Time
-- Skip Intro Videos
+H48 therefore invokes the actual multicast delegate stored in:
+- InputManager.OnWheelDown on press
+- InputManager.OnWheelUp on release
 
-Their original internal positions remain intact, preserving all command indices.
+This is much closer to the game's real input event path.
 
-SKIP INTRO VIDEOS
------------------
-The game already provides its own Skip Intro Videos option.
+H48 SAFETY
+----------
+H48:
+- starts from H43
+- does not mutate any wheel button
+- does not remap WeaponId
+- does not call SelectButton
+- does not call UpdateSelection
+- does not call PlayerWheelView.Show directly
+- does not scan global metadata
+- only fires InputManager's already-wired multicast delegates
 
-Therefore H43:
-- hides the redundant mod-menu row,
-- removes SkipIntroVideos from the bundled PostalBorkenMenu.ini,
-- forces the mod-side g_skipIntroVideos state to 0,
-- does not attempt to manage or emulate the game's native setting.
+Before firing, H48 verifies the real DLC scene still has native DLC/PTSD buttons.
 
-SKIP STARTUP LOGOS
-------------------
-This remains fully active and unchanged from validated H39/H40.
+TEST
+----
+Inside the actual These Sunny Daze DLC level:
 
-The Gameplay tab still contains:
-- Skip Startup Logos
+1. HOLD the mod's DLC Weapon Wheel hotkey.
+2. Move through the wheel.
+3. Release on another weapon.
+4. Check:
+   - whether the real DLC wheel becomes visible
+   - whether selection works
+   - whether the selected weapon equips
+5. Send PostalBorkenMenu.log.
 
-It persists:
-[Settings]
-SkipStartupLogos=1 or 0
-
-and applies on the next launch.
-
-PRESERVED FEATURES
-------------------
-- validated H39 native startup-logo skip
-- Skip Startup Logos menu toggle
-- No Crosshair
-- Time Scale
-- Give All Weapons
-- DLC weapon support
-- Arsenal / Special tabs
-- Base / DLC weapon wheels
-- H13 gameplay/stability baseline
+Important H48 lines:
+[WHEEL H48] live native BASE buttons: 4
+[WHEEL H48] live native DLC/PTSD buttons: 5
+[WHEEL H48] live InputManager object found: 1
+[WHEEL H48] OnWheelDown delegate non-null: 1
+[WHEEL H48] Player.IsWheelEnabled before event: ...
+[WHEEL H48] Delegate Invoke() completed.
+[WHEEL H48] Player.IsWheelEnabled after event: ...
+[WHEEL H48] InputManager.OnWheelDown multicast event fired on untouched native DLC layout.
 
 PACKAGE
 -------
-The ZIP contains exactly:
+Exactly:
 - dxgi.dll
 - PostalBorkenMenu.asi
 - PostalBorkenMenu.ini
