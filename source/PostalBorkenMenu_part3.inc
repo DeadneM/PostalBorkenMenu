@@ -433,6 +433,16 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         ExecuteNativeDlcWheel(lp ? TRUE : FALSE);
         return 0;
     }
+    if (msg==WM_APP_DLCWHEELPROBE) {
+        if (g_dlcWheelActive && g_ready && !g_shuttingDown) {
+            BOOL attached=FALSE; void* thread=0;
+            if (EnsureIl2CppThread(&attached,&thread)) {
+                ProbeDlcWheelSelectionH44();
+                ReleaseIl2CppThread(attached,thread);
+            }
+        }
+        return 0;
+    }
     if (msg==WM_APP_CROSSHAIR) {
         if (g_ready && !g_shuttingDown) {
             BOOL attached=FALSE; void* thread=0;
@@ -582,6 +592,18 @@ static void PollHotkeys() {
         if (next==0 && g_ready && !g_shuttingDown && g_gameHwnd && IsWindow(g_gameHwnd))
             PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
     }
+
+    // H44: passive observer only. Probe on the game thread roughly every 50 ms
+    // while the remapped DLC wheel is held. No selection method is called.
+    static int h44ProbeDivider=0;
+    if (g_dlcWheelActive && g_ready && !g_shuttingDown && g_gameHwnd && IsWindow(g_gameHwnd)) {
+        if (++h44ProbeDivider>=5) {
+            h44ProbeDivider=0;
+            PostMessageW(g_gameHwnd,WM_APP_DLCWHEELPROBE,0,0);
+        }
+    } else {
+        h44ProbeDivider=0;
+    }
 }
 
 static BOOL HookGameWindow() {
@@ -660,7 +682,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H43 SAFE MENU CLEANUP TEST");
+    LogA("PostalBorkenMenu V2A42-H44 DLC WHEEL SELECTION OBSERVER TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
@@ -678,7 +700,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] Five tabs active. Help, Log Time and Skip Intro Videos are hidden; stable command indices preserved.");
+    LogA("[READY] H43 stable base + H44 passive DLC wheel selection observer. Base wheel path unchanged.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
