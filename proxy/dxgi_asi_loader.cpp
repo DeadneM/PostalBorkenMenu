@@ -27,6 +27,8 @@ static HMODULE g_realDxgi=0;
 static HMODULE g_asi=0;
 static volatile LONG g_dxgiState=0;
 static volatile LONG g_asiState=0;
+typedef DWORD (__stdcall *PFN_PostalEarlyNativeSplashCancel)(void);
+static PFN_PostalEarlyNativeSplashCancel g_earlySplashCancel=0;
 static WCHAR g_logPath[1024]={};
 
 extern "C" FARPROC g_real_DXGID3D10CreateDevice=0;
@@ -86,6 +88,16 @@ static void BuildLogPath() {
     if(!ModuleDirectory(dir,1024)) return;
     CopyW(g_logPath,1024,dir);
     AppendW(g_logPath,1024,L"PostalBorkenMenu.log");
+}
+__declspec(noinline) static BOOL ShouldSkipStartupLogosH38() {
+    WCHAR ini[512]={};
+    if(!ModuleDirectory(ini,512)) return TRUE;
+    AppendW(ini,512,L"PostalBorkenMenu.ini");
+    return GetPrivateProfileIntW(L"Settings",L"SkipStartupLogos",1,ini) ? TRUE : FALSE;
+}
+static void TryNativeSplashCancelH38() {
+    if(!ShouldSkipStartupLogosH38()) return;
+    if(g_earlySplashCancel) g_earlySplashCancel();
 }
 static void Log(const char* s) {
     if(!s) return;
@@ -151,6 +163,17 @@ static void EnsureAsiLoaded() {
         Log("[DXGI LOADER] ERROR: PostalBorkenMenu.asi failed to load.");
         InterlockedExchange(&g_asiState,-1);
         return;
+    }
+
+    g_earlySplashCancel=(PFN_PostalEarlyNativeSplashCancel)GetProcAddress(g_asi,"PostalEarlyNativeSplashCancel");
+    if(g_earlySplashCancel && ShouldSkipStartupLogosH38()) {
+        DWORD r=g_earlySplashCancel();
+        Log(r ? "[DXGI LOADER] H38: native splash cancel checkpoint reached before factory."
+              : "[DXGI LOADER] H38: native splash state not active at pre-factory checkpoint.");
+    } else if(!g_earlySplashCancel) {
+        Log("[DXGI LOADER] H38: PostalEarlyNativeSplashCancel export missing.");
+    } else {
+        Log("[DXGI LOADER] H38: SkipStartupLogos=0; native splash cancel disabled.");
     }
 
     Log("[DXGI LOADER] OK: PostalBorkenMenu.asi loaded.");
@@ -219,21 +242,30 @@ typedef HRESULT (WINAPI *PFN_CreateFactory2)(UINT,REFIID,void**);
 
 extern "C" HRESULT WINAPI CreateDXGIFactory(REFIID riid, void** out) {
     EnsureRealDxgi();
+    TryNativeSplashCancelH38();
     PFN_CreateFactory fn=(PFN_CreateFactory)g_real_CreateDXGIFactory;
     if(!fn || fn==(PFN_CreateFactory)&ProxyMissingExport) return E_NOINTERFACE;
-    return fn(riid,out);
+    HRESULT hr=fn(riid,out);
+    TryNativeSplashCancelH38();
+    return hr;
 }
 extern "C" HRESULT WINAPI CreateDXGIFactory1(REFIID riid, void** out) {
     EnsureRealDxgi();
+    TryNativeSplashCancelH38();
     PFN_CreateFactory fn=(PFN_CreateFactory)g_real_CreateDXGIFactory1;
     if(!fn || fn==(PFN_CreateFactory)&ProxyMissingExport) return E_NOINTERFACE;
-    return fn(riid,out);
+    HRESULT hr=fn(riid,out);
+    TryNativeSplashCancelH38();
+    return hr;
 }
 extern "C" HRESULT WINAPI CreateDXGIFactory2(UINT flags, REFIID riid, void** out) {
     EnsureRealDxgi();
+    TryNativeSplashCancelH38();
     PFN_CreateFactory2 fn=(PFN_CreateFactory2)g_real_CreateDXGIFactory2;
     if(!fn || fn==(PFN_CreateFactory2)&ProxyMissingExport) return E_NOINTERFACE;
-    return fn(flags,riid,out);
+    HRESULT hr=fn(flags,riid,out);
+    TryNativeSplashCancelH38();
+    return hr;
 }
 
 extern "C" BOOL WINAPI DllMain(HMODULE module, DWORD reason, void*) {
