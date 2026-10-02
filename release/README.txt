@@ -1,99 +1,63 @@
-POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H40 MENU STARTUP LOGO TOGGLE TEST
+POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H43 SAFE MENU CLEANUP TEST
 
 BASE
 ----
-H40 starts from H39, which is now validated by the tester:
-the three native Unity startup logos are successfully skipped.
+H43 starts directly from H40, the last known-good menu build.
 
-H39 VALIDATED NATIVE FIX
-------------------------
-Exact retail UnityPlayer.dll:
+H41 REGRESSION
+--------------
+H41 physically removed Help and Log Time from the internal g_cmds table.
+That shifted all later command indices and the user reported a crash.
 
-SHA-256:
-27b88589c217589675c976bd303984286bb4b71516ab68efac1c178401a31e94
+H43 SAFE CLEANUP
+----------------
+H43 does NOT remove any internal command records.
 
-Unity:
-2021.3.14f1
+The following rows are hidden from the overlay only:
+- Help
+- Log Time
+- Skip Intro Videos
 
-Native CancelSplashScreen:
-RVA 0x003C2230
+Their original internal positions remain intact, preserving all command indices.
 
-Native Splash state pointer:
-UnityPlayer + 0x01A36340
+SKIP INTRO VIDEOS
+-----------------
+The game already provides its own Skip Intro Videos option.
 
-State field:
-+0x08
-  1 = Begin
-  2 = Fade
-  3 = Done
+Therefore H43:
+- hides the redundant mod-menu row,
+- removes SkipIntroVideos from the bundled PostalBorkenMenu.ini,
+- forces the mod-side g_skipIntroVideos state to 0,
+- does not attempt to manage or emulate the game's native setting.
 
-Active byte:
-+0x70
+SKIP STARTUP LOGOS
+------------------
+This remains fully active and unchanged from validated H39/H40.
 
-H39 watches this exact native state during startup. When Unity enters Begin/Fade,
-H39 calls UnityPlayer's real native CancelSplashScreen(), including Unity's own
-internal callback dispatch. This method is validated in-game.
+The Gameplay tab still contains:
+- Skip Startup Logos
 
-H40 CHANGE
-----------
-H40 keeps the validated H39 native fix unchanged and connects it to the mod menu.
+It persists:
+[Settings]
+SkipStartupLogos=1 or 0
 
-Gameplay tab now contains:
+and applies on the next launch.
 
-  Skip Intro Videos
-  Skip Startup Logos
-
-Skip Startup Logos uses the same checkbox presentation as Skip Intro Videos:
-
-  [X] ENABLED   NEXT LAUNCH
-  [ ] DISABLED  NEXT LAUNCH
-
-Clicking the action area changes:
-
-  [Settings]
-  SkipStartupLogos=1
-
-or:
-
-  [Settings]
-  SkipStartupLogos=0
-
-The setting is flushed immediately to PostalBorkenMenu.ini.
-
-IMPORTANT
----------
-The startup-logo setting takes effect on the NEXT GAME LAUNCH.
-
-This is intentional: by the time the F1 menu is available, Unity's startup splash
-sequence has already happened.
-
-When enabled on the next launch:
-- H39's validated native CancelSplashScreen path is active.
-
-When disabled on the next launch:
-- H39 returns immediately and Unity's three native startup logos play normally.
-
-The three confirmed native splash logos are:
-- LOGO_RWS          2 seconds
-- LOGO_Hyperstrange 3 seconds
-- LOGOS_Rest        3 seconds
-
-NO GAME-FILE MODIFICATION
--------------------------
-H40 does not modify:
-- POSTAL Brain Damaged.exe
-- UnityPlayer.dll on disk
-- GameAssembly.dll
-- globalgamemanagers
-- level0 / level1
-
-No scene redirect.
-No process-wide memory scan.
-No input simulation.
+PRESERVED FEATURES
+------------------
+- validated H39 native startup-logo skip
+- Skip Startup Logos menu toggle
+- No Crosshair
+- Time Scale
+- Give All Weapons
+- DLC weapon support
+- Arsenal / Special tabs
+- Base / DLC weapon wheels
+- H13 gameplay/stability baseline
 
 PACKAGE
 -------
-The test ZIP contains exactly:
+The ZIP contains exactly:
 - dxgi.dll
 - PostalBorkenMenu.asi
 - PostalBorkenMenu.ini
