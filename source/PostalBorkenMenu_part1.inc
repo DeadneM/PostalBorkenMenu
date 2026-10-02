@@ -234,6 +234,11 @@ static volatile LONG g_shuttingDown = 0;
 static volatile LONG g_noCrosshair = 0;
 static volatile LONG g_skipIntroVideos = 1;
 static volatile LONG g_introSkipPulseSent = 0;
+static volatile LONG g_skipStartupLogos = 1;
+static volatile LONG g_h38UnityPlayerVerified = 0;
+static volatile LONG g_h38NativeCancelCalls = 0;
+static volatile LONG g_h38DirectStateStops = 0;
+static volatile LONG g_h38LastObservedState = -1;
 static DWORD g_lastCrosshairTick = 0;
 static volatile LONG g_crosshairReapplyCountdown = 0;
 static int g_scrollRow = 0;
@@ -253,6 +258,115 @@ static const int OVERLAY_H = 600;
 static const int ROW_Y = 112;
 static const int ROW_H = 29;
 static const int VISIBLE_ROWS = (OVERLAY_H - ROW_Y - 48) / ROW_H;
+
+
+/*
+    H38 exact native Unity Splash state path.
+
+    Audited UnityPlayer.dll:
+      SHA-256: 27b88589c217589675c976bd303984286bb4b71516ab68efac1c178401a31e94
+      PE TimeDateStamp: 0x637B4633
+      SizeOfImage: 0x01CA2000
+
+    Recovered native functions:
+      BeginSplashScreenFade RVA 0x003C15A0
+      Begin                 RVA 0x003C15E0
+      CancelSplashScreen    RVA 0x003C2230
+      Draw                  RVA 0x003C5210
+      get_isFinished        RVA 0x003C8660
+
+    Recovered global Splash state pointer:
+      UnityPlayer + 0x01A36340
+
+    State field is +0x08:
+      1 = begin
+      2 = fading out
+      3 = done
+
+    Active byte is +0x70.
+*/
+typedef void (__fastcall *H38CancelSplashFn)(void);
+
+static BOOL H38BytesEqual(const BYTE* a,const BYTE* b,int n) {
+    if(!a || !b || n<=0) return FALSE;
+    for(int i=0;i<n;i++) if(a[i]!=b[i]) return FALSE;
+    return TRUE;
+}
+
+static BOOL H38VerifyUnityPlayer(BYTE* base) {
+    if(!base || base[0]!='M' || base[1]!='Z') return FALSE;
+    DWORD peOff=*(DWORD*)(base+0x3C);
+    if(*(DWORD*)(base+peOff)!=0x00004550UL) return FALSE;
+
+    DWORD ts=*(DWORD*)(base+peOff+8);
+    DWORD sizeImage=*(DWORD*)(base+peOff+24+56);
+    if(ts!=0x637B4633UL || sizeImage!=0x01CA2000UL) return FALSE;
+
+    static const BYTE expBegin[16]={
+        0x48,0x83,0xEC,0x28,0xB9,0x01,0x00,0x00,0x00,0xE8,0x32,0x92,0x00,0x00,0xE8,0x8D
+    };
+    static const BYTE expCancel[16]={
+        0x48,0x83,0xEC,0x28,0xB9,0x03,0x00,0x00,0x00,0xE8,0xE2,0x85,0x00,0x00,0x48,0x8B
+    };
+    static const BYTE expDraw[16]={
+        0x48,0x8B,0x05,0x29,0x11,0x67,0x01,0x83,0x78,0x08,0x01,0x0F,0x9E,0xC1,0xE9,0x4D
+    };
+
+    if(!H38BytesEqual(base+0x003C15E0,expBegin,16)) return FALSE;
+    if(!H38BytesEqual(base+0x003C2230,expCancel,16)) return FALSE;
+    if(!H38BytesEqual(base+0x003C5210,expDraw,16)) return FALSE;
+
+    g_h38UnityPlayerVerified=1;
+    return TRUE;
+}
+
+extern "C" __declspec(dllexport) DWORD __stdcall PostalEarlyNativeSplashCancel(void) {
+    if(!g_skipStartupLogos) return 0;
+
+    BYTE* base=(BYTE*)GetModuleHandleW(L"UnityPlayer.dll");
+    if(!base || !H38VerifyUnityPlayer(base)) return 0;
+
+    BYTE* stateObj=*(BYTE**)(base+0x01A36340);
+    if(!stateObj) return 0;
+
+    LONG state=*(volatile LONG*)(stateObj+0x08);
+    g_h38LastObservedState=state;
+
+    if(state==1 || state==2) {
+        H38CancelSplashFn cancel=(H38CancelSplashFn)(base+0x003C2230);
+        cancel();
+        g_h38NativeCancelCalls++;
+        return 1;
+    }
+    return state==3 ? 1 : 0;
+}
+
+static void H38WatchNativeSplashState(void) {
+    if(!g_skipStartupLogos) return;
+
+    BYTE* base=(BYTE*)GetModuleHandleW(L"UnityPlayer.dll");
+    if(!base || !H38VerifyUnityPlayer(base)) return;
+
+    // Bounded startup-only watcher. No memory scan: one known pointer + two known fields.
+    for(int i=0;i<4000 && !g_shuttingDown;i++) {
+        BYTE* stateObj=*(BYTE**)(base+0x01A36340);
+        if(stateObj) {
+            volatile LONG* statePtr=(volatile LONG*)(stateObj+0x08);
+            volatile BYTE* activePtr=(volatile BYTE*)(stateObj+0x70);
+            LONG state=*statePtr;
+            g_h38LastObservedState=state;
+
+            if(state==1 || state==2) {
+                *statePtr=3;
+                *activePtr=0;
+                g_h38DirectStateStops++;
+                return;
+            }
+            if(state==3) return;
+        }
+        Sleep(1);
+    }
+}
 
 static int StrLenA(const char* s) { int n=0; if (!s) return 0; while (s[n]) ++n; return n; }
 static int StrLenW(const WCHAR* s) { int n=0; if (!s) return 0; while (s[n]) ++n; return n; }
