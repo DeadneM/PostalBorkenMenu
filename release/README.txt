@@ -1,63 +1,69 @@
-POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H43 SAFE MENU CLEANUP TEST
+POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H47 TARGETED WHEEL CALLER AUDIT
 
 BASE
 ----
-H43 starts directly from H40, the last known-good menu build.
+H47 starts directly from validated stable V2A42-H43.
 
-H41 REGRESSION
---------------
-H41 physically removed Help and Log Time from the internal g_cmds table.
-That shifted all later command indices and the user reported a crash.
+WHY H47
+-------
+H46 confirmed:
+- the live DLC level contains 4 base + 5 DLC/PTSD buttons;
+- PlayerWheelView.OnWheelDown() executes without exception;
+- PlayerWheelView.OnWheelUp() executes without exception;
+- the wheel still does not become visible.
 
-H43 SAFE CLEANUP
-----------------
-H43 does NOT remove any internal command records.
+Therefore OnWheelDown/OnWheelUp are not the top-level wheel opener.
+They are downstream callbacks in an already-armed wheel path.
 
-The following rows are hidden from the overlay only:
-- Help
-- Log Time
-- Skip Intro Videos
+H45 also exposed useful Player members before its broad metadata audit crashed:
+- get_IsWheelEnabled
+- OnWheelWeaponSelected
+- _playerWheelView
 
-Their original internal positions remain intact, preserving all command indices.
+H47 is a safe targeted metadata build.
 
-SKIP INTRO VIDEOS
------------------
-The game already provides its own Skip Intro Videos option.
+WHAT H47 DOES
+-------------
+When the mod's DLC Weapon Wheel hotkey is pressed:
 
-Therefore H43:
-- hides the redundant mod-menu row,
-- removes SkipIntroVideos from the bundled PostalBorkenMenu.ini,
-- forces the mod-side g_skipIntroVideos state to 0,
-- does not attempt to manage or emulate the game's native setting.
+1. It does NOT show any wheel.
+2. It does NOT mutate any button.
+3. It does NOT call OnWheelDown / OnWheelUp.
+4. It logs complete method and field names for exactly:
+   - Hyperstrange.PBD.Player
+   - Hyperstrange.PBD.PlayerView.PlayerWheelView
+   - Hyperstrange.PBD.PlayerComponents.PlayerWeaponWheelComponent
+5. It logs the live Player state:
+   - Player object found
+   - Player.IsWheelEnabled
+   - _playerWheelView non-null
+   - OnWheelWeaponSelected non-null
+6. It scans only Hyperstrange.* classes for member names containing:
+   - Wheel
+   - WeaponSelected
 
-SKIP STARTUP LOGOS
-------------------
-This remains fully active and unchanged from validated H39/H40.
+IMPORTANT SAFETY DIFFERENCE FROM H45
+------------------------------------
+H47 does NOT resolve parameter types or return types.
+It does NOT scan Rewired classes.
+It does NOT invoke any discovered method.
 
-The Gameplay tab still contains:
-- Skip Startup Logos
+This avoids the exact metadata path that crashed H45.
 
-It persists:
-[Settings]
-SkipStartupLogos=1 or 0
+TEST
+----
+Inside the real DLC level:
 
-and applies on the next launch.
+1. Press the mod's DLC Weapon Wheel shortcut once.
+2. Nothing visual is expected.
+3. Close the game normally.
+4. Send PostalBorkenMenu.log.
 
-PRESERVED FEATURES
-------------------
-- validated H39 native startup-logo skip
-- Skip Startup Logos menu toggle
-- No Crosshair
-- Time Scale
-- Give All Weapons
-- DLC weapon support
-- Arsenal / Special tabs
-- Base / DLC weapon wheels
-- H13 gameplay/stability baseline
+The log should reveal the actual top-level class/method that owns wheel input and selection.
 
 PACKAGE
 -------
-The ZIP contains exactly:
+Exactly:
 - dxgi.dll
 - PostalBorkenMenu.asi
 - PostalBorkenMenu.ini
