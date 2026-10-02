@@ -48,6 +48,7 @@ static void LoadConfig() {
     }
     g_noCrosshair=(LONG)GetPrivateProfileIntW(L"Settings",L"NoCrosshair",0,g_iniPath);
     g_skipIntroVideos=(LONG)GetPrivateProfileIntW(L"Settings",L"SkipIntroVideos",1,g_iniPath);
+    g_skipStartupLogos=(LONG)GetPrivateProfileIntW(L"Settings",L"SkipStartupLogos",1,g_iniPath);
 }
 
 // GDI is resolved dynamically so the ASI remains linked only to kernel32/user32.
@@ -642,17 +643,27 @@ static BOOL HookGameWindow() {
 
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
+    LoadConfig();
+
+    // H38 runs before normal H13 initialization. This touches only the exact
+    // native Unity Splash state pointer and is bounded to the startup window.
+    H38WatchNativeSplashState();
+
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42 CLEAN ARSENAL + FIVE TABS + SKIP INTRO TEST");
+    LogA("PostalBorkenMenu V2A42-H38 NATIVE UNITY SPLASH STATE TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
-    LogA("No EXE/GameAssembly patching is performed.");
-    LoadConfig();
+    LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
+    LogIntA("[SPLASH H38] UnityPlayer exact-build verification: ",(int)g_h38UnityPlayerVerified);
+    LogIntA("[SPLASH H38] Native CancelSplashScreen calls: ",(int)g_h38NativeCancelCalls);
+    LogIntA("[SPLASH H38] Direct native state stops: ",(int)g_h38DirectStateStops);
+    LogIntA("[SPLASH H38] Last observed native splash state: ",(int)g_h38LastObservedState);
     if (g_dormantExactNameResolver)
         LogA("[OK] Exact-name WeaponId resolver linked; cleaned Arsenal/Special dispatcher active.");
     else
         LogA("[ERROR] Exact-name WeaponId resolver was not retained.");
     LogA(g_skipIntroVideos ? "[INTRO] Skip Intro Videos config: ENABLED (default)." : "[INTRO] Skip Intro Videos config: DISABLED.");
+    LogA(g_skipStartupLogos ? "[SPLASH H38] SkipStartupLogos config: ENABLED (default)." : "[SPLASH H38] SkipStartupLogos config: DISABLED.");
     if (!InitIl2Cpp()) return 0;
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
