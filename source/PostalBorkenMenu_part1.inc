@@ -169,6 +169,7 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 #define WM_APP_WEAPONKEY (WM_APP + 0x35)
 #define WM_APP_BASEWHEEL (WM_APP + 0x36)
 #define WM_APP_DLCWHEEL (WM_APP + 0x37)
+#define WM_APP_DLCWHEELPROBE (WM_APP + 0x38)
 
 #define VK_BACK 0x08
 #define VK_TAB 0x09
