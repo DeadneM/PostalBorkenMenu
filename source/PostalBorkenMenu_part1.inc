@@ -234,6 +234,12 @@ static volatile LONG g_shuttingDown = 0;
 static volatile LONG g_noCrosshair = 0;
 static volatile LONG g_skipIntroVideos = 1;
 static volatile LONG g_introSkipPulseSent = 0;
+static volatile LONG g_skipStartupLogos = 1;
+static volatile LONG g_h39UnityPlayerVerified = 0;
+static volatile LONG g_h39CancelCalls = 0;
+static volatile LONG g_h39CancelConfirmed = 0;
+static volatile LONG g_h39RebeginsSeen = 0;
+static volatile LONG g_h39LastState = -1;
 static DWORD g_lastCrosshairTick = 0;
 static volatile LONG g_crosshairReapplyCountdown = 0;
 static int g_scrollRow = 0;
@@ -254,6 +260,114 @@ static const int ROW_Y = 112;
 static const int ROW_H = 29;
 static const int VISIBLE_ROWS = (OVERLAY_H - ROW_Y - 48) / ROW_H;
 
+
+/*
+    H39: call Unity's real native CancelSplashScreen() when the exact native
+    Splash state enters Begin/Fade.
+
+    Exact retail UnityPlayer.dll:
+      SHA-256: 27b88589c217589675c976bd303984286bb4b71516ab68efac1c178401a31e94
+      TimeDateStamp: 0x637B4633
+      SizeOfImage: 0x01CA2000
+
+    Native functions:
+      Begin              RVA 0x003C15E0
+      CancelSplashScreen RVA 0x003C2230
+
+    Native Splash state pointer:
+      UnityPlayer + 0x01A36340
+      state  +0x08  (1=Begin, 2=Fade, 3=Done)
+      active +0x70
+
+    Important H38 finding:
+      direct state writes reached state 1 but did not skip the logos because
+      CancelSplashScreen first calls Unity's transition helper at RVA 0x003CA820,
+      which dispatches internal state-change callbacks. H39 calls the real
+      CancelSplashScreen function instead of emulating its final fields.
+*/
+typedef void (__fastcall *H39CancelSplashFn)(void);
+
+static BOOL H39BytesEqual(const BYTE* a,const BYTE* b,int n) {
+    if(!a || !b || n<=0) return FALSE;
+    for(int i=0;i<n;i++) if(a[i]!=b[i]) return FALSE;
+    return TRUE;
+}
+
+static BOOL H39VerifyUnityPlayer(BYTE* base) {
+    if(!base || base[0]!='M' || base[1]!='Z') return FALSE;
+    DWORD peOff=*(DWORD*)(base+0x3C);
+    if(*(DWORD*)(base+peOff)!=0x00004550UL) return FALSE;
+
+    DWORD ts=*(DWORD*)(base+peOff+8);
+    DWORD sizeImage=*(DWORD*)(base+peOff+24+56);
+    if(ts!=0x637B4633UL || sizeImage!=0x01CA2000UL) return FALSE;
+
+    static const BYTE expBegin[16]={
+        0x48,0x83,0xEC,0x28,0xB9,0x01,0x00,0x00,0x00,0xE8,0x32,0x92,0x00,0x00,0xE8,0x8D
+    };
+    static const BYTE expCancel[16]={
+        0x48,0x83,0xEC,0x28,0xB9,0x03,0x00,0x00,0x00,0xE8,0xE2,0x85,0x00,0x00,0x48,0x8B
+    };
+
+    if(!H39BytesEqual(base+0x003C15E0,expBegin,16)) return FALSE;
+    if(!H39BytesEqual(base+0x003C2230,expCancel,16)) return FALSE;
+
+    g_h39UnityPlayerVerified=1;
+    return TRUE;
+}
+
+static void H39WatchAndCancelNativeSplash(void) {
+    if(!g_skipStartupLogos) return;
+
+    BYTE* base=(BYTE*)GetModuleHandleW(L"UnityPlayer.dll");
+    if(!base || !H39VerifyUnityPlayer(base)) return;
+
+    H39CancelSplashFn cancel=(H39CancelSplashFn)(base+0x003C2230);
+    LONG previous=-1;
+
+    // Bounded startup-only watch. No scan: one exact native pointer.
+    // Continue after a cancel so a later Begin can also be caught.
+    for(int i=0;i<10000 && !g_shuttingDown;i++) {
+        BYTE* stateObj=*(BYTE**)(base+0x01A36340);
+        if(stateObj) {
+            LONG state=*(volatile LONG*)(stateObj+0x08);
+            BYTE active=*(volatile BYTE*)(stateObj+0x70);
+            g_h39LastState=state;
+
+            if(previous==3 && (state==1 || state==2))
+                g_h39RebeginsSeen++;
+
+            if(state==1 || state==2) {
+                cancel();
+                g_h39CancelCalls++;
+
+                // Confirm what Unity itself left behind after its callback path.
+                LONG afterState=*(volatile LONG*)(stateObj+0x08);
+                BYTE afterActive=*(volatile BYTE*)(stateObj+0x70);
+                if(afterState==3 && afterActive==0)
+                    g_h39CancelConfirmed++;
+            }
+
+            previous=*(volatile LONG*)(stateObj+0x08);
+
+            // Once Unity has stayed finished for ~250 ms after at least one
+            // real Cancel call, stop watching.
+            if(g_h39CancelCalls>0 && previous==3 && active==0) {
+                int stable=0;
+                for(int s=0;s<250 && !g_shuttingDown;s++) {
+                    Sleep(1);
+                    BYTE* obj=*(BYTE**)(base+0x01A36340);
+                    if(!obj) break;
+                    LONG st=*(volatile LONG*)(obj+0x08);
+                    if(st!=3) break;
+                    stable++;
+                }
+                if(stable>=250) return;
+            }
+        }
+        Sleep(1);
+    }
+}
 static int StrLenA(const char* s) { int n=0; if (!s) return 0; while (s[n]) ++n; return n; }
 static int StrLenW(const WCHAR* s) { int n=0; if (!s) return 0; while (s[n]) ++n; return n; }
 static BOOL StrEqA(const char* a, const char* b) {
