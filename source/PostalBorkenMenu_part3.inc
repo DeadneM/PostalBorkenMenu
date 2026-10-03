@@ -437,6 +437,10 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         ExecuteDelayedBaseFilterH51();
         return 0;
     }
+    if (msg==WM_APP_WHEELSWAP) {
+        ExecuteDelayedWheelSwapH53();
+        return 0;
+    }
     if (msg==WM_APP_CROSSHAIR) {
         if (g_ready && !g_shuttingDown) {
             BOOL attached=FALSE; void* thread=0;
@@ -479,16 +483,16 @@ static void PollHotkeys() {
         g_dlcWheelVk=0;
     }
 
-    // H51: after the real native wheel has crossed its internal hold threshold
-    // and Player.IsWheelEnabled becomes true, apply the base-only filter once.
-    static int h51FilterDivider=0;
-    if(active && g_h51BaseFilterPending && g_gameHwnd) {
-        if(++h51FilterDivider>=3) {
-            h51FilterDivider=0;
-            PostMessageW(g_gameHwnd,WM_APP_BASEWHEELFILTER,0,0);
+    // H53: after native wheel setup has completed and Player.IsWheelEnabled
+    // becomes true, apply the exact five-slot BASE<->DLC swap once.
+    static int h53SwapDivider=0;
+    if(active && g_h53SwapPending && g_gameHwnd) {
+        if(++h53SwapDivider>=3) {
+            h53SwapDivider=0;
+            PostMessageW(g_gameHwnd,WM_APP_WHEELSWAP,0,0);
         }
     } else {
-        h51FilterDivider=0;
+        h53SwapDivider=0;
     }
 
     for (int vk=8; vk<256; ++vk) {
@@ -676,7 +680,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H52 NATIVE PRE-EVENT WHEEL SWAP TEST");
+    LogA("PostalBorkenMenu V2A42-H53 POST-EVENT WHEEL SWAP TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
@@ -694,7 +698,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] H52: five-slot BASE<->DLC WeaponId swap before validated native wheel events.");
+    LogA("[READY] H53: native wheel first, then five-slot BASE<->DLC swap after Player.IsWheelEnabled.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
