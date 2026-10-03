@@ -1,62 +1,98 @@
-POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H51 POST-EVENT BASE FILTER TEST
+POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H52 NATIVE PRE-EVENT WHEEL SWAP TEST
 
 BASE
 ----
-H51 starts from H49, not from rejected H50.
+H52 starts from H51.
 
-H50 STATUS
-----------
-Rejected.
+H51 RESULTS
+-----------
+User screenshots established three exact states:
 
-User result:
-- both mod wheel hotkeys opened the full DLC wheel
-- noticeable lag
+1. Normal campaign + Base Weapon Wheel
+   - full normal base wheel works.
 
-Cause:
-- Base Weapon Wheel filtered DLC buttons BEFORE firing the real InputManager.OnWheelDown event
-- the native wheel setup then rebuilt/re-enabled the DLC layout and erased the filter
-- the H49 diagnostic metadata/log path was still being executed on every press/release
+2. DLC + Base Weapon Wheel
+   - wheel opens through the native InputManager path
+   - four weapons common to both campaigns are normal
+   - the five DLC-replaced slots appear as disabled/pink silhouettes.
 
-H51 FIX
--------
-DLC Weapon Wheel:
-- uses the validated H49 static System.Action path
-- OnWheelDown / OnWheelUp are read through static IL2CPP storage
-- hot path is now fast and quiet
-- no repeated metadata audit/log spam
+3. DLC + DLC Weapon Wheel
+   - full native DLC wheel works correctly
+   - no lag.
 
-Base Weapon Wheel in the DLC:
-1. fire the real InputManager.OnWheelDown first
-2. do NOT filter immediately
-3. poll Player.IsWheelEnabled
-4. when the native wheel is genuinely active, apply the base-only filter
-5. disable DLC-category buttons only after the game's setup is complete
-6. on release, fire InputManager.OnWheelUp
-7. restore all native buttons
+HISTORICAL H8 MAPPING
+---------------------
+Previous H8 diagnostics already proved the exact five substitutions:
 
-Base Weapon Wheel outside the DLC:
-- preserves the validated H43 path unchanged
+WEAPON_Pistol        -> WEAPON_UmDrill
+WEAPON_Shovel        -> WEAPON_PissGun
+WEAPON_CatCanon      -> WEAPON_MeatShotgun
+WEAPON_Shotgun       -> WEAPON_BubbleGumMachineGun
+WEAPON_DildoBow      -> WEAPON_NuclearSyringe
 
-EXPECTED RESULT
+H8 changed _weaponId and called PlayerWheelView.Show directly.
+That produced placeholder silhouettes because the real native wheel setup path
+was not known at that time.
+
+H52 HYPOTHESIS
+--------------
+H49/H51 now proved the real wheel entry path:
+InputManager.OnWheelDown / OnWheelUp.
+
+Therefore H52 performs the exact five-slot WeaponId swap BEFORE the real native
+OnWheelDown event, allowing the game itself to rebuild visuals/state/selection.
+
+NORMAL CAMPAIGN + DLC WHEEL
+---------------------------
+H52:
+- resolves the exact five DLC WeaponIds
+- ensures those five weapons are collected
+- remaps only the five known base slots to their DLC counterparts
+- fires the real InputManager.OnWheelDown
+- leaves the four common slots untouched
+- on release fires OnWheelUp
+- restores the five original base WeaponIds
+
+DLC + BASE WHEEL
+----------------
+H52 performs the inverse:
+- resolves the exact five base WeaponIds
+- ensures those five base weapons are collected
+- remaps the five DLC slots back to their base counterparts
+- fires native OnWheelDown
+- on release fires OnWheelUp
+- restores the original DLC WeaponIds
+
+DLC + DLC WHEEL
 ---------------
-Inside the DLC:
+The already-correct native DLC configuration is left untouched.
 
-DLC Weapon Wheel:
-- full native DLC wheel
-- no extra diagnostic stutter
+NORMAL CAMPAIGN + BASE WHEEL
+----------------------------
+The validated H43/H51 normal base wheel path is left untouched.
 
-Base Weapon Wheel:
-- native wheel opens normally
-- after the internal hold threshold, DLC buttons are disabled
-- only base-category buttons remain selectable/visible
+NO HEAVY DIAGNOSTIC PATH
+------------------------
+H52 keeps the fast InputManager event bridge.
+No global metadata scan is performed.
 
-IMPORTANT LOG LINES
--------------------
-[WHEEL H51] Base wheel native input fired; waiting for active wheel before filtering DLC buttons.
-[WHEEL H51] Delayed BASE buttons enabled: N
-[WHEEL H51] Delayed DLC buttons disabled: N
-[WHEEL H51] Base-only filter applied AFTER native wheel became active.
-[WHEEL H51] DLC wheel opened through fast validated InputManager.OnWheelDown.
+EXPECTED TEST
+-------------
+A. Normal campaign:
+- Base Weapon Wheel should remain unchanged.
+- DLC Weapon Wheel should now open and ideally display the real DLC weapon art,
+  not silhouettes.
+
+B. DLC:
+- DLC Weapon Wheel should remain unchanged and lag-free.
+- Base Weapon Wheel should now contain the full base-game replacements instead
+  of the five pink disabled silhouettes.
+
+Important lines:
+[WHEEL H52] BASE->DLC slots remapped before native event: 5
+[WHEEL H52] DLC->BASE slots remapped before native event: 5
+[WHEEL H52] DLC wheel opened in NORMAL campaign via pre-event five-slot swap.
+[WHEEL H52] Full BASE configuration injected before native OnWheelDown in DLC.
 
 PACKAGE
 -------
