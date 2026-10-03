@@ -1696,6 +1696,8 @@ static int ReadPlayerWheelEnabledH49();
 static BOOL PrepareWheelSwapH52(BOOL toDlc);
 static BOOL RestoreWheelSwapH52();
 static int g_h52SwapMode=0; // 0 none, 1 base->DLC, 2 DLC->base
+static volatile LONG g_h53SwapPending=0; // 0 none, 1 BASE->DLC, 2 DLC->BASE
+static BOOL g_h53ButtonMetadataLogged=FALSE;
 static volatile LONG g_h51BaseFilterPending=0;
 static BOOL g_h51BaseUsesInputEvent=FALSE;
 
@@ -1754,24 +1756,20 @@ static BOOL ShowNativeBaseWeaponWheel() {
 
     if(baseCount<=0) return FALSE;
 
-    // In a DLC-configured scene, replace only the five known DLC substitutions
-    // with their exact base-game counterparts BEFORE the real native wheel event.
+    // H53: the native OnWheelDown rebuilds the scene wheel, so inject only AFTER
+    // Player.IsWheelEnabled becomes true.
     if(dlcCount>0) {
-        if(!PrepareWheelSwapH52(FALSE)) {
-            LogA("[WHEEL H52] DLC->BASE five-slot swap failed; base wheel not opened.");
-            return FALSE;
-        }
         if(!InvokeInputManagerWheelEventFastH51(TRUE)) {
-            RestoreWheelSwapH52();
-            LogA("[WHEEL H52] Native OnWheelDown failed after DLC->BASE swap.");
+            LogA("[WHEEL H53] Native OnWheelDown failed for DLC->BASE post-event path.");
             return FALSE;
         }
 
-        g_h52SwapMode=2;
+        g_h52SwapMode=0;
+        g_h53SwapPending=2;
         g_h51BaseUsesInputEvent=TRUE;
         g_h51BaseFilterPending=0;
         g_baseWheelActive=1;
-        LogA("[WHEEL H52] Full BASE configuration injected before native OnWheelDown in DLC.");
+        LogA("[WHEEL H53] Native DLC wheel opened; waiting for active state before DLC->BASE swap.");
         return TRUE;
     }
 
@@ -1868,10 +1866,13 @@ static BOOL HideNativeBaseWeaponWheel() {
 
     BOOL ok=TRUE;
 
-    if(g_h52SwapMode==2) {
+    if(g_h51BaseUsesInputEvent) {
         if(!InvokeInputManagerWheelEventFastH51(FALSE)) ok=FALSE;
-        if(!RestoreWheelSwapH52()) ok=FALSE;
-        LogA("[WHEEL H52] DLC->BASE temporary mapping restored after native OnWheelUp.");
+        if(g_h52SwapMode==2) {
+            if(!RestoreWheelSwapH52()) ok=FALSE;
+            LogA("[WHEEL H53] DLC->BASE temporary mapping restored after native OnWheelUp.");
+        }
+        g_h53SwapPending=0;
     } else {
         Il2CppClass* wheelClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent") : 0;
         Il2CppClass* wheelViewClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerView","PlayerWheelView") : 0;
@@ -2478,6 +2479,110 @@ static BOOL RestoreWheelSwapH52() {
     return ok;
 }
 
+
+static void LogWeaponWheelButtonMetadataH53() {
+    if(g_h53ButtonMetadataLogged) return;
+    g_h53ButtonMetadataLogged=TRUE;
+
+    Il2CppClass* buttonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
+    if(!buttonClass) return;
+
+    LogA("[WHEEL H53] ===== WeaponWheelButton targeted metadata begin =====");
+
+    void* mi=0;
+    const MethodInfo* m=0;
+    int mc=0;
+    while((m=g_il2cpp.class_get_methods(buttonClass,&mi))!=0 && mc<96) {
+        const char* n=g_il2cpp.method_get_name(m);
+        if(!n) continue;
+        LogA("[WHEEL H53 METHOD]");
+        LogA(n);
+        LogIntA("[WHEEL H53] parameter count: ",(int)g_il2cpp.method_get_param_count(m));
+        ++mc;
+    }
+
+    void* fi=0;
+    const FieldInfo* f=0;
+    int fc=0;
+    while((f=g_il2cpp.class_get_fields(buttonClass,&fi))!=0 && fc<96) {
+        const char* n=g_il2cpp.field_get_name(f);
+        if(!n) continue;
+        LogA("[WHEEL H53 FIELD]");
+        LogA(n);
+        ++fc;
+    }
+
+    LogA("[WHEEL H53] ===== WeaponWheelButton targeted metadata end =====");
+}
+
+static BOOL RefreshWheelAfterSwapH53() {
+    Il2CppClass* wheelClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent") : 0;
+    Il2CppClass* buttonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
+    if(!wheelClass || !buttonClass) return FALSE;
+
+    Il2CppObject* wheel=FindLiveObject(wheelClass);
+    const MethodInfo* enableButtons=g_il2cpp.class_get_method_from_name(wheelClass,"EnableButtons",0);
+    const MethodInfo* enable=g_il2cpp.class_get_method_from_name(buttonClass,"Enable",1);
+    if(!wheel || !enableButtons || !enable) return FALSE;
+
+    BOOL enabled=TRUE;
+    for(int i=0;i<g_h52MappedCount;i++) {
+        Il2CppObject* button=g_h52MappedButtons[i];
+        if(!button) continue;
+        void* ep[1]; ep[0]=&enabled;
+        Il2CppException* ex=0;
+        g_il2cpp.runtime_invoke(enable,button,ep,&ex);
+        if(ex) FormatExceptionToLog(ex);
+    }
+
+    Il2CppException* ex=0;
+    g_il2cpp.runtime_invoke(enableButtons,wheel,0,&ex);
+    if(ex) {
+        FormatExceptionToLog(ex);
+        return FALSE;
+    }
+
+    LogA("[WHEEL H53] EnableButtons refresh invoked after five-slot swap.");
+    return TRUE;
+}
+
+static BOOL ApplyDelayedWheelSwapH53() {
+    LONG pending=g_h53SwapPending;
+    if(pending!=1 && pending!=2) return TRUE;
+    if(ReadPlayerWheelEnabledH49()!=1) return FALSE;
+
+    BOOL toDlc=(pending==1) ? TRUE : FALSE;
+    LogA(toDlc
+         ? "[WHEEL H53] Wheel active. Applying BASE->DLC swap AFTER native setup."
+         : "[WHEEL H53] Wheel active. Applying DLC->BASE swap AFTER native setup.");
+
+    LogWeaponWheelButtonMetadataH53();
+
+    if(!PrepareWheelSwapH52(toDlc)) {
+        LogA("[WHEEL H53] Post-event five-slot swap failed.");
+        g_h53SwapPending=0;
+        return FALSE;
+    }
+
+    g_h52SwapMode=toDlc ? 1 : 2;
+    g_h53SwapPending=0;
+
+    LogIntA("[WHEEL H53] post-event mapped slots: ",g_h52MappedCount);
+    RefreshWheelAfterSwapH53();
+    return TRUE;
+}
+
+static void ExecuteDelayedWheelSwapH53() {
+    if(!g_ready || g_shuttingDown) return;
+    BOOL attached=FALSE; void* thread=0;
+    if(!EnsureIl2CppThread(&attached,&thread)) return;
+    ApplyDelayedWheelSwapH53();
+    ReleaseIl2CppThread(attached,thread);
+}
+
 static BOOL ShowNativeDlcWeaponWheel() {
     if(!IsTheseSunnyDazeOwned()) {
         LogA("[WHEEL H52] DLC wheel blocked: These Sunny Daze ownership not confirmed.");
@@ -2502,29 +2607,18 @@ static BOOL ShowNativeDlcWeaponWheel() {
     LogIntA("[WHEEL H52] live BASE slots before DLC open: ",baseCount);
     LogIntA("[WHEEL H52] live DLC slots before DLC open: ",dlcCount);
 
-    // Normal campaign: temporarily replace the exact five base slots with their
-    // DLC counterparts BEFORE the proven native wheel input event.
-    if(dlcCount==0) {
-        if(!PrepareWheelSwapH52(TRUE)) {
-            LogA("[WHEEL H52] BASE->DLC five-slot swap failed; DLC wheel not opened.");
-            return FALSE;
-        }
-        g_h52SwapMode=1;
-    } else {
-        g_h52SwapMode=0;
-    }
+    // H53: fire the native event first. In normal campaign, wait until the
+    // wheel is truly active, then replace the exact five base slots.
+    if(!InvokeInputManagerWheelEventFastH51(TRUE)) return FALSE;
 
-    if(!InvokeInputManagerWheelEventFastH51(TRUE)) {
-        if(g_h52SwapMode==1) RestoreWheelSwapH52();
-        g_h52SwapMode=0;
-        return FALSE;
-    }
-
+    g_h52SwapMode=0;
+    g_h53SwapPending=(dlcCount==0) ? 1 : 0;
     g_h49InputWheelActive=TRUE;
     g_dlcWheelActive=1;
-    LogA(g_h52SwapMode==1
-         ? "[WHEEL H52] DLC wheel opened in NORMAL campaign via pre-event five-slot swap."
-         : "[WHEEL H52] Native DLC wheel opened unchanged inside DLC.");
+
+    LogA(dlcCount==0
+         ? "[WHEEL H53] Native NORMAL wheel opened; waiting for active state before BASE->DLC swap."
+         : "[WHEEL H53] Native DLC wheel opened unchanged inside DLC.");
     return TRUE;
 }
 
@@ -2535,9 +2629,10 @@ static BOOL HideNativeDlcWeaponWheel() {
 
     if(g_h52SwapMode==1) {
         if(!RestoreWheelSwapH52()) ok=FALSE;
-        LogA("[WHEEL H52] BASE->DLC temporary mapping restored after native OnWheelUp.");
+        LogA("[WHEEL H53] BASE->DLC temporary mapping restored after native OnWheelUp.");
     }
 
+    g_h53SwapPending=0;
     g_h52SwapMode=0;
     g_h49InputWheelActive=FALSE;
     g_dlcWheelActive=0;
