@@ -1691,6 +1691,9 @@ static Il2CppObject* GetBaseWheelButtonFromCollection(Il2CppObject* collection, 
     return item;
 }
 
+static BOOL InvokeInputManagerWheelEventH49(BOOL down);
+static BOOL g_h50BaseUsesInputEvent=FALSE;
+
 static BOOL ShowNativeBaseWeaponWheel() {
     Il2CppClass* wheelClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent") : 0;
     Il2CppClass* wheelButtonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
@@ -1769,6 +1772,23 @@ static BOOL ShowNativeBaseWeaponWheel() {
         return FALSE;
     }
 
+    // H50: in a DLC-configured scene the live wheel contains non-base buttons.
+    // Keep the proven base-only filter, but enter through the real InputManager
+    // wheel event path validated by H49 instead of calling PlayerWheelView.Show().
+    if (otherCount>0) {
+        BOOL ok=InvokeInputManagerWheelEventH49(TRUE);
+        if (!ok) {
+            Il2CppException* rex=0;
+            g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&rex);
+            LogA("[WHEEL H50] Base-wheel InputManager.OnWheelDown failed; native buttons restored.");
+            return FALSE;
+        }
+        g_h50BaseUsesInputEvent=TRUE;
+        g_baseWheelActive=1;
+        LogA("[WHEEL H50] BASE-only wheel opened in DLC via validated InputManager.OnWheelDown.");
+        return TRUE;
+    }
+
     Il2CppException* ex=0;
     g_il2cpp.runtime_invoke(showMethod,view,0,&ex);
     if (ex) {
@@ -1779,6 +1799,7 @@ static BOOL ShowNativeBaseWeaponWheel() {
         return FALSE;
     }
 
+    g_h50BaseUsesInputEvent=FALSE;
     g_baseWheelActive=1;
     LogA("[WHEEL] BASE native weapon wheel opened");
     return TRUE;
@@ -1801,10 +1822,17 @@ static BOOL HideNativeBaseWeaponWheel() {
 
     BOOL ok=TRUE;
     Il2CppException* ex=0;
-    if (view && hideMethod) {
-        g_il2cpp.runtime_invoke(hideMethod,view,0,&ex);
-        if (ex) { FormatExceptionToLog(ex); ok=FALSE; }
-    } else ok=FALSE;
+
+    if (g_h50BaseUsesInputEvent) {
+        ok=InvokeInputManagerWheelEventH49(FALSE);
+        if(ok) LogA("[WHEEL H50] BASE-only DLC wheel closed via validated InputManager.OnWheelUp.");
+        else LogA("[WHEEL H50] Base-wheel InputManager.OnWheelUp failed.");
+    } else {
+        if (view && hideMethod) {
+            g_il2cpp.runtime_invoke(hideMethod,view,0,&ex);
+            if (ex) { FormatExceptionToLog(ex); ok=FALSE; }
+        } else ok=FALSE;
+    }
 
     ex=0;
     if (wheel && restoreMethod) {
@@ -1812,6 +1840,7 @@ static BOOL HideNativeBaseWeaponWheel() {
         if (ex) { FormatExceptionToLog(ex); ok=FALSE; }
     } else ok=FALSE;
 
+    g_h50BaseUsesInputEvent=FALSE;
     g_baseWheelActive=0;
     LogA("[WHEEL] BASE native weapon wheel closed; native buttons restored");
     return ok;
