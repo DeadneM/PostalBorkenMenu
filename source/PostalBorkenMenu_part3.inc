@@ -433,6 +433,10 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         ExecuteNativeDlcWheel(lp ? TRUE : FALSE);
         return 0;
     }
+    if (msg==WM_APP_BASEWHEELFILTER) {
+        ExecuteDelayedBaseFilterH51();
+        return 0;
+    }
     if (msg==WM_APP_CROSSHAIR) {
         if (g_ready && !g_shuttingDown) {
             BOOL attached=FALSE; void* thread=0;
@@ -473,6 +477,18 @@ static void PollHotkeys() {
     if (!active && g_dlcWheelActive && g_gameHwnd) {
         PostMessageW(g_gameHwnd,WM_APP_DLCWHEEL,0,0);
         g_dlcWheelVk=0;
+    }
+
+    // H51: after the real native wheel has crossed its internal hold threshold
+    // and Player.IsWheelEnabled becomes true, apply the base-only filter once.
+    static int h51FilterDivider=0;
+    if(active && g_h51BaseFilterPending && g_gameHwnd) {
+        if(++h51FilterDivider>=3) {
+            h51FilterDivider=0;
+            PostMessageW(g_gameHwnd,WM_APP_BASEWHEELFILTER,0,0);
+        }
+    } else {
+        h51FilterDivider=0;
     }
 
     for (int vk=8; vk<256; ++vk) {
@@ -660,7 +676,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H49 FIELD-AWARE INPUTMANAGER WHEEL TEST");
+    LogA("PostalBorkenMenu V2A42-H51 POST-EVENT BASE FILTER TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
@@ -678,7 +694,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] H43 stable base + H49 field-aware InputManager wheel-event test. Base wheel path unchanged.");
+    LogA("[READY] H51: fast native wheel events + delayed base-only filter after Player.IsWheelEnabled.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
