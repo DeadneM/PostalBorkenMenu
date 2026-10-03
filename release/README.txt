@@ -1,82 +1,37 @@
-POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H49 FIELD-AWARE INPUTMANAGER WHEEL TEST
+POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H50 BOTH WHEEL HOTKEYS DLC TEST
 
-BASE
-----
-H49 starts directly from validated stable V2A42-H43.
+Base: H49.
 
-WHAT H48 PROVED
----------------
-H48 found:
-- live native wheel = 4 base + 5 DLC/PTSD buttons
-- live Hyperstrange.PBD.InputManager object exists
-- InputManager.OnWheelDown field exists and is non-null
-- Player.IsWheelEnabled is 0 before the attempted event
-- the object read from OnWheelDown was Rewired.KeyboardMap
-- therefore our simple instance field read was wrong
-- no delegate Invoke() was called
-- Player.IsWheelEnabled remained 0
+H49 validated the real DLC wheel input path:
+- InputManager.OnWheelDown is a static System.Action
+- InputManager.OnWheelUp is a static System.Action
+- both Invoke() successfully
+- the native DLC wheel becomes visible
+- Player.IsWheelEnabled becomes active while held and returns to 0 on release
 
-H49 FIX
--------
-H49 no longer assumes InputManager.OnWheelDown / OnWheelUp are instance fields.
+H50 keeps the H49 DLC Weapon Wheel path unchanged.
 
-For the exact fields:
-- OnWheelDown
-- OnWheelUp
-- _wheelId
-- _wheelPreviousItemId
-- _wheelNextItemId
+H50 also fixes Base Weapon Wheel inside the DLC:
+- non-base buttons are temporarily disabled as before
+- in a DLC-configured scene, opening now uses InputManager.OnWheelDown
+- closing uses InputManager.OnWheelUp
+- native buttons are then restored
+- outside the DLC, the H43 Base Weapon Wheel path is unchanged
 
-H49 dynamically resolves:
-- il2cpp_field_get_flags
-- il2cpp_field_get_offset
-- il2cpp_field_get_type
-- il2cpp_field_static_get_value
+This build does not yet recreate the true 4+5 DLC wheel in the normal campaign.
 
-For each field it logs:
-- flags
-- whether the field is static
-- offset
-- declared IL2CPP type
-
-For OnWheelDown / OnWheelUp:
-- if static, H49 reads the backing value through il2cpp_field_static_get_value
-- if instance, H49 uses the live InputManager object
-- H49 requires the declared field type to expose Invoke() with 0 parameters
-- H49 also requires the runtime object type to expose Invoke() with 0 parameters
-- only then is Invoke() executed
-
-No broad metadata scan is used.
-
-TEST
-----
-Inside the actual These Sunny Daze DLC level:
-
-1. HOLD the mod's DLC Weapon Wheel shortcut.
-2. Move through the wheel.
-3. Release.
+Test inside These Sunny Daze:
+1. Test DLC Weapon Wheel.
+2. Test Base Weapon Wheel.
+3. Move to a weapon and release for each wheel.
 4. Send PostalBorkenMenu.log.
 
-Most important lines:
-[WHEEL H49 FIELD]
-OnWheelDown
-[WHEEL H49] field static: ...
-[WHEEL H49] declared field type:
-...
-[WHEEL H49] declared zero-arg Invoke present: ...
-[WHEEL H49] wheel event backing field read via STATIC/INSTANCE storage.
-[WHEEL H49] runtime event object type:
-...
-[WHEEL H49] runtime zero-arg Invoke present: ...
-[WHEEL H49] event Invoke() completed.
-[WHEEL H49] Player.IsWheelEnabled after event: ...
+Expected H50 lines:
+[WHEEL H50] BASE-only wheel opened in DLC via validated InputManager.OnWheelDown.
+[WHEEL H50] BASE-only DLC wheel closed via validated InputManager.OnWheelUp.
 
-If the real backing field is a delegate, this should finally fire the exact InputManager multicast path instead of reading unrelated Rewired state.
-
-PACKAGE
--------
-Exactly:
-- dxgi.dll
-- PostalBorkenMenu.asi
-- PostalBorkenMenu.ini
-- README.txt
+Package:
+dxgi.dll
+PostalBorkenMenu.asi
+PostalBorkenMenu.ini
+README.txt
