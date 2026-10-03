@@ -660,7 +660,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H49 FIELD-AWARE INPUTMANAGER WHEEL TEST");
+    LogA("PostalBorkenMenu V2A42-H50 BOTH WHEEL HOTKEYS DLC TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
@@ -678,7 +678,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] H43 stable base + H49 field-aware InputManager wheel-event test. Base wheel path unchanged.");
+    LogA("[READY] H49 DLC wheel input path preserved + H50 Base Weapon Wheel routed through InputManager inside DLC.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
