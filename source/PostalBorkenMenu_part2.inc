@@ -1693,6 +1693,9 @@ static Il2CppObject* GetBaseWheelButtonFromCollection(Il2CppObject* collection, 
 
 static BOOL InvokeInputManagerWheelEventFastH51(BOOL down);
 static int ReadPlayerWheelEnabledH49();
+static BOOL PrepareWheelSwapH52(BOOL toDlc);
+static BOOL RestoreWheelSwapH52();
+static int g_h52SwapMode=0; // 0 none, 1 base->DLC, 2 DLC->base
 static volatile LONG g_h51BaseFilterPending=0;
 static BOOL g_h51BaseUsesInputEvent=FALSE;
 
@@ -1702,27 +1705,23 @@ static BOOL ShowNativeBaseWeaponWheel() {
     Il2CppClass* wheelViewClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerView","PlayerWheelView") : 0;
     Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
     if (!wheelClass || !wheelButtonClass || !wheelViewClass || !weaponIdClass) {
-        LogA("[ERROR] H51 base wheel metadata classes unresolved");
+        LogA("[ERROR] H52 base wheel metadata classes unresolved");
         return FALSE;
     }
 
     const FieldInfo* buttonsField=g_il2cpp.class_get_field_from_name(wheelClass,"_weaponWheelButtons");
     const MethodInfo* buttonGetWeapon=g_il2cpp.class_get_method_from_name(wheelButtonClass,"get_WeaponId",0);
-    const MethodInfo* buttonEnable=g_il2cpp.class_get_method_from_name(wheelButtonClass,"Enable",1);
     const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Category",0);
     const MethodInfo* showMethod=g_il2cpp.class_get_method_from_name(wheelViewClass,"Show",0);
     const MethodInfo* restoreMethod=g_il2cpp.class_get_method_from_name(wheelClass,"EnableButtons",0);
-    if (!buttonsField || !buttonGetWeapon || !buttonEnable || !getCategory || !showMethod || !restoreMethod) {
-        LogA("[ERROR] H51 base wheel native bridge unresolved");
+    if (!buttonsField || !buttonGetWeapon || !getCategory || !showMethod || !restoreMethod) {
+        LogA("[ERROR] H52 base wheel bridge unresolved");
         return FALSE;
     }
 
     Il2CppObject* wheel=FindLiveObject(wheelClass);
     Il2CppObject* view=FindLiveObject(wheelViewClass);
-    if (!wheel || !view) {
-        LogA("[ERROR] H51 live base weapon wheel/view not found");
-        return FALSE;
-    }
+    if (!wheel || !view) return FALSE;
 
     Il2CppObject* collection=0;
     g_il2cpp.field_get_value(wheel,buttonsField,&collection);
@@ -1733,7 +1732,7 @@ static BOOL ShowNativeBaseWeaponWheel() {
     BOOL isArray=FALSE;
     if (!GetBaseWheelButtonsCollection(collection,&collectionClass,&count,&isArray)) return FALSE;
 
-    int baseCount=0,dlcCount=0,otherCount=0;
+    int baseCount=0,dlcCount=0;
     for (int i=0;i<count;i++) {
         Il2CppObject* button=GetBaseWheelButtonFromCollection(collection,collectionClass,isArray,i);
         if (!button) continue;
@@ -1741,70 +1740,56 @@ static BOOL ShowNativeBaseWeaponWheel() {
         Il2CppObject* weapon=g_il2cpp.runtime_invoke(buttonGetWeapon,button,0,&ex);
         if (ex || !weapon) continue;
         ex=0;
-        Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,weapon,0,&ex);
-        if (ex || !catBox) continue;
-        void* raw=g_il2cpp.object_unbox(catBox);
-        if (!raw) continue;
+        Il2CppObject* box=g_il2cpp.runtime_invoke(getCategory,weapon,0,&ex);
+        if (ex || !box) continue;
+        void* raw=g_il2cpp.object_unbox(box);
+        if(!raw) continue;
         int cat=*(int*)raw;
         if(cat==0) ++baseCount;
         else if(cat==1) ++dlcCount;
-        else ++otherCount;
     }
 
-    LogIntA("[WHEEL H51] BASE buttons before open: ",baseCount);
-    LogIntA("[WHEEL H51] DLC buttons before open: ",dlcCount);
+    LogIntA("[WHEEL H52] live BASE slots: ",baseCount);
+    LogIntA("[WHEEL H52] live DLC slots: ",dlcCount);
 
-    if(baseCount<=0) {
-        LogA("[WHEEL H51] No base buttons available.");
-        return FALSE;
-    }
+    if(baseCount<=0) return FALSE;
 
-    // DLC scene: the real wheel setup is asynchronous. Fire the proven native
-    // input event first, then wait until Player.IsWheelEnabled == 1 before
-    // applying the base-only filter.
+    // In a DLC-configured scene, replace only the five known DLC substitutions
+    // with their exact base-game counterparts BEFORE the real native wheel event.
     if(dlcCount>0) {
-        if(!InvokeInputManagerWheelEventFastH51(TRUE)) {
-            LogA("[WHEEL H51] Native OnWheelDown failed for base-wheel DLC path.");
+        if(!PrepareWheelSwapH52(FALSE)) {
+            LogA("[WHEEL H52] DLC->BASE five-slot swap failed; base wheel not opened.");
             return FALSE;
         }
+        if(!InvokeInputManagerWheelEventFastH51(TRUE)) {
+            RestoreWheelSwapH52();
+            LogA("[WHEEL H52] Native OnWheelDown failed after DLC->BASE swap.");
+            return FALSE;
+        }
+
+        g_h52SwapMode=2;
         g_h51BaseUsesInputEvent=TRUE;
-        g_h51BaseFilterPending=1;
+        g_h51BaseFilterPending=0;
         g_baseWheelActive=1;
-        LogA("[WHEEL H51] Base wheel native input fired; waiting for active wheel before filtering DLC buttons.");
+        LogA("[WHEEL H52] Full BASE configuration injected before native OnWheelDown in DLC.");
         return TRUE;
     }
 
-    // Non-DLC scene: preserve the validated H43 behavior.
-    for (int i=0;i<count;i++) {
-        Il2CppObject* button=GetBaseWheelButtonFromCollection(collection,collectionClass,isArray,i);
-        if (!button) continue;
-        Il2CppException* ex=0;
-        Il2CppObject* weapon=g_il2cpp.runtime_invoke(buttonGetWeapon,button,0,&ex);
-        if (ex || !weapon) continue;
-        ex=0;
-        Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,weapon,0,&ex);
-        if (ex || !catBox) continue;
-        void* raw=g_il2cpp.object_unbox(catBox);
-        if (!raw) continue;
-        BOOL enabled=(*(int*)raw==0) ? TRUE : FALSE;
-        void* ep[1]; ep[0]=&enabled;
-        ex=0;
-        g_il2cpp.runtime_invoke(buttonEnable,button,ep,&ex);
-    }
-
+    // Normal campaign: keep the already validated native base wheel path untouched.
     Il2CppException* ex=0;
     g_il2cpp.runtime_invoke(showMethod,view,0,&ex);
-    if (ex) {
+    if(ex) {
         FormatExceptionToLog(ex);
         ex=0;
         g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&ex);
         return FALSE;
     }
 
+    g_h52SwapMode=0;
     g_h51BaseUsesInputEvent=FALSE;
     g_h51BaseFilterPending=0;
     g_baseWheelActive=1;
-    LogA("[WHEEL H51] Base-game wheel opened through preserved H43 path.");
+    LogA("[WHEEL H52] Normal campaign BASE wheel opened through preserved H43 path.");
     return TRUE;
 }
 
@@ -1879,44 +1864,41 @@ static void ExecuteDelayedBaseFilterH51() {
 }
 
 static BOOL HideNativeBaseWeaponWheel() {
-    if (!g_baseWheelActive) return TRUE;
-
-    Il2CppClass* wheelClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent") : 0;
-    Il2CppClass* wheelViewClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerView","PlayerWheelView") : 0;
-    if (!wheelClass || !wheelViewClass) {
-        g_baseWheelActive=0;
-        g_h51BaseFilterPending=0;
-        g_h51BaseUsesInputEvent=FALSE;
-        return FALSE;
-    }
-
-    const MethodInfo* hideMethod=g_il2cpp.class_get_method_from_name(wheelViewClass,"Hide",0);
-    const MethodInfo* restoreMethod=g_il2cpp.class_get_method_from_name(wheelClass,"EnableButtons",0);
-    Il2CppObject* wheel=FindLiveObject(wheelClass);
-    Il2CppObject* view=FindLiveObject(wheelViewClass);
+    if(!g_baseWheelActive) return TRUE;
 
     BOOL ok=TRUE;
-    Il2CppException* ex=0;
 
-    if(g_h51BaseUsesInputEvent) {
+    if(g_h52SwapMode==2) {
         if(!InvokeInputManagerWheelEventFastH51(FALSE)) ok=FALSE;
+        if(!RestoreWheelSwapH52()) ok=FALSE;
+        LogA("[WHEEL H52] DLC->BASE temporary mapping restored after native OnWheelUp.");
     } else {
-        if(view && hideMethod) {
-            g_il2cpp.runtime_invoke(hideMethod,view,0,&ex);
-            if(ex) { FormatExceptionToLog(ex); ok=FALSE; }
-        } else ok=FALSE;
+        Il2CppClass* wheelClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent") : 0;
+        Il2CppClass* wheelViewClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerView","PlayerWheelView") : 0;
+        if(!wheelClass || !wheelViewClass) ok=FALSE;
+        else {
+            const MethodInfo* hideMethod=g_il2cpp.class_get_method_from_name(wheelViewClass,"Hide",0);
+            const MethodInfo* restoreMethod=g_il2cpp.class_get_method_from_name(wheelClass,"EnableButtons",0);
+            Il2CppObject* wheel=FindLiveObject(wheelClass);
+            Il2CppObject* view=FindLiveObject(wheelViewClass);
+            Il2CppException* ex=0;
+            if(view && hideMethod) {
+                g_il2cpp.runtime_invoke(hideMethod,view,0,&ex);
+                if(ex) { FormatExceptionToLog(ex); ok=FALSE; }
+            } else ok=FALSE;
+
+            ex=0;
+            if(wheel && restoreMethod) {
+                g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&ex);
+                if(ex) { FormatExceptionToLog(ex); ok=FALSE; }
+            } else ok=FALSE;
+        }
     }
 
-    ex=0;
-    if(wheel && restoreMethod) {
-        g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&ex);
-        if(ex) { FormatExceptionToLog(ex); ok=FALSE; }
-    } else ok=FALSE;
-
+    g_h52SwapMode=0;
     g_h51BaseFilterPending=0;
     g_h51BaseUsesInputEvent=FALSE;
     g_baseWheelActive=0;
-    LogA("[WHEEL H51] Base wheel closed; native buttons restored.");
     return ok;
 }
 
