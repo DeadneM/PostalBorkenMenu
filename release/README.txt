@@ -1,98 +1,73 @@
-POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H52 NATIVE PRE-EVENT WHEEL SWAP TEST
+POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H53 POST-EVENT WHEEL SWAP TEST
 
 BASE
 ----
-H52 starts from H51.
+H53 starts from H52.
 
-H51 RESULTS
------------
-User screenshots established three exact states:
+H52 RESULT
+----------
+Normal campaign + DLC Weapon Wheel:
+- the wheel opens,
+- but no DLC weapons remain in it.
 
-1. Normal campaign + Base Weapon Wheel
-   - full normal base wheel works.
+Cause:
+the real InputManager.OnWheelDown path rebuilds the normal-campaign wheel AFTER
+the H52 pre-event WeaponId swap, overwriting those five temporary DLC mappings.
 
-2. DLC + Base Weapon Wheel
-   - wheel opens through the native InputManager path
-   - four weapons common to both campaigns are normal
-   - the five DLC-replaced slots appear as disabled/pink silhouettes.
+H53 CHANGE
+----------
+H53 reverses the order.
 
-3. DLC + DLC Weapon Wheel
-   - full native DLC wheel works correctly
-   - no lag.
+For a cross-campaign wheel request:
 
-HISTORICAL H8 MAPPING
----------------------
-Previous H8 diagnostics already proved the exact five substitutions:
+1. Fire the validated native InputManager.OnWheelDown first.
+2. Wait until Player.IsWheelEnabled == 1.
+3. Only then apply the exact five-slot BASE<->DLC WeaponId swap.
+4. Call WeaponWheelButton.Enable(true) on mapped buttons.
+5. Call PlayerWeaponWheelComponent.EnableButtons() as a native refresh.
+6. Keep the temporary mapping for the duration of the wheel.
+7. On release, fire native OnWheelUp.
+8. Restore the original five WeaponIds.
 
-WEAPON_Pistol        -> WEAPON_UmDrill
-WEAPON_Shovel        -> WEAPON_PissGun
-WEAPON_CatCanon      -> WEAPON_MeatShotgun
-WEAPON_Shotgun       -> WEAPON_BubbleGumMachineGun
-WEAPON_DildoBow      -> WEAPON_NuclearSyringe
+Exact pairs:
+- WEAPON_Pistol <-> WEAPON_UmDrill
+- WEAPON_Shovel <-> WEAPON_PissGun
+- WEAPON_CatCanon <-> WEAPON_MeatShotgun
+- WEAPON_Shotgun <-> WEAPON_BubbleGumMachineGun
+- WEAPON_DildoBow <-> WEAPON_NuclearSyringe
 
-H8 changed _weaponId and called PlayerWheelView.Show directly.
-That produced placeholder silhouettes because the real native wheel setup path
-was not known at that time.
-
-H52 HYPOTHESIS
---------------
-H49/H51 now proved the real wheel entry path:
-InputManager.OnWheelDown / OnWheelUp.
-
-Therefore H52 performs the exact five-slot WeaponId swap BEFORE the real native
-OnWheelDown event, allowing the game itself to rebuild visuals/state/selection.
-
-NORMAL CAMPAIGN + DLC WHEEL
----------------------------
-H52:
-- resolves the exact five DLC WeaponIds
-- ensures those five weapons are collected
-- remaps only the five known base slots to their DLC counterparts
-- fires the real InputManager.OnWheelDown
-- leaves the four common slots untouched
-- on release fires OnWheelUp
-- restores the five original base WeaponIds
-
-DLC + BASE WHEEL
-----------------
-H52 performs the inverse:
-- resolves the exact five base WeaponIds
-- ensures those five base weapons are collected
-- remaps the five DLC slots back to their base counterparts
-- fires native OnWheelDown
-- on release fires OnWheelUp
-- restores the original DLC WeaponIds
-
-DLC + DLC WHEEL
+UNCHANGED CASES
 ---------------
-The already-correct native DLC configuration is left untouched.
+- Normal campaign + Base Weapon Wheel stays on the validated normal path.
+- DLC + native DLC Weapon Wheel stays on the validated fast H51 path.
 
-NORMAL CAMPAIGN + BASE WHEEL
-----------------------------
-The validated H43/H51 normal base wheel path is left untouched.
+TARGETED METADATA
+-----------------
+H53 logs WeaponWheelButton method and field NAMES once, only after the first
+post-event swap attempt.
 
-NO HEAVY DIAGNOSTIC PATH
-------------------------
-H52 keeps the fast InputManager event bridge.
-No global metadata scan is performed.
+No global metadata scan is used.
 
-EXPECTED TEST
--------------
+TEST
+----
 A. Normal campaign:
 - Base Weapon Wheel should remain unchanged.
-- DLC Weapon Wheel should now open and ideally display the real DLC weapon art,
-  not silhouettes.
+- DLC Weapon Wheel should open.
+- Check whether the five DLC weapons now replace the five base counterparts.
+- Note whether their real icons appear or placeholder silhouettes remain.
 
 B. DLC:
-- DLC Weapon Wheel should remain unchanged and lag-free.
-- Base Weapon Wheel should now contain the full base-game replacements instead
-  of the five pink disabled silhouettes.
+- DLC Weapon Wheel should remain unchanged.
+- Base Weapon Wheel should open.
+- Check whether the five base counterparts replace the DLC-specific slots.
+
+Send PostalBorkenMenu.log if the five mapped slots still have incorrect visuals.
 
 Important lines:
-[WHEEL H52] BASE->DLC slots remapped before native event: 5
-[WHEEL H52] DLC->BASE slots remapped before native event: 5
-[WHEEL H52] DLC wheel opened in NORMAL campaign via pre-event five-slot swap.
-[WHEEL H52] Full BASE configuration injected before native OnWheelDown in DLC.
+[WHEEL H53] Wheel active. Applying BASE->DLC swap AFTER native setup.
+[WHEEL H53] Wheel active. Applying DLC->BASE swap AFTER native setup.
+[WHEEL H53] post-event mapped slots: 5
+[WHEEL H53] EnableButtons refresh invoked after five-slot swap.
 
 PACKAGE
 -------
