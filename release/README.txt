@@ -1,62 +1,86 @@
-POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H51 POST-EVENT BASE FILTER TEST
+POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H54 DLC WHEEL NORMAL-ONLY TEST
 
 BASE
 ----
-H51 starts from H49, not from rejected H50.
+H54 starts from H51.
 
-H50 STATUS
-----------
-Rejected.
-
-User result:
-- both mod wheel hotkeys opened the full DLC wheel
-- noticeable lag
-
-Cause:
-- Base Weapon Wheel filtered DLC buttons BEFORE firing the real InputManager.OnWheelDown event
-- the native wheel setup then rebuilt/re-enabled the DLC layout and erased the filter
-- the H49 diagnostic metadata/log path was still being executed on every press/release
-
-H51 FIX
+WHY H54
 -------
-DLC Weapon Wheel:
-- uses the validated H49 static System.Action path
-- OnWheelDown / OnWheelUp are read through static IL2CPP storage
-- hot path is now fast and quiet
-- no repeated metadata audit/log spam
+H53 is rejected because it regressed Base Weapon Wheel inside the DLC.
 
-Base Weapon Wheel in the DLC:
-1. fire the real InputManager.OnWheelDown first
-2. do NOT filter immediately
-3. poll Player.IsWheelEnabled
-4. when the native wheel is genuinely active, apply the base-only filter
-5. disable DLC-category buttons only after the game's setup is complete
-6. on release, fire InputManager.OnWheelUp
-7. restore all native buttons
+H54 therefore freezes the entire H51 Base Weapon Wheel implementation.
 
-Base Weapon Wheel outside the DLC:
-- preserves the validated H43 path unchanged
+Verification:
+- the Show/Hide/Delayed Base Weapon Wheel block is byte-identical to H51
+- no H53 inverse DLC->BASE swap code is present in the Base Weapon Wheel path
 
-EXPECTED RESULT
----------------
-Inside the DLC:
+PRESERVED H51 BEHAVIOR
+----------------------
+Normal campaign + Base Weapon Wheel:
+- unchanged
 
-DLC Weapon Wheel:
+DLC + Base Weapon Wheel:
+- unchanged from H51
+- opens through the validated H51 path
+- known limitation remains: DLC-replaced slots may appear as silhouettes
+
+DLC + DLC Weapon Wheel:
+- unchanged from H51
 - full native DLC wheel
-- no extra diagnostic stutter
+- fast InputManager path
+- no diagnostic lag
 
-Base Weapon Wheel:
-- native wheel opens normally
-- after the internal hold threshold, DLC buttons are disabled
-- only base-category buttons remain selectable/visible
-
-IMPORTANT LOG LINES
+H54 EXPERIMENT ONLY
 -------------------
-[WHEEL H51] Base wheel native input fired; waiting for active wheel before filtering DLC buttons.
-[WHEEL H51] Delayed BASE buttons enabled: N
-[WHEEL H51] Delayed DLC buttons disabled: N
-[WHEEL H51] Base-only filter applied AFTER native wheel became active.
-[WHEEL H51] DLC wheel opened through fast validated InputManager.OnWheelDown.
+Only this case is modified:
+
+Normal campaign + DLC Weapon Wheel.
+
+H54 sequence:
+
+1. Fire the validated native InputManager.OnWheelDown.
+2. Wait until Player.IsWheelEnabled == 1.
+3. Resolve the exact five DLC WeaponIds:
+   - WEAPON_UmDrill
+   - WEAPON_PissGun
+   - WEAPON_MeatShotgun
+   - WEAPON_BubbleGumMachineGun
+   - WEAPON_NuclearSyringe
+4. Ensure the five DLC weapons are collected.
+5. Replace only these five normal-campaign slots:
+   - WEAPON_Pistol
+   - WEAPON_Shovel
+   - WEAPON_CatCanon
+   - WEAPON_Shotgun
+   - WEAPON_DildoBow
+6. Enable the five mapped buttons.
+7. Call PlayerWeaponWheelComponent.EnableButtons().
+8. On release, call native OnWheelUp and restore the original five base WeaponIds.
+
+TARGETED METADATA
+-----------------
+If the post-open swap succeeds, H54 logs WeaponWheelButton method and field names once.
+
+No global metadata scan is used.
+
+TEST
+----
+First verify regression protection:
+1. DLC + Base Weapon Wheel must behave exactly like H51.
+2. DLC + DLC Weapon Wheel must remain full and lag-free.
+
+Then test:
+3. Normal campaign + DLC Weapon Wheel.
+
+If the five DLC weapons appear but icons are wrong, send PostalBorkenMenu.log.
+If they do not appear, send the log as well.
+
+Important lines:
+[WHEEL H54] Normal campaign wheel opened; DLC-only post-event swap pending.
+[WHEEL H54] exact DLC targets found: 5
+[WHEEL H54] DLC targets collected/ready: 5
+[WHEEL H54] BASE->DLC slots swapped AFTER native open: 5
+[WHEEL H54] DLC-only normal-campaign swap applied. Base-wheel code untouched.
 
 PACKAGE
 -------
