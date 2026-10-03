@@ -2227,61 +2227,390 @@ static BOOL InvokeInputManagerWheelEventFastH51(BOOL down) {
     return TRUE;
 }
 
+
+static volatile LONG g_h54DlcSwapPending=0;
+static BOOL g_h54DlcSwapApplied=FALSE;
+static BOOL g_h54ButtonMetaLogged=FALSE;
+static Il2CppObject* g_h54MappedButtons[5]={0,0,0,0,0};
+static Il2CppObject* g_h54OriginalWeapons[5]={0,0,0,0,0};
+static int g_h54MappedCount=0;
+
+static const char* g_h54BaseNames[5]={
+    "WEAPON_Pistol",
+    "WEAPON_Shovel",
+    "WEAPON_CatCanon",
+    "WEAPON_Shotgun",
+    "WEAPON_DildoBow"
+};
+
+static const char* g_h54DlcNames[5]={
+    "WEAPON_UmDrill",
+    "WEAPON_PissGun",
+    "WEAPON_MeatShotgun",
+    "WEAPON_BubbleGumMachineGun",
+    "WEAPON_NuclearSyringe"
+};
+
+static void ClearDlcSwapStateH54() {
+    for(int i=0;i<5;i++) {
+        g_h54MappedButtons[i]=0;
+        g_h54OriginalWeapons[i]=0;
+    }
+    g_h54MappedCount=0;
+}
+
+static BOOL GetWeaponNameH54(Il2CppObject* weapon,char* out,int cap) {
+    if(!weapon || !out || cap<=1) return FALSE;
+    out[0]=0;
+
+    Il2CppClass* unityObjectClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Object") : 0;
+    const MethodInfo* getName=unityObjectClass ? g_il2cpp.class_get_method_from_name(unityObjectClass,"get_name",0) : 0;
+    if(!getName) return FALSE;
+
+    Il2CppException* ex=0;
+    Il2CppObject* nameObj=g_il2cpp.runtime_invoke(getName,weapon,0,&ex);
+    if(ex || !nameObj) return FALSE;
+
+    CatalogManagedStringToAscii((Il2CppString*)nameObj,out,cap);
+    return out[0]!=0;
+}
+
+static int FindExactDlcTargetsH54(Il2CppObject* out[5]) {
+    for(int i=0;i<5;i++) out[i]=0;
+
+    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    Il2CppClass* resourcesClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Resources") : 0;
+    Il2CppClass* unityObjectClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Object") : 0;
+    if(!weaponIdClass || !resourcesClass || !unityObjectClass) return 0;
+
+    const MethodInfo* findAll=FindMethodExact(resourcesClass,"FindObjectsOfTypeAll",1,g_systemTypeClass);
+    const MethodInfo* getName=g_il2cpp.class_get_method_from_name(unityObjectClass,"get_name",0);
+    const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Category",0);
+    if(!findAll || !getName || !getCategory) return 0;
+
+    const Il2CppType* wt=g_il2cpp.class_get_type(weaponIdClass);
+    Il2CppObject* typeObj=wt ? g_il2cpp.type_get_object(wt) : 0;
+    if(!typeObj) return 0;
+
+    void* pars[1]; pars[0]=typeObj;
+    Il2CppException* ex=0;
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(findAll,0,pars,&ex);
+    if(ex || !arrObj) return 0;
+
+    Il2CppArray* arr=(Il2CppArray*)arrObj;
+    SIZE_T n=g_il2cpp.array_length(arr);
+    if(n>1024) return 0;
+
+    unsigned int hdr=g_il2cpp.array_object_header_size();
+    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+
+    for(SIZE_T i=0;i<n;i++) {
+        Il2CppObject* weapon=elems[i];
+        if(!weapon) continue;
+
+        ex=0;
+        Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,weapon,0,&ex);
+        if(ex || !catBox) continue;
+        void* raw=g_il2cpp.object_unbox(catBox);
+        if(!raw || *(int*)raw!=1) continue;
+
+        ex=0;
+        Il2CppObject* nameObj=g_il2cpp.runtime_invoke(getName,weapon,0,&ex);
+        if(ex || !nameObj) continue;
+
+        char name[128]; name[0]=0;
+        CatalogManagedStringToAscii((Il2CppString*)nameObj,name,128);
+
+        for(int k=0;k<5;k++) {
+            if(!out[k] && StrEqA(name,g_h54DlcNames[k])) {
+                out[k]=weapon;
+                break;
+            }
+        }
+    }
+
+    int found=0;
+    for(int i=0;i<5;i++) if(out[i]) ++found;
+    return found;
+}
+
+static int EnsureDlcTargetsCollectedH54(Il2CppObject* targets[5]) {
+    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    Il2CppClass* inventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerInventoryComponent") : 0;
+    Il2CppClass* weaponsInventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.Inventory","WeaponsInventory") : 0;
+    if(!weaponIdClass || !inventoryClass || !weaponsInventoryClass) return 0;
+
+    const FieldInfo* controllerField=g_il2cpp.class_get_field_from_name(inventoryClass,"_weaponsController");
+    const MethodInfo* addWeapon=FindMethodExact(weaponsInventoryClass,"AddWeapon",1,weaponIdClass);
+    if(!controllerField || !addWeapon) return 0;
+
+    Il2CppObject* playerInv=FindLiveObject(inventoryClass);
+    if(!playerInv) return 0;
+
+    Il2CppObject* weaponsInv=0;
+    g_il2cpp.field_get_value(playerInv,controllerField,&weaponsInv);
+    if(!weaponsInv) return 0;
+
+    int ready=0;
+    for(int i=0;i<5;i++) {
+        Il2CppObject* weapon=targets[i];
+        if(!weapon) continue;
+
+        int collected=IsWeaponCollected(playerInv,inventoryClass,weapon);
+        if(collected==1) {
+            ++ready;
+            continue;
+        }
+        if(collected<0) continue;
+
+        void* wp[1]; wp[0]=weapon;
+        Il2CppException* ex=0;
+        g_il2cpp.runtime_invoke(addWeapon,weaponsInv,wp,&ex);
+        if(!ex) ++ready;
+    }
+    return ready;
+}
+
+static BOOL SetWheelButtonWeaponH54(Il2CppObject* button,
+                                    Il2CppClass* buttonClass,
+                                    const MethodInfo* getWeapon,
+                                    Il2CppObject* weapon) {
+    if(!button || !buttonClass || !getWeapon || !weapon) return FALSE;
+
+    const FieldInfo* field=g_il2cpp.class_get_field_from_name(buttonClass,"_weaponId");
+    if(!field) return FALSE;
+
+    typedef void (*FnSetObject)(Il2CppObject*,const FieldInfo*,Il2CppObject*);
+    FnSetObject setObject=(FnSetObject)Proc("il2cpp_field_set_value_object");
+    if(!setObject) return FALSE;
+
+    setObject(button,field,weapon);
+
+    Il2CppException* ex=0;
+    Il2CppObject* verify=g_il2cpp.runtime_invoke(getWeapon,button,0,&ex);
+    return !ex && verify==weapon;
+}
+
+static void LogWeaponWheelButtonMetaH54() {
+    if(g_h54ButtonMetaLogged) return;
+    g_h54ButtonMetaLogged=TRUE;
+
+    Il2CppClass* buttonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
+    if(!buttonClass) return;
+
+    LogA("[WHEEL H54] ===== WeaponWheelButton metadata begin =====");
+
+    void* mi=0;
+    const MethodInfo* m=0;
+    int mc=0;
+    while((m=g_il2cpp.class_get_methods(buttonClass,&mi))!=0 && mc<96) {
+        const char* n=g_il2cpp.method_get_name(m);
+        if(!n) continue;
+        LogA("[WHEEL H54 METHOD]");
+        LogA(n);
+        LogIntA("[WHEEL H54] parameter count: ",(int)g_il2cpp.method_get_param_count(m));
+        ++mc;
+    }
+
+    void* fi=0;
+    const FieldInfo* f=0;
+    int fc=0;
+    while((f=g_il2cpp.class_get_fields(buttonClass,&fi))!=0 && fc<96) {
+        const char* n=g_il2cpp.field_get_name(f);
+        if(!n) continue;
+        LogA("[WHEEL H54 FIELD]");
+        LogA(n);
+        ++fc;
+    }
+
+    LogA("[WHEEL H54] ===== WeaponWheelButton metadata end =====");
+}
+
+static BOOL ApplyDlcSwapAfterOpenH54() {
+    if(!g_h54DlcSwapPending || !g_dlcWheelActive) return TRUE;
+    if(ReadPlayerWheelEnabledH49()!=1) return FALSE;
+
+    Il2CppObject* targets[5]={0,0,0,0,0};
+    int found=FindExactDlcTargetsH54(targets);
+    LogIntA("[WHEEL H54] exact DLC targets found: ",found);
+    if(found!=5) {
+        g_h54DlcSwapPending=0;
+        return FALSE;
+    }
+
+    int ready=EnsureDlcTargetsCollectedH54(targets);
+    LogIntA("[WHEEL H54] DLC targets collected/ready: ",ready);
+    if(ready!=5) {
+        g_h54DlcSwapPending=0;
+        return FALSE;
+    }
+
+    Il2CppClass* wheelClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent") : 0;
+    Il2CppClass* buttonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
+    if(!wheelClass || !buttonClass) {
+        g_h54DlcSwapPending=0;
+        return FALSE;
+    }
+
+    const FieldInfo* buttonsField=g_il2cpp.class_get_field_from_name(wheelClass,"_weaponWheelButtons");
+    const MethodInfo* getWeapon=g_il2cpp.class_get_method_from_name(buttonClass,"get_WeaponId",0);
+    const MethodInfo* enable=g_il2cpp.class_get_method_from_name(buttonClass,"Enable",1);
+    const MethodInfo* enableButtons=g_il2cpp.class_get_method_from_name(wheelClass,"EnableButtons",0);
+    if(!buttonsField || !getWeapon || !enable || !enableButtons) {
+        g_h54DlcSwapPending=0;
+        return FALSE;
+    }
+
+    Il2CppObject* wheel=FindLiveObject(wheelClass);
+    if(!wheel) {
+        g_h54DlcSwapPending=0;
+        return FALSE;
+    }
+
+    Il2CppObject* collection=0;
+    g_il2cpp.field_get_value(wheel,buttonsField,&collection);
+    if(!collection) {
+        g_h54DlcSwapPending=0;
+        return FALSE;
+    }
+
+    Il2CppClass* collectionClass=0;
+    int count=0;
+    BOOL isArray=FALSE;
+    if(!GetBaseWheelButtonsCollection(collection,&collectionClass,&count,&isArray)) {
+        g_h54DlcSwapPending=0;
+        return FALSE;
+    }
+
+    ClearDlcSwapStateH54();
+
+    for(int i=0;i<count && g_h54MappedCount<5;i++) {
+        Il2CppObject* button=GetBaseWheelButtonFromCollection(collection,collectionClass,isArray,i);
+        if(!button) continue;
+
+        Il2CppException* ex=0;
+        Il2CppObject* original=g_il2cpp.runtime_invoke(getWeapon,button,0,&ex);
+        if(ex || !original) continue;
+
+        char currentName[128]; currentName[0]=0;
+        if(!GetWeaponNameH54(original,currentName,128)) continue;
+
+        for(int k=0;k<5;k++) {
+            if(!StrEqA(currentName,g_h54BaseNames[k])) continue;
+
+            if(SetWheelButtonWeaponH54(button,buttonClass,getWeapon,targets[k])) {
+                int m=g_h54MappedCount++;
+                g_h54MappedButtons[m]=button;
+                g_h54OriginalWeapons[m]=original;
+
+                BOOL enabled=TRUE;
+                void* ep[1]; ep[0]=&enabled;
+                ex=0;
+                g_il2cpp.runtime_invoke(enable,button,ep,&ex);
+            }
+            break;
+        }
+    }
+
+    LogIntA("[WHEEL H54] BASE->DLC slots swapped AFTER native open: ",g_h54MappedCount);
+
+    if(g_h54MappedCount!=5) {
+        g_h54DlcSwapPending=0;
+        return FALSE;
+    }
+
+    Il2CppException* ex=0;
+    g_il2cpp.runtime_invoke(enableButtons,wheel,0,&ex);
+    if(ex) FormatExceptionToLog(ex);
+
+    LogWeaponWheelButtonMetaH54();
+
+    g_h54DlcSwapApplied=TRUE;
+    g_h54DlcSwapPending=0;
+    LogA("[WHEEL H54] DLC-only normal-campaign swap applied. Base-wheel code untouched.");
+    return TRUE;
+}
+
+static void ExecuteDelayedDlcSwapH54() {
+    if(!g_ready || g_shuttingDown) return;
+    BOOL attached=FALSE; void* thread=0;
+    if(!EnsureIl2CppThread(&attached,&thread)) return;
+    ApplyDlcSwapAfterOpenH54();
+    ReleaseIl2CppThread(attached,thread);
+}
+
+static BOOL RestoreDlcSwapH54() {
+    if(!g_h54DlcSwapApplied || g_h54MappedCount<=0) {
+        ClearDlcSwapStateH54();
+        g_h54DlcSwapApplied=FALSE;
+        return TRUE;
+    }
+
+    Il2CppClass* buttonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
+    if(!buttonClass) return FALSE;
+
+    const MethodInfo* getWeapon=g_il2cpp.class_get_method_from_name(buttonClass,"get_WeaponId",0);
+    if(!getWeapon) return FALSE;
+
+    BOOL ok=TRUE;
+    for(int i=0;i<g_h54MappedCount;i++) {
+        if(!SetWheelButtonWeaponH54(g_h54MappedButtons[i],buttonClass,getWeapon,g_h54OriginalWeapons[i]))
+            ok=FALSE;
+    }
+
+    ClearDlcSwapStateH54();
+    g_h54DlcSwapApplied=FALSE;
+    return ok;
+}
+
 static BOOL ShowNativeDlcWeaponWheel() {
     if(!IsTheseSunnyDazeOwned()) {
-        LogA("[WHEEL H49] DLC wheel blocked: These Sunny Daze ownership not confirmed.");
+        LogA("[WHEEL H54] DLC wheel blocked: These Sunny Daze ownership not confirmed.");
         return FALSE;
     }
 
     Il2CppClass* wheelClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent") : 0;
     Il2CppClass* wheelButtonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
     Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
-    if(!wheelClass || !wheelButtonClass || !weaponIdClass) {
-        LogA("[ERROR] H49 DLC wheel metadata unresolved.");
-        return FALSE;
-    }
+    if(!wheelClass || !wheelButtonClass || !weaponIdClass) return FALSE;
 
     const FieldInfo* buttonsField=g_il2cpp.class_get_field_from_name(wheelClass,"_weaponWheelButtons");
     const MethodInfo* buttonGetWeapon=g_il2cpp.class_get_method_from_name(wheelButtonClass,"get_WeaponId",0);
     const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Category",0);
-    if(!buttonsField || !buttonGetWeapon || !getCategory) {
-        LogA("[ERROR] H49 DLC wheel category bridge unresolved.");
-        return FALSE;
-    }
+    if(!buttonsField || !buttonGetWeapon || !getCategory) return FALSE;
 
     Il2CppObject* wheel=FindLiveObject(wheelClass);
-    if(!wheel) {
-        LogA("[ERROR] H49 live PlayerWeaponWheelComponent not found.");
-        return FALSE;
-    }
+    if(!wheel) return FALSE;
 
     int baseCount=0,dlcCount=0,otherCount=0;
     InspectNativeWheelCategoriesH49(wheel,buttonsField,buttonGetWeapon,getCategory,&baseCount,&dlcCount,&otherCount);
-    LogIntA("[WHEEL H49] live native BASE buttons: ",baseCount);
-    LogIntA("[WHEEL H49] live native DLC/PTSD buttons: ",dlcCount);
-    LogIntA("[WHEEL H49] live native other buttons: ",otherCount);
 
-    if(dlcCount<=0) {
-        LogA("[WHEEL H49] No live native DLC buttons. Event test not fired.");
-        return FALSE;
-    }
+    if(!InvokeInputManagerWheelEventFastH51(TRUE)) return FALSE;
 
-    BOOL ok=InvokeInputManagerWheelEventFastH51(TRUE);
-    if(ok) {
-        g_h49InputWheelActive=TRUE;
-        g_dlcWheelActive=1;
-        LogA("[WHEEL H51] DLC wheel opened through fast validated InputManager.OnWheelDown.");
-    }
-    return ok;
+    g_h54DlcSwapPending=(dlcCount==0) ? 1 : 0;
+    g_h54DlcSwapApplied=FALSE;
+    g_h49InputWheelActive=TRUE;
+    g_dlcWheelActive=1;
+
+    LogA(dlcCount==0
+         ? "[WHEEL H54] Normal campaign wheel opened; DLC-only post-event swap pending."
+         : "[WHEEL H54] Native DLC wheel opened unchanged inside DLC.");
+    return TRUE;
 }
 
 static BOOL HideNativeDlcWeaponWheel() {
     if(!g_dlcWheelActive || !g_h49InputWheelActive) return TRUE;
 
     BOOL ok=InvokeInputManagerWheelEventFastH51(FALSE);
-    if(ok)
-        LogA("[WHEEL H51] DLC wheel closed through fast validated InputManager.OnWheelUp.");
 
+    if(g_h54DlcSwapApplied) {
+        if(!RestoreDlcSwapH54()) ok=FALSE;
+        LogA("[WHEEL H54] Temporary normal-campaign DLC mapping restored.");
+    }
+
+    g_h54DlcSwapPending=0;
     g_h49InputWheelActive=FALSE;
     g_dlcWheelActive=0;
     return ok;
