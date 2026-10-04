@@ -690,7 +690,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H57 BIDIRECTIONAL 5X5 WHEEL SWAP TEST");
+    LogA("PostalBorkenMenu V2A42-H58 FULL BUTTON PAYLOAD TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
@@ -708,7 +708,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] H57 mirrors the five mode-specific weapon sectors in both directions while preserving the four native common sectors.");
+    LogA("[READY] H58 preserves H57 9/9 wheels, mirrors native visual payloads when source buttons are loaded, and forces the exact remapped WeaponId selected on release.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
