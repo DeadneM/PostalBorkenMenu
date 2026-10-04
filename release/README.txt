@@ -1,88 +1,71 @@
-POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H55 WHEEL SPRITE AUDIT
+POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H56 WHEEL BUTTON MIRROR AUDIT
 
 BASE
 ----
-H55 starts from H54.
+H56 starts from H55.
 
-H54 RESULT
-----------
-The normal-campaign DLC wheel path reaches the correct logical state:
-- exact DLC WeaponIds found: 5
-- DLC targets collected/ready: 5
-- BASE->DLC slots swapped after native open: 5
+BEHAVIOR
+--------
+No wheel behavior change from H55/H54.
 
-But the five DLC weapons still do not render correctly in the wheel.
+Known current state:
+- Normal campaign + Base Weapon Wheel: works.
+- DLC + DLC Weapon Wheel: works and is lag-free.
+- Normal campaign + DLC Weapon Wheel: the five weapons that differ from base are still missing visually.
+- DLC + Base Weapon Wheel: the five weapons that differ from DLC are still missing visually.
 
-H54 also revealed WeaponWheelButton fields:
-- _weaponId
-- _backgroundImage
-- _weaponSelectedImage
-- _spiralTransform
-- _notSelectedColor
-- _selectedColor
-- _ammoCountText
+This symmetrical result strongly suggests that the two game modes use different native configuration for exactly five wheel buttons.
 
-and methods:
-- Awake
-- OnEnable
-- OnDisable
-- CheckAmmoState
-- SetAmmoState
-- Enable
-- Select
-- Deselect
-- OnUpdate
-- UpdatePosition
-
-There is no obvious RefreshWeaponIcon method.
-
-H55 PURPOSE
+H56 PURPOSE
 -----------
-H55 does NOT change wheel behavior.
+Capture both native 9-button layouts in a directly comparable form.
 
-After a successful five-slot DLC swap in normal campaign, H55 logs:
+For each button H56 logs:
+- collection index
+- Unity object name
+- _id declared type
+- _id numeric value when safely readable
+- WeaponId name
+- WeaponId category
+- WeaponId slot
+- Enabled state
+- _weaponSelectedImage sprite name
+- _backgroundImage sprite name
 
-For each mapped button:
-- mapped index
-- current WeaponId
-- _weaponSelectedImage runtime type
-- current _weaponSelectedImage sprite name
-- _backgroundImage runtime type
-- current _backgroundImage sprite name
+H56 records snapshots only for the two known native signatures:
+- Normal layout: 9 base / 0 DLC
+- DLC layout: 4 base / 5 DLC
 
-For each DLC WeaponId:
-- visual-related method names containing Icon / Sprite / Image / Visual / Texture
-- every WeaponId field name
-- each field's declared type
-- for Sprite / Texture / Image / GameObject-like fields, the referenced Unity object name
+Each signature is logged once per launch.
 
-This determines whether:
-1. the real DLC icon already exists inside WeaponId and only needs to be assigned to the button Image, or
-2. the true DLC wheel uses a different prefab/button configuration not derivable from WeaponId alone.
+WHY THIS MATTERS
+----------------
+The next functional fix should no longer guess.
 
-SAFETY
-------
-- H51 Base Weapon Wheel block remains untouched.
-- H54 behavior is unchanged.
-- No global metadata scan.
-- Audit runs once per launch after a successful 5-slot normal-campaign DLC swap.
+The mirror snapshots will tell us whether the five mode-specific weapons are represented by:
+- the same button indices but different _id values,
+- different sprites on the same buttons,
+- different WeaponId slots,
+- or a different button configuration altogether.
 
 TEST
 ----
-Normal campaign only:
+Please do two short runs if possible.
 
+RUN A - Normal campaign:
+1. Open Base Weapon Wheel once.
+2. Open DLC Weapon Wheel once if desired.
+3. Close game.
+
+RUN B - DLC:
 1. Open DLC Weapon Wheel once.
-2. Wait a second.
-3. Release.
-4. Close the game.
-5. Send PostalBorkenMenu.log.
+2. Open Base Weapon Wheel once if desired.
+3. Close game.
 
-Important lines:
-[WHEEL H55] ===== mapped button visual audit begin =====
-[WHEEL H55] current WeaponId:
-[WHEEL H55] sprite name:
-[WHEEL H55 WEAPON FIELD]
-[WHEEL H55] visual field object name:
+Send both PostalBorkenMenu.log files, or at minimum the log from each mode.
+
+Key section:
+[WHEEL H56] NATIVE WHEEL MIRROR SNAPSHOT
 
 PACKAGE
 -------
