@@ -2846,10 +2846,95 @@ static const char* g_h54DlcNames[5]={
     "WEAPON_NuclearSyringe"
 };
 
+static Il2CppObject* CaptureSelectedRemappedWeaponH58(BOOL baseWheel) {
+    Il2CppClass* wheelClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent") : 0;
+    Il2CppClass* buttonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
+    if(!wheelClass || !buttonClass) return 0;
+
+    const FieldInfo* selectedField=g_il2cpp.class_get_field_from_name(wheelClass,"_selectedButton");
+    const MethodInfo* getWeapon=g_il2cpp.class_get_method_from_name(buttonClass,"get_WeaponId",0);
+    if(!selectedField || !getWeapon) {
+        LogA("[WHEEL H58] _selectedButton/get_WeaponId unavailable.");
+        return 0;
+    }
+
+    Il2CppObject* wheel=FindLiveObject(wheelClass);
+    if(!wheel) return 0;
+
+    Il2CppObject* selectedButton=0;
+    g_il2cpp.field_get_value(wheel,selectedField,&selectedButton);
+    if(!selectedButton) {
+        LogA("[WHEEL H58] No selected wheel button at release.");
+        return 0;
+    }
+
+    BOOL remapped=FALSE;
+    if(baseWheel) {
+        for(int i=0;i<g_h57BaseMappedCount;i++) {
+            if(g_h57BaseMappedButtons[i]==selectedButton) {
+                remapped=TRUE;
+                break;
+            }
+        }
+    } else {
+        for(int i=0;i<g_h54MappedCount;i++) {
+            if(g_h54MappedButtons[i]==selectedButton) {
+                remapped=TRUE;
+                break;
+            }
+        }
+    }
+
+    if(!remapped) return 0;
+
+    Il2CppException* ex=0;
+    Il2CppObject* weapon=g_il2cpp.runtime_invoke(getWeapon,selectedButton,0,&ex);
+    if(ex || !weapon) {
+        if(ex) FormatExceptionToLog(ex);
+        return 0;
+    }
+
+    char name[128]; name[0]=0;
+    GetWeaponNameH54(weapon,name,128);
+    LogA("[WHEEL H58] remapped selected WeaponId captured:");
+    LogA(name);
+    return weapon;
+}
+
+static BOOL EquipExactWheelWeaponH58(Il2CppObject* weapon,const char* label) {
+    if(!weapon) return TRUE;
+
+    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    Il2CppClass* inventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerInventoryComponent") : 0;
+    Il2CppClass* weaponsInventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.Inventory","WeaponsInventory") : 0;
+    if(!weaponIdClass || !inventoryClass || !weaponsInventoryClass) return FALSE;
+
+    const FieldInfo* controllerField=g_il2cpp.class_get_field_from_name(inventoryClass,"_weaponsController");
+    if(!controllerField) return FALSE;
+
+    Il2CppObject* playerInv=FindLiveObject(inventoryClass);
+    if(!playerInv) return FALSE;
+
+    Il2CppObject* weaponsInv=0;
+    g_il2cpp.field_get_value(playerInv,controllerField,&weaponsInv);
+    if(!weaponsInv) return FALSE;
+
+    BOOL ok=SafeAddAndEquipWeaponId(playerInv,weaponsInv,inventoryClass,weaponsInventoryClass,weaponIdClass,weapon,label);
+    LogA(ok ? "[WHEEL H58] Exact selected WeaponId forced successfully."
+            : "[WHEEL H58] Exact selected WeaponId force failed.");
+    return ok;
+}
+
 static void ClearDlcSwapStateH54() {
     for(int i=0;i<5;i++) {
         g_h54MappedButtons[i]=0;
         g_h54OriginalWeapons[i]=0;
+        ClearVisualBackupH58(&g_h58DlcVisuals[i]);
     }
     g_h54MappedCount=0;
 }
@@ -3269,6 +3354,15 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
                 g_h54MappedButtons[m]=button;
                 g_h54OriginalWeapons[m]=original;
 
+                Il2CppObject* sourceButton=FindLoadedWheelButtonForWeaponH58(targets[k],button);
+                if(sourceButton) {
+                    ApplyButtonVisualPayloadH58(button,sourceButton,buttonClass,&g_h58DlcVisuals[m]);
+                    LogA("[WHEEL H58] BASE->DLC native source button found; visual payload mirrored.");
+                } else {
+                    InitVisualBackupH58(&g_h58DlcVisuals[m],button);
+                    LogA("[WHEEL H58] BASE->DLC source button not loaded; logical remap kept, visual payload unchanged.");
+                }
+
                 BOOL enabled=TRUE;
                 void* ep[1]; ep[0]=&enabled;
                 ex=0;
@@ -3328,6 +3422,8 @@ static BOOL RestoreDlcSwapH54() {
 
     BOOL ok=TRUE;
     for(int i=0;i<g_h54MappedCount;i++) {
+        if(!RestoreButtonVisualPayloadH58(&g_h58DlcVisuals[i]))
+            ok=FALSE;
         if(!SetWheelButtonWeaponH54(g_h54MappedButtons[i],buttonClass,getWeapon,g_h54OriginalWeapons[i]))
             ok=FALSE;
     }
@@ -3379,7 +3475,11 @@ static BOOL ShowNativeDlcWeaponWheel() {
 static BOOL HideNativeDlcWeaponWheel() {
     if(!g_dlcWheelActive || !g_h49InputWheelActive) return TRUE;
 
+    Il2CppObject* h58SelectedWeapon=CaptureSelectedRemappedWeaponH58(FALSE);
     BOOL ok=InvokeInputManagerWheelEventFastH51(FALSE);
+
+    if(h58SelectedWeapon && !EquipExactWheelWeaponH58(h58SelectedWeapon,"[WHEEL H58] DLC exact selected WeaponId"))
+        ok=FALSE;
 
     if(g_h54DlcSwapApplied) {
         if(!RestoreDlcSwapH54()) ok=FALSE;
