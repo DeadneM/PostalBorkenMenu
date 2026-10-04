@@ -2427,6 +2427,177 @@ static void LogWeaponWheelButtonMetaH54() {
     LogA("[WHEEL H54] ===== WeaponWheelButton metadata end =====");
 }
 
+
+static BOOL g_h55VisualAuditLogged=FALSE;
+
+static void LogUnityObjectNameH55(Il2CppObject* obj,const char* label) {
+    if(label) LogA(label);
+    if(!obj) {
+        LogA("[WHEEL H55] <NULL>");
+        return;
+    }
+
+    Il2CppClass* unityObjectClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Object") : 0;
+    const MethodInfo* getName=unityObjectClass ? g_il2cpp.class_get_method_from_name(unityObjectClass,"get_name",0) : 0;
+    if(!getName) {
+        LogA("[WHEEL H55] UnityEngine.Object.get_name unavailable.");
+        return;
+    }
+
+    Il2CppException* ex=0;
+    Il2CppObject* nameObj=g_il2cpp.runtime_invoke(getName,obj,0,&ex);
+    if(ex || !nameObj) {
+        if(ex) FormatExceptionToLog(ex);
+        LogA("[WHEEL H55] object name unavailable.");
+        return;
+    }
+
+    char name[256]; name[0]=0;
+    CatalogManagedStringToAscii((Il2CppString*)nameObj,name,256);
+    LogA(name);
+}
+
+static void LogImageSpriteH55(Il2CppObject* imageObj,const char* label) {
+    if(label) LogA(label);
+    if(!imageObj) {
+        LogA("[WHEEL H55] Image object is NULL.");
+        return;
+    }
+
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+    if(!objectGetClass) return;
+
+    Il2CppClass* imageClass=objectGetClass(imageObj);
+    if(!imageClass) return;
+
+    const char* ns=g_il2cpp.class_get_namespace(imageClass);
+    const char* cn=g_il2cpp.class_get_name(imageClass);
+    LogA("[WHEEL H55] Image runtime type:");
+    if(ns && ns[0]) LogA(ns);
+    if(cn) LogA(cn);
+
+    const MethodInfo* getSprite=g_il2cpp.class_get_method_from_name(imageClass,"get_sprite",0);
+    if(!getSprite) {
+        LogA("[WHEEL H55] get_sprite() unresolved on image runtime type.");
+        return;
+    }
+
+    Il2CppException* ex=0;
+    Il2CppObject* sprite=g_il2cpp.runtime_invoke(getSprite,imageObj,0,&ex);
+    if(ex) {
+        FormatExceptionToLog(ex);
+        return;
+    }
+
+    LogUnityObjectNameH55(sprite,"[WHEEL H55] sprite name:");
+}
+
+static BOOL IsVisualTypeNameH55(const char* ns,const char* cn) {
+    if(!cn) return FALSE;
+    if(StrContainsNoCaseA(cn,"Sprite")) return TRUE;
+    if(StrContainsNoCaseA(cn,"Texture")) return TRUE;
+    if(StrContainsNoCaseA(cn,"Image")) return TRUE;
+    if(StrContainsNoCaseA(cn,"GameObject")) return TRUE;
+    if(ns && StrContainsNoCaseA(ns,"UnityEngine") && StrContainsNoCaseA(cn,"Object")) return TRUE;
+    return FALSE;
+}
+
+static void LogWeaponIdVisualMetadataH55(Il2CppObject* weapon) {
+    if(!weapon) return;
+
+    Il2CppClass* weaponClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    if(!weaponClass) return;
+
+    H49FieldGetTypeFn fieldGetType=(H49FieldGetTypeFn)Proc("il2cpp_field_get_type");
+    if(!fieldGetType) return;
+
+    char weaponName[128]; weaponName[0]=0;
+    GetWeaponNameH54(weapon,weaponName,128);
+    LogA("[WHEEL H55] ===== WeaponId visual inspection =====");
+    LogA(weaponName);
+
+    void* mi=0;
+    const MethodInfo* m=0;
+    int mc=0;
+    while((m=g_il2cpp.class_get_methods(weaponClass,&mi))!=0 && mc<128) {
+        const char* mn=g_il2cpp.method_get_name(m);
+        if(!mn) continue;
+        if(StrContainsNoCaseA(mn,"icon") ||
+           StrContainsNoCaseA(mn,"sprite") ||
+           StrContainsNoCaseA(mn,"image") ||
+           StrContainsNoCaseA(mn,"visual") ||
+           StrContainsNoCaseA(mn,"texture")) {
+            LogA("[WHEEL H55 WEAPON METHOD]");
+            LogA(mn);
+            LogIntA("[WHEEL H55] parameter count: ",(int)g_il2cpp.method_get_param_count(m));
+        }
+        ++mc;
+    }
+
+    void* fi=0;
+    const FieldInfo* f=0;
+    int fc=0;
+    while((f=g_il2cpp.class_get_fields(weaponClass,&fi))!=0 && fc<128) {
+        const char* fn=g_il2cpp.field_get_name(f);
+        if(!fn) continue;
+
+        const Il2CppType* ft=fieldGetType(f);
+        Il2CppClass* fcType=ft ? g_il2cpp.class_from_type(ft) : 0;
+        const char* fns=fcType ? g_il2cpp.class_get_namespace(fcType) : 0;
+        const char* fcn=fcType ? g_il2cpp.class_get_name(fcType) : 0;
+
+        LogA("[WHEEL H55 WEAPON FIELD]");
+        LogA(fn);
+        if(fns && fns[0]) LogA(fns);
+        if(fcn) LogA(fcn);
+
+        if(fcType && IsVisualTypeNameH55(fns,fcn)) {
+            Il2CppObject* visual=0;
+            g_il2cpp.field_get_value(weapon,f,&visual);
+            LogUnityObjectNameH55(visual,"[WHEEL H55] visual field object name:");
+        }
+        ++fc;
+    }
+}
+
+static void LogMappedButtonVisualsH55(Il2CppClass* buttonClass,const MethodInfo* getWeapon) {
+    if(g_h55VisualAuditLogged || !buttonClass || !getWeapon) return;
+    g_h55VisualAuditLogged=TRUE;
+
+    const FieldInfo* selectedField=g_il2cpp.class_get_field_from_name(buttonClass,"_weaponSelectedImage");
+    const FieldInfo* backgroundField=g_il2cpp.class_get_field_from_name(buttonClass,"_backgroundImage");
+
+    LogA("[WHEEL H55] ===== mapped button visual audit begin =====");
+
+    for(int i=0;i<g_h54MappedCount;i++) {
+        Il2CppObject* button=g_h54MappedButtons[i];
+        if(!button) continue;
+
+        Il2CppException* ex=0;
+        Il2CppObject* weapon=g_il2cpp.runtime_invoke(getWeapon,button,0,&ex);
+        if(ex || !weapon) continue;
+
+        char weaponName[128]; weaponName[0]=0;
+        GetWeaponNameH54(weapon,weaponName,128);
+        LogIntA("[WHEEL H55] mapped index: ",i);
+        LogA("[WHEEL H55] current WeaponId:");
+        LogA(weaponName);
+
+        Il2CppObject* selectedImage=0;
+        Il2CppObject* backgroundImage=0;
+        if(selectedField) g_il2cpp.field_get_value(button,selectedField,&selectedImage);
+        if(backgroundField) g_il2cpp.field_get_value(button,backgroundField,&backgroundImage);
+
+        LogImageSpriteH55(selectedImage,"[WHEEL H55] _weaponSelectedImage:");
+        LogImageSpriteH55(backgroundImage,"[WHEEL H55] _backgroundImage:");
+
+        LogWeaponIdVisualMetadataH55(weapon);
+    }
+
+    LogA("[WHEEL H55] ===== mapped button visual audit end =====");
+}
+
 static BOOL ApplyDlcSwapAfterOpenH54() {
     if(!g_h54DlcSwapPending || !g_dlcWheelActive) return TRUE;
     if(ReadPlayerWheelEnabledH49()!=1) return FALSE;
@@ -2514,6 +2685,9 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
     }
 
     LogIntA("[WHEEL H54] BASE->DLC slots swapped AFTER native open: ",g_h54MappedCount);
+
+    if(g_h54MappedCount==5)
+        LogMappedButtonVisualsH55(buttonClass,getWeapon);
 
     if(g_h54MappedCount!=5) {
         g_h54DlcSwapPending=0;
