@@ -1697,6 +1697,10 @@ static volatile LONG g_h51BaseFilterPending=0;
 static BOOL g_h51BaseUsesInputEvent=FALSE;
 
 
+static void LogUnityObjectNameH55(Il2CppObject* obj,const char* label);
+static void LogImageSpriteH55(Il2CppObject* imageObj,const char* label);
+static BOOL GetWeaponNameH54(Il2CppObject* weapon,char* out,int cap);
+
 static BOOL g_h56LoggedNormalLayout=FALSE;
 static BOOL g_h56LoggedDlcLayout=FALSE;
 
@@ -1709,7 +1713,8 @@ static void LogButtonIdH56(Il2CppObject* button,Il2CppClass* buttonClass) {
         return;
     }
 
-    H49FieldGetTypeFn fieldGetType=(H49FieldGetTypeFn)Proc("il2cpp_field_get_type");
+    typedef const Il2CppType* (*H56FieldGetTypeFn)(const FieldInfo*);
+    H56FieldGetTypeFn fieldGetType=(H56FieldGetTypeFn)Proc("il2cpp_field_get_type");
     if(!fieldGetType) return;
 
     const Il2CppType* t=fieldGetType(idField);
