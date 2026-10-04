@@ -433,6 +433,14 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         ExecuteNativeDlcWheel(lp ? TRUE : FALSE);
         return 0;
     }
+    if (msg==WM_APP_BASEWHEELFILTER) {
+        ExecuteDelayedBaseFilterH51();
+        return 0;
+    }
+    if (msg==WM_APP_DLCWHEELSWAP) {
+        ExecuteDelayedDlcSwapH54();
+        return 0;
+    }
     if (msg==WM_APP_CROSSHAIR) {
         if (g_ready && !g_shuttingDown) {
             BOOL attached=FALSE; void* thread=0;
@@ -473,6 +481,28 @@ static void PollHotkeys() {
     if (!active && g_dlcWheelActive && g_gameHwnd) {
         PostMessageW(g_gameHwnd,WM_APP_DLCWHEEL,0,0);
         g_dlcWheelVk=0;
+    }
+
+    // H51 base-wheel behavior is intentionally preserved byte-for-byte.
+    static int h51FilterDivider=0;
+    if(active && g_h51BaseFilterPending && g_gameHwnd) {
+        if(++h51FilterDivider>=3) {
+            h51FilterDivider=0;
+            PostMessageW(g_gameHwnd,WM_APP_BASEWHEELFILTER,0,0);
+        }
+    } else {
+        h51FilterDivider=0;
+    }
+
+    // H54 affects only DLC Weapon Wheel in normal campaign.
+    static int h54DlcSwapDivider=0;
+    if(active && g_h54DlcSwapPending && g_gameHwnd) {
+        if(++h54DlcSwapDivider>=3) {
+            h54DlcSwapDivider=0;
+            PostMessageW(g_gameHwnd,WM_APP_DLCWHEELSWAP,0,0);
+        }
+    } else {
+        h54DlcSwapDivider=0;
     }
 
     for (int vk=8; vk<256; ++vk) {
@@ -660,7 +690,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H43 SAFE MENU CLEANUP TEST");
+    LogA("PostalBorkenMenu V2A42-H59 NATIVE SLOT PAIRING TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
@@ -678,7 +708,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] Five tabs active. Help, Log Time and Skip Intro Videos are hidden; stable command indices preserved.");
+    LogA("[READY] H59 preserves H57 9/9 wheels but pairs the five variable weapons strictly by native slots 1,2,3,4,8; common slots 5,6,7,9 stay untouched.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
