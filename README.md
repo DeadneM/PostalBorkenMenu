@@ -8,9 +8,11 @@
 
 > **"Borken" is intentional.** It is a nod to *POSTAL: No Regerts*. Please do not autocorrect the project name to "PostalBrokenMenu".
 
-## Current canonical base
+## Current project state
 
-**V2A42-H43** is the current user-validated source/gameplay base.
+**V2A42-H43** remains the current stable public release.
+
+**V2A42-H59** is the current user-validated development checkpoint for the DLC/Base weapon-wheel work.
 
 It preserves the validated H13 gameplay/stability foundation and adds the now-validated native Unity startup-logo skip.
 
@@ -41,11 +43,37 @@ PostalBorkenMenu.ini
 README.txt
 ```
 
+### DLC / Base weapon-wheel status
+
+H59 validates the logical weapon pairing for both 9-sector wheels.
+
+The five mode-specific weapon pairs are now matched strictly by native `WeaponId.get_Slot()` values:
+
+- slot 1: base melee ↔ DLC drill
+- slot 2: base pistol ↔ DLC piss gun
+- slot 3: base shotgun ↔ DLC meat shotgun
+- slot 4: base machine gun ↔ DLC bubble-gum machine gun
+- slot 8: base DildoBow ↔ DLC NuclearSyringe
+
+Common slots 5, 6, 7 and 9 are left native and are never remapped.
+
+Validated H59 result:
+- normal wheel in normal mode: logically correct
+- DLC wheel in DLC mode: logically correct
+- both wheels populate all 9 sectors
+
+Known remaining cross-mode limitation:
+- requesting the DLC wheel while playing normal mode still displays the normal-mode wheel presentation
+- requesting the normal wheel while playing DLC still displays the DLC-mode wheel presentation
+
+The next wheel work must therefore focus on cross-mode wheel identity/presentation, not on reworking the now-validated logical slot pairing.
+
 ### Open work
 
-- DLC Weapon Wheel remains the next major target.
-- H9-H12 wheel experiments remain rejected and must not be reused as a base.
-- The game's own **Skip Intro Videos** setting is left to the game; PostalBorkenMenu no longer duplicates it.
+- fix cross-mode wheel identity/presentation while preserving H59 slot pairing
+- correct cross-mode icons only after wheel identity is resolved
+- H9-H12 wheel experiments remain rejected and must not be reused as a base
+- the game's own **Skip Intro Videos** setting is left to the game; PostalBorkenMenu no longer duplicates it.
 
 ### Download
 
@@ -203,7 +231,9 @@ Development progressed through:
 - **V2A42-H13**: validated recovery base; Base Weapon Wheel restored and No Crosshair extended across DLC crosshair controllers
 - **V2A42-H39**: validated native Unity startup-logo skip using the real `CancelSplashScreen()` path
 - **V2A42-H40**: added persistent Skip Startup Logos menu toggle
-- **V2A42-H43**: safe menu cleanup; Help, Log Time and redundant Skip Intro Videos hidden without shifting internal command indices; current canonical base
+- **V2A42-H43**: safe menu cleanup; Help, Log Time and redundant Skip Intro Videos hidden without shifting internal command indices; current stable public release
+- **V2A42-H57**: first validated 9/9 population in both wheel contexts using bidirectional temporary remapping
+- **V2A42-H59**: validated logical wheel pairing by native slots 1,2,3,4,8; fixes melee/pistol inversion, duplicate CatCanon remap, missing slot-4 machine gun, and shifted shotgun mapping; current development checkpoint
 
 The detailed engineering notebook is kept under `docs/`.
 
