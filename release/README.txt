@@ -1,86 +1,88 @@
-POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H54 DLC WHEEL NORMAL-ONLY TEST
+POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H55 WHEEL SPRITE AUDIT
 
 BASE
 ----
-H54 starts from H51.
+H55 starts from H54.
 
-WHY H54
--------
-H53 is rejected because it regressed Base Weapon Wheel inside the DLC.
+H54 RESULT
+----------
+The normal-campaign DLC wheel path reaches the correct logical state:
+- exact DLC WeaponIds found: 5
+- DLC targets collected/ready: 5
+- BASE->DLC slots swapped after native open: 5
 
-H54 therefore freezes the entire H51 Base Weapon Wheel implementation.
+But the five DLC weapons still do not render correctly in the wheel.
 
-Verification:
-- the Show/Hide/Delayed Base Weapon Wheel block is byte-identical to H51
-- no H53 inverse DLC->BASE swap code is present in the Base Weapon Wheel path
+H54 also revealed WeaponWheelButton fields:
+- _weaponId
+- _backgroundImage
+- _weaponSelectedImage
+- _spiralTransform
+- _notSelectedColor
+- _selectedColor
+- _ammoCountText
 
-PRESERVED H51 BEHAVIOR
-----------------------
-Normal campaign + Base Weapon Wheel:
-- unchanged
+and methods:
+- Awake
+- OnEnable
+- OnDisable
+- CheckAmmoState
+- SetAmmoState
+- Enable
+- Select
+- Deselect
+- OnUpdate
+- UpdatePosition
 
-DLC + Base Weapon Wheel:
-- unchanged from H51
-- opens through the validated H51 path
-- known limitation remains: DLC-replaced slots may appear as silhouettes
+There is no obvious RefreshWeaponIcon method.
 
-DLC + DLC Weapon Wheel:
-- unchanged from H51
-- full native DLC wheel
-- fast InputManager path
-- no diagnostic lag
+H55 PURPOSE
+-----------
+H55 does NOT change wheel behavior.
 
-H54 EXPERIMENT ONLY
--------------------
-Only this case is modified:
+After a successful five-slot DLC swap in normal campaign, H55 logs:
 
-Normal campaign + DLC Weapon Wheel.
+For each mapped button:
+- mapped index
+- current WeaponId
+- _weaponSelectedImage runtime type
+- current _weaponSelectedImage sprite name
+- _backgroundImage runtime type
+- current _backgroundImage sprite name
 
-H54 sequence:
+For each DLC WeaponId:
+- visual-related method names containing Icon / Sprite / Image / Visual / Texture
+- every WeaponId field name
+- each field's declared type
+- for Sprite / Texture / Image / GameObject-like fields, the referenced Unity object name
 
-1. Fire the validated native InputManager.OnWheelDown.
-2. Wait until Player.IsWheelEnabled == 1.
-3. Resolve the exact five DLC WeaponIds:
-   - WEAPON_UmDrill
-   - WEAPON_PissGun
-   - WEAPON_MeatShotgun
-   - WEAPON_BubbleGumMachineGun
-   - WEAPON_NuclearSyringe
-4. Ensure the five DLC weapons are collected.
-5. Replace only these five normal-campaign slots:
-   - WEAPON_Pistol
-   - WEAPON_Shovel
-   - WEAPON_CatCanon
-   - WEAPON_Shotgun
-   - WEAPON_DildoBow
-6. Enable the five mapped buttons.
-7. Call PlayerWeaponWheelComponent.EnableButtons().
-8. On release, call native OnWheelUp and restore the original five base WeaponIds.
+This determines whether:
+1. the real DLC icon already exists inside WeaponId and only needs to be assigned to the button Image, or
+2. the true DLC wheel uses a different prefab/button configuration not derivable from WeaponId alone.
 
-TARGETED METADATA
------------------
-If the post-open swap succeeds, H54 logs WeaponWheelButton method and field names once.
-
-No global metadata scan is used.
+SAFETY
+------
+- H51 Base Weapon Wheel block remains untouched.
+- H54 behavior is unchanged.
+- No global metadata scan.
+- Audit runs once per launch after a successful 5-slot normal-campaign DLC swap.
 
 TEST
 ----
-First verify regression protection:
-1. DLC + Base Weapon Wheel must behave exactly like H51.
-2. DLC + DLC Weapon Wheel must remain full and lag-free.
+Normal campaign only:
 
-Then test:
-3. Normal campaign + DLC Weapon Wheel.
-
-If the five DLC weapons appear but icons are wrong, send PostalBorkenMenu.log.
-If they do not appear, send the log as well.
+1. Open DLC Weapon Wheel once.
+2. Wait a second.
+3. Release.
+4. Close the game.
+5. Send PostalBorkenMenu.log.
 
 Important lines:
-[WHEEL H54] Normal campaign wheel opened; DLC-only post-event swap pending.
-[WHEEL H54] exact DLC targets found: 5
-[WHEEL H54] DLC targets collected/ready: 5
-[WHEEL H54] BASE->DLC slots swapped AFTER native open: 5
-[WHEEL H54] DLC-only normal-campaign swap applied. Base-wheel code untouched.
+[WHEEL H55] ===== mapped button visual audit begin =====
+[WHEEL H55] current WeaponId:
+[WHEEL H55] sprite name:
+[WHEEL H55 WEAPON FIELD]
+[WHEEL H55] visual field object name:
 
 PACKAGE
 -------
