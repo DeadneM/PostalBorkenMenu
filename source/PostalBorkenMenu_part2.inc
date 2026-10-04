@@ -1696,6 +1696,155 @@ static int ReadPlayerWheelEnabledH49();
 static volatile LONG g_h51BaseFilterPending=0;
 static BOOL g_h51BaseUsesInputEvent=FALSE;
 
+
+static BOOL g_h56LoggedNormalLayout=FALSE;
+static BOOL g_h56LoggedDlcLayout=FALSE;
+
+static void LogButtonIdH56(Il2CppObject* button,Il2CppClass* buttonClass) {
+    if(!button || !buttonClass) return;
+
+    const FieldInfo* idField=g_il2cpp.class_get_field_from_name(buttonClass,"_id");
+    if(!idField) {
+        LogA("[WHEEL H56] _id field unresolved.");
+        return;
+    }
+
+    H49FieldGetTypeFn fieldGetType=(H49FieldGetTypeFn)Proc("il2cpp_field_get_type");
+    if(!fieldGetType) return;
+
+    const Il2CppType* t=fieldGetType(idField);
+    Il2CppClass* tc=t ? g_il2cpp.class_from_type(t) : 0;
+    const char* ns=tc ? g_il2cpp.class_get_namespace(tc) : 0;
+    const char* cn=tc ? g_il2cpp.class_get_name(tc) : 0;
+
+    LogA("[WHEEL H56] _id declared type:");
+    if(ns && ns[0]) LogA(ns);
+    if(cn) LogA(cn);
+
+    BOOL primitive=FALSE;
+    if(ns && StrEqA(ns,"System") && cn) {
+        primitive=StrEqA(cn,"Int32") || StrEqA(cn,"UInt32") ||
+                  StrEqA(cn,"Int16") || StrEqA(cn,"UInt16") ||
+                  StrEqA(cn,"Byte") || StrEqA(cn,"SByte") ||
+                  StrEqA(cn,"Int64") || StrEqA(cn,"UInt64") ||
+                  StrEqA(cn,"Boolean");
+    }
+
+    typedef int (*FnClassIsEnum)(Il2CppClass*);
+    FnClassIsEnum classIsEnum=(FnClassIsEnum)Proc("il2cpp_class_is_enum");
+    BOOL isEnum=(tc && classIsEnum && classIsEnum(tc)) ? TRUE : FALSE;
+
+    if(primitive || isEnum) {
+        unsigned __int64 raw=0;
+        g_il2cpp.field_get_value(button,idField,&raw);
+        LogIntA("[WHEEL H56] _id numeric low32: ",(int)(raw & 0xFFFFFFFFu));
+    }
+}
+
+static void AuditCurrentWheelLayoutH56(const char* label,int baseCount,int dlcCount) {
+    if(baseCount==9 && dlcCount==0) {
+        if(g_h56LoggedNormalLayout) return;
+        g_h56LoggedNormalLayout=TRUE;
+    } else if(baseCount==4 && dlcCount==5) {
+        if(g_h56LoggedDlcLayout) return;
+        g_h56LoggedDlcLayout=TRUE;
+    } else {
+        return;
+    }
+
+    Il2CppClass* wheelClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent") : 0;
+    Il2CppClass* buttonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
+    Il2CppClass* weaponClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    if(!wheelClass || !buttonClass || !weaponClass) return;
+
+    const FieldInfo* buttonsField=g_il2cpp.class_get_field_from_name(wheelClass,"_weaponWheelButtons");
+    const FieldInfo* selectedImageField=g_il2cpp.class_get_field_from_name(buttonClass,"_weaponSelectedImage");
+    const FieldInfo* backgroundField=g_il2cpp.class_get_field_from_name(buttonClass,"_backgroundImage");
+    const MethodInfo* getWeapon=g_il2cpp.class_get_method_from_name(buttonClass,"get_WeaponId",0);
+    const MethodInfo* getEnabled=g_il2cpp.class_get_method_from_name(buttonClass,"get_Enabled",0);
+    const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(weaponClass,"get_Category",0);
+    const MethodInfo* getSlot=g_il2cpp.class_get_method_from_name(weaponClass,"get_Slot",0);
+    if(!buttonsField || !getWeapon || !getCategory || !getSlot) return;
+
+    Il2CppObject* wheel=FindLiveObject(wheelClass);
+    if(!wheel) return;
+
+    Il2CppObject* collection=0;
+    g_il2cpp.field_get_value(wheel,buttonsField,&collection);
+    if(!collection) return;
+
+    Il2CppClass* collectionClass=0;
+    int count=0;
+    BOOL isArray=FALSE;
+    if(!GetBaseWheelButtonsCollection(collection,&collectionClass,&count,&isArray)) return;
+
+    LogA("[WHEEL H56] ============================================================");
+    LogA("[WHEEL H56] NATIVE WHEEL MIRROR SNAPSHOT");
+    if(label) LogA(label);
+    LogIntA("[WHEEL H56] base count: ",baseCount);
+    LogIntA("[WHEEL H56] dlc count: ",dlcCount);
+    LogIntA("[WHEEL H56] button count: ",count);
+
+    for(int i=0;i<count;i++) {
+        Il2CppObject* button=GetBaseWheelButtonFromCollection(collection,collectionClass,isArray,i);
+        if(!button) continue;
+
+        LogA("[WHEEL H56] ------------------------------------------------------------");
+        LogIntA("[WHEEL H56] button index: ",i);
+        LogUnityObjectNameH55(button,"[WHEEL H56] button object name:");
+        LogButtonIdH56(button,buttonClass);
+
+        Il2CppException* ex=0;
+        Il2CppObject* weapon=g_il2cpp.runtime_invoke(getWeapon,button,0,&ex);
+        if(ex || !weapon) {
+            if(ex) FormatExceptionToLog(ex);
+            LogA("[WHEEL H56] WeaponId: <NULL>");
+            continue;
+        }
+
+        char weaponName[128]; weaponName[0]=0;
+        GetWeaponNameH54(weapon,weaponName,128);
+        LogA("[WHEEL H56] WeaponId:");
+        LogA(weaponName);
+
+        ex=0;
+        Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,weapon,0,&ex);
+        if(!ex && catBox) {
+            void* raw=g_il2cpp.object_unbox(catBox);
+            if(raw) LogIntA("[WHEEL H56] category: ",*(int*)raw);
+        }
+
+        ex=0;
+        Il2CppObject* slotBox=g_il2cpp.runtime_invoke(getSlot,weapon,0,&ex);
+        if(!ex && slotBox) {
+            void* raw=g_il2cpp.object_unbox(slotBox);
+            if(raw) LogIntA("[WHEEL H56] weapon slot: ",*(int*)raw);
+        }
+
+        if(getEnabled) {
+            ex=0;
+            Il2CppObject* enabledBox=g_il2cpp.runtime_invoke(getEnabled,button,0,&ex);
+            if(!ex && enabledBox) {
+                void* raw=g_il2cpp.object_unbox(enabledBox);
+                if(raw) LogIntA("[WHEEL H56] Enabled: ",(*(BYTE*)raw)?1:0);
+            }
+        }
+
+        Il2CppObject* selectedImage=0;
+        Il2CppObject* backgroundImage=0;
+        if(selectedImageField) g_il2cpp.field_get_value(button,selectedImageField,&selectedImage);
+        if(backgroundField) g_il2cpp.field_get_value(button,backgroundField,&backgroundImage);
+
+        LogImageSpriteH55(selectedImage,"[WHEEL H56] _weaponSelectedImage:");
+        LogImageSpriteH55(backgroundImage,"[WHEEL H56] _backgroundImage:");
+    }
+
+    LogA("[WHEEL H56] ============================================================");
+}
+
 static BOOL ShowNativeBaseWeaponWheel() {
     Il2CppClass* wheelClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent") : 0;
     Il2CppClass* wheelButtonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
@@ -1753,6 +1902,9 @@ static BOOL ShowNativeBaseWeaponWheel() {
 
     LogIntA("[WHEEL H51] BASE buttons before open: ",baseCount);
     LogIntA("[WHEEL H51] DLC buttons before open: ",dlcCount);
+    AuditCurrentWheelLayoutH56(
+        (dlcCount>0) ? "[WHEEL H56] DLC SCENE native layout" : "[WHEEL H56] NORMAL SCENE native layout",
+        baseCount,dlcCount);
 
     if(baseCount<=0) {
         LogA("[WHEEL H51] No base buttons available.");
@@ -2760,6 +2912,10 @@ static BOOL ShowNativeDlcWeaponWheel() {
 
     int baseCount=0,dlcCount=0,otherCount=0;
     InspectNativeWheelCategoriesH49(wheel,buttonsField,buttonGetWeapon,getCategory,&baseCount,&dlcCount,&otherCount);
+
+    AuditCurrentWheelLayoutH56(
+        (dlcCount>0) ? "[WHEEL H56] DLC SCENE native layout" : "[WHEEL H56] NORMAL SCENE native layout",
+        baseCount,dlcCount);
 
     if(!InvokeInputManagerWheelEventFastH51(TRUE)) return FALSE;
 
