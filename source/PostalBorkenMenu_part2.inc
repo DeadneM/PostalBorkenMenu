@@ -1725,6 +1725,127 @@ static const char* g_h57DlcNames[5]={
     "WEAPON_NuclearSyringe"
 };
 
+// H59: authoritative wheel-pairing key.
+// These are the five slots that differ between base game and These Sunny Daze.
+// Slots 5,6,7,9 stay native/common and must never be remapped.
+static const int g_h59VariableSlots[5]={1,2,3,4,8};
+
+static int SlotIndexH59(int slot) {
+    for(int i=0;i<5;i++) if(g_h59VariableSlots[i]==slot) return i;
+    return -1;
+}
+
+static BOOL GetWeaponSlotH59(Il2CppObject* weapon,int* outSlot) {
+    if(outSlot) *outSlot=-1;
+    if(!weapon || !outSlot) return FALSE;
+
+    Il2CppClass* weaponClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    if(!weaponClass) return FALSE;
+
+    const MethodInfo* getSlot=g_il2cpp.class_get_method_from_name(weaponClass,"get_Slot",0);
+    if(!getSlot) return FALSE;
+
+    Il2CppException* ex=0;
+    Il2CppObject* boxed=g_il2cpp.runtime_invoke(getSlot,weapon,0,&ex);
+    if(ex || !boxed) return FALSE;
+
+    void* raw=g_il2cpp.object_unbox(boxed);
+    if(!raw) return FALSE;
+
+    *outSlot=*(int*)raw;
+    return TRUE;
+}
+
+static BOOL IsAkimboLikeWeaponNameH59(Il2CppObject* weapon) {
+    if(!weapon) return FALSE;
+
+    Il2CppClass* unityObjectClass=g_coreImage ? g_il2cpp.class_from_name(
+        g_coreImage,"UnityEngine","Object") : 0;
+    const MethodInfo* getName=unityObjectClass ? g_il2cpp.class_get_method_from_name(
+        unityObjectClass,"get_name",0) : 0;
+    if(!getName) return FALSE;
+
+    Il2CppException* ex=0;
+    Il2CppObject* nameObj=g_il2cpp.runtime_invoke(getName,weapon,0,&ex);
+    if(ex || !nameObj) return FALSE;
+
+    char name[128]; name[0]=0;
+    CatalogManagedStringToAscii((Il2CppString*)nameObj,name,128);
+    return StrContainsNoCaseA(name,"akimbo") ||
+           StrContainsNoCaseA(name,"dual") ||
+           StrContainsNoCaseA(name,"double");
+}
+
+static int CollectCanonicalWeaponsBySlotsH59(int wantedCategory,Il2CppObject* out[5]) {
+    for(int i=0;i<5;i++) out[i]=0;
+
+    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    Il2CppClass* resourcesClass=g_coreImage ? g_il2cpp.class_from_name(
+        g_coreImage,"UnityEngine","Resources") : 0;
+    if(!weaponIdClass || !resourcesClass) return 0;
+
+    const MethodInfo* findAll=FindMethodExact(resourcesClass,"FindObjectsOfTypeAll",1,g_systemTypeClass);
+    const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Category",0);
+    const MethodInfo* getSlot=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Slot",0);
+    if(!findAll || !getCategory || !getSlot) return 0;
+
+    const Il2CppType* wt=g_il2cpp.class_get_type(weaponIdClass);
+    Il2CppObject* typeObj=wt ? g_il2cpp.type_get_object(wt) : 0;
+    if(!typeObj) return 0;
+
+    void* pars[1]; pars[0]=typeObj;
+    Il2CppException* ex=0;
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(findAll,0,pars,&ex);
+    if(ex || !arrObj) return 0;
+
+    Il2CppArray* arr=(Il2CppArray*)arrObj;
+    SIZE_T n=g_il2cpp.array_length(arr);
+    if(n>1024) return 0;
+
+    unsigned int hdr=g_il2cpp.array_object_header_size();
+    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+
+    for(SIZE_T i=0;i<n;i++) {
+        Il2CppObject* weapon=elems[i];
+        if(!weapon) continue;
+
+        ex=0;
+        Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,weapon,0,&ex);
+        if(ex || !catBox) continue;
+        void* catRaw=g_il2cpp.object_unbox(catBox);
+        if(!catRaw || *(int*)catRaw!=wantedCategory) continue;
+
+        ex=0;
+        Il2CppObject* slotBox=g_il2cpp.runtime_invoke(getSlot,weapon,0,&ex);
+        if(ex || !slotBox) continue;
+        void* slotRaw=g_il2cpp.object_unbox(slotBox);
+        if(!slotRaw) continue;
+
+        int slot=*(int*)slotRaw;
+        int k=SlotIndexH59(slot);
+        if(k<0) continue;
+
+        // Prefer the canonical single-weapon WeaponId over Akimbo/dual variants
+        // when multiple WeaponIds share a gameplay slot.
+        if(!out[k] || (IsAkimboLikeWeaponNameH59(out[k]) && !IsAkimboLikeWeaponNameH59(weapon)))
+            out[k]=weapon;
+    }
+
+    int found=0;
+    for(int i=0;i<5;i++) {
+        if(out[i]) {
+            ++found;
+            char name[128]; name[0]=0;
+            GetWeaponNameH54(out[i],name,128);
+            LogIntA(wantedCategory==0 ? "[WHEEL H59] BASE target slot: " : "[WHEEL H59] DLC target slot: ",g_h59VariableSlots[i]);
+            LogA(name);
+        }
+    }
+    return found;
+}
+
 static void ClearBaseSwapStateH57() {
     for(int i=0;i<5;i++) {
         g_h57BaseMappedButtons[i]=0;
@@ -1754,62 +1875,7 @@ static BOOL SetWheelButtonWeaponH57(Il2CppObject* button,
 }
 
 static int FindExactBaseTargetsH57(Il2CppObject* out[5]) {
-    for(int i=0;i<5;i++) out[i]=0;
-
-    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
-    Il2CppClass* resourcesClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Resources") : 0;
-    Il2CppClass* unityObjectClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Object") : 0;
-    if(!weaponIdClass || !resourcesClass || !unityObjectClass) return 0;
-
-    const MethodInfo* findAll=FindMethodExact(resourcesClass,"FindObjectsOfTypeAll",1,g_systemTypeClass);
-    const MethodInfo* getName=g_il2cpp.class_get_method_from_name(unityObjectClass,"get_name",0);
-    const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Category",0);
-    if(!findAll || !getName || !getCategory) return 0;
-
-    const Il2CppType* wt=g_il2cpp.class_get_type(weaponIdClass);
-    Il2CppObject* typeObj=wt ? g_il2cpp.type_get_object(wt) : 0;
-    if(!typeObj) return 0;
-
-    void* pars[1]; pars[0]=typeObj;
-    Il2CppException* ex=0;
-    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(findAll,0,pars,&ex);
-    if(ex || !arrObj) return 0;
-
-    Il2CppArray* arr=(Il2CppArray*)arrObj;
-    SIZE_T n=g_il2cpp.array_length(arr);
-    if(n>1024) return 0;
-
-    unsigned int hdr=g_il2cpp.array_object_header_size();
-    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
-
-    for(SIZE_T i=0;i<n;i++) {
-        Il2CppObject* weapon=elems[i];
-        if(!weapon) continue;
-
-        ex=0;
-        Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,weapon,0,&ex);
-        if(ex || !catBox) continue;
-        void* raw=g_il2cpp.object_unbox(catBox);
-        if(!raw || *(int*)raw!=0) continue;
-
-        ex=0;
-        Il2CppObject* nameObj=g_il2cpp.runtime_invoke(getName,weapon,0,&ex);
-        if(ex || !nameObj) continue;
-
-        char name[128]; name[0]=0;
-        CatalogManagedStringToAscii((Il2CppString*)nameObj,name,128);
-
-        for(int k=0;k<5;k++) {
-            if(!out[k] && StrEqA(name,g_h57BaseNames[k])) {
-                out[k]=weapon;
-                break;
-            }
-        }
-    }
-
-    int found=0;
-    for(int i=0;i<5;i++) if(out[i]) ++found;
-    return found;
+    return CollectCanonicalWeaponsBySlotsH59(0,out);
 }
 
 static int EnsureBaseTargetsCollectedH57(Il2CppObject* targets[5]) {
@@ -2211,16 +2277,23 @@ static BOOL ApplyDelayedBaseFilterH51() {
             // The four common base buttons remain native and untouched.
             enabled=TRUE;
         } else if(cat==1) {
-            for(int k=0;k<5;k++) {
-                if(!StrEqA(currentName,g_h57DlcNames[k])) continue;
+            int sourceSlot=-1;
+            if(GetWeaponSlotH59(weapon,&sourceSlot)) {
+                int k=SlotIndexH59(sourceSlot);
+                if(k>=0 && baseTargets[k]) {
+                    char targetName[128]; targetName[0]=0;
+                    GetWeaponNameH54(baseTargets[k],targetName,128);
+                    LogIntA("[WHEEL H59] DLC->BASE pairing slot: ",sourceSlot);
+                    LogA(currentName);
+                    LogA(targetName);
 
-                if(SetWheelButtonWeaponH57(button,buttonClass,getWeapon,baseTargets[k])) {
-                    int m=g_h57BaseMappedCount++;
-                    g_h57BaseMappedButtons[m]=button;
-                    g_h57BaseOriginalWeapons[m]=weapon;
-                    enabled=TRUE;
+                    if(SetWheelButtonWeaponH57(button,buttonClass,getWeapon,baseTargets[k])) {
+                        int m=g_h57BaseMappedCount++;
+                        g_h57BaseMappedButtons[m]=button;
+                        g_h57BaseOriginalWeapons[m]=weapon;
+                        enabled=TRUE;
+                    }
                 }
-                break;
             }
         }
 
@@ -2244,7 +2317,7 @@ static BOOL ApplyDelayedBaseFilterH51() {
 
     g_h57BaseSwapApplied=TRUE;
     g_h51BaseFilterPending=0;
-    LogA("[WHEEL H57] Full 9-button BASE wheel mirrored inside DLC scene.");
+    LogA("[WHEEL H59] Full 9-button BASE wheel mirrored by native slots 1,2,3,4,8.");
     return TRUE;
 }
 
@@ -2661,62 +2734,7 @@ static BOOL GetWeaponNameH54(Il2CppObject* weapon,char* out,int cap) {
 }
 
 static int FindExactDlcTargetsH54(Il2CppObject* out[5]) {
-    for(int i=0;i<5;i++) out[i]=0;
-
-    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
-    Il2CppClass* resourcesClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Resources") : 0;
-    Il2CppClass* unityObjectClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Object") : 0;
-    if(!weaponIdClass || !resourcesClass || !unityObjectClass) return 0;
-
-    const MethodInfo* findAll=FindMethodExact(resourcesClass,"FindObjectsOfTypeAll",1,g_systemTypeClass);
-    const MethodInfo* getName=g_il2cpp.class_get_method_from_name(unityObjectClass,"get_name",0);
-    const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Category",0);
-    if(!findAll || !getName || !getCategory) return 0;
-
-    const Il2CppType* wt=g_il2cpp.class_get_type(weaponIdClass);
-    Il2CppObject* typeObj=wt ? g_il2cpp.type_get_object(wt) : 0;
-    if(!typeObj) return 0;
-
-    void* pars[1]; pars[0]=typeObj;
-    Il2CppException* ex=0;
-    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(findAll,0,pars,&ex);
-    if(ex || !arrObj) return 0;
-
-    Il2CppArray* arr=(Il2CppArray*)arrObj;
-    SIZE_T n=g_il2cpp.array_length(arr);
-    if(n>1024) return 0;
-
-    unsigned int hdr=g_il2cpp.array_object_header_size();
-    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
-
-    for(SIZE_T i=0;i<n;i++) {
-        Il2CppObject* weapon=elems[i];
-        if(!weapon) continue;
-
-        ex=0;
-        Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,weapon,0,&ex);
-        if(ex || !catBox) continue;
-        void* raw=g_il2cpp.object_unbox(catBox);
-        if(!raw || *(int*)raw!=1) continue;
-
-        ex=0;
-        Il2CppObject* nameObj=g_il2cpp.runtime_invoke(getName,weapon,0,&ex);
-        if(ex || !nameObj) continue;
-
-        char name[128]; name[0]=0;
-        CatalogManagedStringToAscii((Il2CppString*)nameObj,name,128);
-
-        for(int k=0;k<5;k++) {
-            if(!out[k] && StrEqA(name,g_h54DlcNames[k])) {
-                out[k]=weapon;
-                break;
-            }
-        }
-    }
-
-    int found=0;
-    for(int i=0;i<5;i++) if(out[i]) ++found;
-    return found;
+    return CollectCanonicalWeaponsBySlotsH59(1,out);
 }
 
 static int EnsureDlcTargetsCollectedH54(Il2CppObject* targets[5]) {
@@ -3051,20 +3069,27 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
         char currentName[128]; currentName[0]=0;
         if(!GetWeaponNameH54(original,currentName,128)) continue;
 
-        for(int k=0;k<5;k++) {
-            if(!StrEqA(currentName,g_h54BaseNames[k])) continue;
+        int sourceSlot=-1;
+        if(GetWeaponSlotH59(original,&sourceSlot)) {
+            int k=SlotIndexH59(sourceSlot);
+            if(k>=0 && targets[k]) {
+                char targetName[128]; targetName[0]=0;
+                GetWeaponNameH54(targets[k],targetName,128);
+                LogIntA("[WHEEL H59] BASE->DLC pairing slot: ",sourceSlot);
+                LogA(currentName);
+                LogA(targetName);
 
-            if(SetWheelButtonWeaponH54(button,buttonClass,getWeapon,targets[k])) {
-                int m=g_h54MappedCount++;
-                g_h54MappedButtons[m]=button;
-                g_h54OriginalWeapons[m]=original;
+                if(SetWheelButtonWeaponH54(button,buttonClass,getWeapon,targets[k])) {
+                    int m=g_h54MappedCount++;
+                    g_h54MappedButtons[m]=button;
+                    g_h54OriginalWeapons[m]=original;
 
-                BOOL enabled=TRUE;
-                void* ep[1]; ep[0]=&enabled;
-                ex=0;
-                g_il2cpp.runtime_invoke(enable,button,ep,&ex);
+                    BOOL enabled=TRUE;
+                    void* ep[1]; ep[0]=&enabled;
+                    ex=0;
+                    g_il2cpp.runtime_invoke(enable,button,ep,&ex);
+                }
             }
-            break;
         }
     }
 
@@ -3090,7 +3115,7 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
 
     g_h54DlcSwapApplied=TRUE;
     g_h54DlcSwapPending=0;
-    LogA("[WHEEL H57] Full 9-button DLC wheel mirrored inside normal scene; global EnableButtons refresh skipped.");
+    LogA("[WHEEL H59] Full 9-button DLC wheel mirrored by native slots 1,2,3,4,8.");
     return TRUE;
 }
 
