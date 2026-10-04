@@ -1729,6 +1729,203 @@ static const char* g_h57DlcNames[5]={
 // These are the five slots that differ between base game and These Sunny Daze.
 // Slots 5,6,7,9 stay native/common and must never be remapped.
 static const int g_h59VariableSlots[5]={1,2,3,4,8};
+static int SlotIndexH59(int slot);
+
+// H61: safe visual-only mapping. These names come from the game's own
+// native wheel snapshots logged by H56. We change ONLY _weaponSelectedImage.sprite.
+// No WeaponId, slot, category, selection or enable logic is modified here.
+static const char* g_h61BaseIconNames[5]={
+    "Bez-nazwy-1_0000_Warstwa-18", // slot 1 Shovel
+    "Bez-nazwy-1_0005_Warstwa-13", // slot 2 Pistol
+    "Bez-nazwy-1_0002_Warstwa-16", // slot 3 Shotgun
+    "Bez-nazwy-1_0004_Warstwa-14", // slot 4 MachineGun
+    "Bez-nazwy-1_0008_Warstwa-10"  // slot 8 DildoBow
+};
+
+static const char* g_h61DlcIconNames[5]={
+    "Weapon Icon_NyanBrella_Rose",      // slot 1 UmDrill
+    "Weapon Icon_Piss Gun_Rose",        // slot 2 PissGun
+    "Weapon Icon_Wiener-Grinder_Rose",  // slot 3 MeatShotgun
+    "Weapon Icon_Bubble Gun2_Rose",     // slot 4 BubbleGumMachineGun
+    "Weapon Icon_UrAnusium2_Rose"       // slot 8 NuclearSyringe
+};
+
+static Il2CppObject* g_h61BaseIconButtons[5]={0,0,0,0,0};
+static Il2CppObject* g_h61BaseOriginalSprites[5]={0,0,0,0,0};
+static Il2CppObject* g_h61DlcIconButtons[5]={0,0,0,0,0};
+static Il2CppObject* g_h61DlcOriginalSprites[5]={0,0,0,0,0};
+
+static void ClearBaseVisualStateH61() {
+    for(int i=0;i<5;i++) {
+        g_h61BaseIconButtons[i]=0;
+        g_h61BaseOriginalSprites[i]=0;
+    }
+}
+
+static void ClearDlcVisualStateH61() {
+    for(int i=0;i<5;i++) {
+        g_h61DlcIconButtons[i]=0;
+        g_h61DlcOriginalSprites[i]=0;
+    }
+}
+
+static Il2CppObject* FindLoadedSpriteByExactNameH61(const char* wantedName) {
+    if(!wantedName || !wantedName[0]) return 0;
+
+    Il2CppClass* spriteClass=g_coreImage ? g_il2cpp.class_from_name(
+        g_coreImage,"UnityEngine","Sprite") : 0;
+    Il2CppClass* resourcesClass=g_coreImage ? g_il2cpp.class_from_name(
+        g_coreImage,"UnityEngine","Resources") : 0;
+    Il2CppClass* unityObjectClass=g_coreImage ? g_il2cpp.class_from_name(
+        g_coreImage,"UnityEngine","Object") : 0;
+    if(!spriteClass || !resourcesClass || !unityObjectClass) return 0;
+
+    const MethodInfo* findAll=FindMethodExact(resourcesClass,"FindObjectsOfTypeAll",1,g_systemTypeClass);
+    const MethodInfo* getName=g_il2cpp.class_get_method_from_name(unityObjectClass,"get_name",0);
+    if(!findAll || !getName) return 0;
+
+    const Il2CppType* st=g_il2cpp.class_get_type(spriteClass);
+    Il2CppObject* typeObj=st ? g_il2cpp.type_get_object(st) : 0;
+    if(!typeObj) return 0;
+
+    void* pars[1]; pars[0]=typeObj;
+    Il2CppException* ex=0;
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(findAll,0,pars,&ex);
+    if(ex || !arrObj) {
+        if(ex) FormatExceptionToLog(ex);
+        return 0;
+    }
+
+    Il2CppArray* arr=(Il2CppArray*)arrObj;
+    SIZE_T n=g_il2cpp.array_length(arr);
+    if(n>32768) n=32768;
+
+    unsigned int hdr=g_il2cpp.array_object_header_size();
+    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+
+    for(SIZE_T i=0;i<n;i++) {
+        Il2CppObject* sprite=elems[i];
+        if(!sprite) continue;
+
+        ex=0;
+        Il2CppObject* nameObj=g_il2cpp.runtime_invoke(getName,sprite,0,&ex);
+        if(ex || !nameObj) continue;
+
+        char name[192]; name[0]=0;
+        CatalogManagedStringToAscii((Il2CppString*)nameObj,name,192);
+        if(StrEqA(name,wantedName))
+            return sprite;
+    }
+    return 0;
+}
+
+static BOOL SetButtonIconSpriteH61(Il2CppObject* button,
+                                   Il2CppClass* buttonClass,
+                                   Il2CppObject* sprite,
+                                   Il2CppObject** outOriginalSprite) {
+    if(outOriginalSprite) *outOriginalSprite=0;
+    if(!button || !buttonClass || !sprite || !outOriginalSprite) return FALSE;
+
+    const FieldInfo* imageField=g_il2cpp.class_get_field_from_name(buttonClass,"_weaponSelectedImage");
+    if(!imageField) return FALSE;
+
+    Il2CppObject* image=0;
+    g_il2cpp.field_get_value(button,imageField,&image);
+    if(!image) return FALSE;
+
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+    Il2CppClass* imageClass=objectGetClass ? objectGetClass(image) : 0;
+    if(!imageClass) return FALSE;
+
+    const MethodInfo* getSprite=g_il2cpp.class_get_method_from_name(imageClass,"get_sprite",0);
+    const MethodInfo* setSprite=g_il2cpp.class_get_method_from_name(imageClass,"set_sprite",1);
+    if(!getSprite || !setSprite) return FALSE;
+
+    Il2CppException* ex=0;
+    Il2CppObject* original=g_il2cpp.runtime_invoke(getSprite,image,0,&ex);
+    if(ex) {
+        FormatExceptionToLog(ex);
+        return FALSE;
+    }
+
+    void* sp[1]; sp[0]=sprite;
+    ex=0;
+    g_il2cpp.runtime_invoke(setSprite,image,sp,&ex);
+    if(ex) {
+        FormatExceptionToLog(ex);
+        return FALSE;
+    }
+
+    *outOriginalSprite=original;
+    return TRUE;
+}
+
+static BOOL RestoreButtonIconSpriteH61(Il2CppObject* button,
+                                       Il2CppClass* buttonClass,
+                                       Il2CppObject* originalSprite) {
+    if(!button || !buttonClass) return TRUE;
+
+    const FieldInfo* imageField=g_il2cpp.class_get_field_from_name(buttonClass,"_weaponSelectedImage");
+    if(!imageField) return FALSE;
+
+    Il2CppObject* image=0;
+    g_il2cpp.field_get_value(button,imageField,&image);
+    if(!image) return FALSE;
+
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+    Il2CppClass* imageClass=objectGetClass ? objectGetClass(image) : 0;
+    if(!imageClass) return FALSE;
+
+    const MethodInfo* setSprite=g_il2cpp.class_get_method_from_name(imageClass,"set_sprite",1);
+    if(!setSprite) return FALSE;
+
+    void* sp[1]; sp[0]=originalSprite;
+    Il2CppException* ex=0;
+    g_il2cpp.runtime_invoke(setSprite,image,sp,&ex);
+    if(ex) {
+        FormatExceptionToLog(ex);
+        return FALSE;
+    }
+    return TRUE;
+}
+
+static BOOL ApplySlotIconH61(Il2CppObject* button,
+                             Il2CppClass* buttonClass,
+                             int slot,
+                             BOOL wantDlc,
+                             BOOL baseVisualState,
+                             int visualIndex) {
+    int k=SlotIndexH59(slot);
+    if(k<0 || visualIndex<0 || visualIndex>=5) return FALSE;
+
+    const char* wanted=wantDlc ? g_h61DlcIconNames[k] : g_h61BaseIconNames[k];
+    Il2CppObject* sprite=FindLoadedSpriteByExactNameH61(wanted);
+    if(!sprite) {
+        LogIntA("[WHEEL H61] target sprite NOT loaded for slot: ",slot);
+        LogA(wanted);
+        return FALSE;
+    }
+
+    Il2CppObject* original=0;
+    if(!SetButtonIconSpriteH61(button,buttonClass,sprite,&original)) {
+        LogIntA("[WHEEL H61] failed to set icon sprite for slot: ",slot);
+        return FALSE;
+    }
+
+    if(baseVisualState) {
+        g_h61BaseIconButtons[visualIndex]=button;
+        g_h61BaseOriginalSprites[visualIndex]=original;
+    } else {
+        g_h61DlcIconButtons[visualIndex]=button;
+        g_h61DlcOriginalSprites[visualIndex]=original;
+    }
+
+    LogIntA(wantDlc ? "[WHEEL H61] DLC icon applied to slot: " : "[WHEEL H61] BASE icon applied to slot: ",slot);
+    LogA(wanted);
+    return TRUE;
+}
 
 static int SlotIndexH59(int slot) {
     for(int i=0;i<5;i++) if(g_h59VariableSlots[i]==slot) return i;
@@ -1852,6 +2049,7 @@ static void ClearBaseSwapStateH57() {
         g_h57BaseOriginalWeapons[i]=0;
     }
     g_h57BaseMappedCount=0;
+    ClearBaseVisualStateH61();
 }
 
 static BOOL SetWheelButtonWeaponH57(Il2CppObject* button,
@@ -1931,6 +2129,10 @@ static BOOL RestoreBaseSwapH57() {
 
     BOOL ok=TRUE;
     for(int i=0;i<g_h57BaseMappedCount;i++) {
+        if(g_h61BaseIconButtons[i] &&
+           !RestoreButtonIconSpriteH61(g_h61BaseIconButtons[i],buttonClass,g_h61BaseOriginalSprites[i]))
+            ok=FALSE;
+
         if(!SetWheelButtonWeaponH57(g_h57BaseMappedButtons[i],buttonClass,getWeapon,g_h57BaseOriginalWeapons[i]))
             ok=FALSE;
     }
@@ -2291,6 +2493,11 @@ static BOOL ApplyDelayedBaseFilterH51() {
                         int m=g_h57BaseMappedCount++;
                         g_h57BaseMappedButtons[m]=button;
                         g_h57BaseOriginalWeapons[m]=weapon;
+
+                        // H61 visual-only: DLC scene currently shows DLC sprites,
+                        // so replace just the icon with the base-game sprite.
+                        ApplySlotIconH61(button,buttonClass,sourceSlot,FALSE,TRUE,m);
+
                         enabled=TRUE;
                     }
                 }
@@ -2307,8 +2514,11 @@ static BOOL ApplyDelayedBaseFilterH51() {
     LogIntA("[WHEEL H57] total BASE wheel buttons enabled: ",baseEnabled);
 
     if(g_h57BaseMappedCount!=5 || baseEnabled!=9) {
-        for(int i=0;i<g_h57BaseMappedCount;i++)
+        for(int i=0;i<g_h57BaseMappedCount;i++) {
+            if(g_h61BaseIconButtons[i])
+                RestoreButtonIconSpriteH61(g_h61BaseIconButtons[i],buttonClass,g_h61BaseOriginalSprites[i]);
             SetWheelButtonWeaponH57(g_h57BaseMappedButtons[i],buttonClass,getWeapon,g_h57BaseOriginalWeapons[i]);
+        }
         ClearBaseSwapStateH57();
         g_h51BaseFilterPending=0;
         LogA("[WHEEL H57] BASE mirror incomplete; temporary mappings rolled back.");
@@ -2317,7 +2527,7 @@ static BOOL ApplyDelayedBaseFilterH51() {
 
     g_h57BaseSwapApplied=TRUE;
     g_h51BaseFilterPending=0;
-    LogA("[WHEEL H59] Full 9-button BASE wheel mirrored by native slots 1,2,3,4,8.");
+    LogA("[WHEEL H61] H59 BASE logic preserved; direct native sprite-name mapping attempted.");
     return TRUE;
 }
 
@@ -2715,6 +2925,7 @@ static void ClearDlcSwapStateH54() {
         g_h54OriginalWeapons[i]=0;
     }
     g_h54MappedCount=0;
+    ClearDlcVisualStateH61();
 }
 
 static BOOL GetWeaponNameH54(Il2CppObject* weapon,char* out,int cap) {
@@ -3084,6 +3295,10 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
                     g_h54MappedButtons[m]=button;
                     g_h54OriginalWeapons[m]=original;
 
+                    // H61 visual-only: normal scene currently shows base sprites,
+                    // so replace just the icon with the DLC sprite.
+                    ApplySlotIconH61(button,buttonClass,sourceSlot,TRUE,FALSE,m);
+
                     BOOL enabled=TRUE;
                     void* ep[1]; ep[0]=&enabled;
                     ex=0;
@@ -3099,8 +3314,11 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
         LogMappedButtonVisualsH55(buttonClass,getWeapon);
 
     if(g_h54MappedCount!=5) {
-        for(int i=0;i<g_h54MappedCount;i++)
+        for(int i=0;i<g_h54MappedCount;i++) {
+            if(g_h61DlcIconButtons[i])
+                RestoreButtonIconSpriteH61(g_h61DlcIconButtons[i],buttonClass,g_h61DlcOriginalSprites[i]);
             SetWheelButtonWeaponH54(g_h54MappedButtons[i],buttonClass,getWeapon,g_h54OriginalWeapons[i]);
+        }
         ClearDlcSwapStateH54();
         g_h54DlcSwapPending=0;
         LogA("[WHEEL H57] DLC mirror incomplete; temporary mappings rolled back.");
@@ -3115,7 +3333,7 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
 
     g_h54DlcSwapApplied=TRUE;
     g_h54DlcSwapPending=0;
-    LogA("[WHEEL H59] Full 9-button DLC wheel mirrored by native slots 1,2,3,4,8.");
+    LogA("[WHEEL H61] H59 DLC logic preserved; direct native sprite-name mapping attempted.");
     return TRUE;
 }
 
@@ -3143,6 +3361,10 @@ static BOOL RestoreDlcSwapH54() {
 
     BOOL ok=TRUE;
     for(int i=0;i<g_h54MappedCount;i++) {
+        if(g_h61DlcIconButtons[i] &&
+           !RestoreButtonIconSpriteH61(g_h61DlcIconButtons[i],buttonClass,g_h61DlcOriginalSprites[i]))
+            ok=FALSE;
+
         if(!SetWheelButtonWeaponH54(g_h54MappedButtons[i],buttonClass,getWeapon,g_h54OriginalWeapons[i]))
             ok=FALSE;
     }
