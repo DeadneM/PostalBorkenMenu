@@ -690,7 +690,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H59 NATIVE SLOT PAIRING TEST");
+    LogA("PostalBorkenMenu V2A42-H60 VISUAL-ONLY WHEEL ICON TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
@@ -708,7 +708,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] H59 preserves H57 9/9 wheels but pairs the five variable weapons strictly by native slots 1,2,3,4,8; common slots 5,6,7,9 stay untouched.");
+    LogA("[READY] H60 preserves validated H59 weapon logic exactly and mirrors only sprite-bearing wheel visuals for the five variable slots.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
