@@ -1701,6 +1701,199 @@ static void LogUnityObjectNameH55(Il2CppObject* obj,const char* label);
 static void LogImageSpriteH55(Il2CppObject* imageObj,const char* label);
 static BOOL GetWeaponNameH54(Il2CppObject* weapon,char* out,int cap);
 
+struct H58VisualBackupItem {
+    const FieldInfo* field;
+    Il2CppObject* originalObject;
+    Il2CppObject* originalSprite;
+    int mode; // 1 = Image-like sprite property, 2 = direct Sprite field.
+};
+
+struct H58ButtonVisualBackup {
+    Il2CppObject* button;
+    int count;
+    H58VisualBackupItem items[24];
+};
+
+static H58ButtonVisualBackup g_h58BaseVisuals[5]={0};
+static H58ButtonVisualBackup g_h58DlcVisuals[5]={0};
+
+static void InitVisualBackupH58(H58ButtonVisualBackup* b,Il2CppObject* button) {
+    if(!b) return;
+    b->button=button;
+    b->count=0;
+    for(int i=0;i<24;i++) {
+        b->items[i].field=0;
+        b->items[i].originalObject=0;
+        b->items[i].originalSprite=0;
+        b->items[i].mode=0;
+    }
+}
+
+static void ClearVisualBackupH58(H58ButtonVisualBackup* b) {
+    InitVisualBackupH58(b,0);
+}
+
+static Il2CppObject* FindLoadedWheelButtonForWeaponH58(Il2CppObject* wantedWeapon,Il2CppObject* excludeButton) {
+    if(!wantedWeapon) return 0;
+
+    Il2CppClass* buttonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
+    Il2CppClass* resourcesClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Resources") : 0;
+    if(!buttonClass || !resourcesClass) return 0;
+
+    const MethodInfo* getWeapon=g_il2cpp.class_get_method_from_name(buttonClass,"get_WeaponId",0);
+    const MethodInfo* findAll=FindMethodExact(resourcesClass,"FindObjectsOfTypeAll",1,g_systemTypeClass);
+    if(!getWeapon || !findAll) return 0;
+
+    const Il2CppType* bt=g_il2cpp.class_get_type(buttonClass);
+    Il2CppObject* typeObj=bt ? g_il2cpp.type_get_object(bt) : 0;
+    if(!typeObj) return 0;
+
+    void* pars[1]; pars[0]=typeObj;
+    Il2CppException* ex=0;
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(findAll,0,pars,&ex);
+    if(ex || !arrObj) return 0;
+
+    Il2CppArray* arr=(Il2CppArray*)arrObj;
+    SIZE_T n=g_il2cpp.array_length(arr);
+    if(n>512) return 0;
+
+    unsigned int hdr=g_il2cpp.array_object_header_size();
+    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+
+    for(SIZE_T i=0;i<n;i++) {
+        Il2CppObject* button=elems[i];
+        if(!button || button==excludeButton) continue;
+
+        ex=0;
+        Il2CppObject* weapon=g_il2cpp.runtime_invoke(getWeapon,button,0,&ex);
+        if(!ex && weapon==wantedWeapon)
+            return button;
+    }
+    return 0;
+}
+
+static BOOL ApplyButtonVisualPayloadH58(Il2CppObject* targetButton,
+                                        Il2CppObject* sourceButton,
+                                        Il2CppClass* buttonClass,
+                                        H58ButtonVisualBackup* backup) {
+    if(!targetButton || !sourceButton || !buttonClass || !backup) return FALSE;
+    InitVisualBackupH58(backup,targetButton);
+
+    typedef const Il2CppType* (*FnFieldGetType)(const FieldInfo*);
+    typedef void (*FnSetObject)(Il2CppObject*,const FieldInfo*,Il2CppObject*);
+    FnFieldGetType fieldGetType=(FnFieldGetType)Proc("il2cpp_field_get_type");
+    FnSetObject setObject=(FnSetObject)Proc("il2cpp_field_set_value_object");
+    if(!fieldGetType || !setObject) return FALSE;
+
+    int copied=0;
+    void* fi=0;
+    const FieldInfo* field=0;
+    int scanned=0;
+
+    while((field=g_il2cpp.class_get_fields(buttonClass,&fi))!=0 && scanned<96) {
+        ++scanned;
+        if(backup->count>=24) break;
+
+        const Il2CppType* ft=fieldGetType(field);
+        Il2CppClass* declared=ft ? g_il2cpp.class_from_type(ft) : 0;
+        if(!declared) continue;
+
+        const char* ns=g_il2cpp.class_get_namespace(declared);
+        const char* cn=g_il2cpp.class_get_name(declared);
+
+        Il2CppObject* srcObj=0;
+        Il2CppObject* dstObj=0;
+        g_il2cpp.field_get_value(sourceButton,field,&srcObj);
+        g_il2cpp.field_get_value(targetButton,field,&dstObj);
+
+        if(ns && cn && StrEqA(ns,"UnityEngine") && StrEqA(cn,"Sprite")) {
+            H58VisualBackupItem* item=&backup->items[backup->count++];
+            item->field=field;
+            item->originalObject=dstObj;
+            item->originalSprite=0;
+            item->mode=2;
+            setObject(targetButton,field,srcObj);
+            ++copied;
+            continue;
+        }
+
+        if(!srcObj || !dstObj) continue;
+
+        const MethodInfo* srcGetSprite=g_il2cpp.class_get_method_from_name(declared,"get_sprite",0);
+        const MethodInfo* dstSetSprite=g_il2cpp.class_get_method_from_name(declared,"set_sprite",1);
+        if(!srcGetSprite || !dstSetSprite) continue;
+
+        Il2CppException* ex=0;
+        Il2CppObject* srcSprite=g_il2cpp.runtime_invoke(srcGetSprite,srcObj,0,&ex);
+        if(ex) continue;
+
+        ex=0;
+        Il2CppObject* dstSprite=g_il2cpp.runtime_invoke(srcGetSprite,dstObj,0,&ex);
+        if(ex) continue;
+
+        H58VisualBackupItem* item=&backup->items[backup->count++];
+        item->field=field;
+        item->originalObject=0;
+        item->originalSprite=dstSprite;
+        item->mode=1;
+
+        void* sp[1]; sp[0]=srcSprite;
+        ex=0;
+        g_il2cpp.runtime_invoke(dstSetSprite,dstObj,sp,&ex);
+        if(ex) {
+            --backup->count;
+            continue;
+        }
+        ++copied;
+    }
+
+    LogIntA("[WHEEL H58] visual fields copied from native source button: ",copied);
+    return copied>0;
+}
+
+static BOOL RestoreButtonVisualPayloadH58(H58ButtonVisualBackup* backup) {
+    if(!backup || !backup->button) return TRUE;
+
+    typedef void (*FnSetObject)(Il2CppObject*,const FieldInfo*,Il2CppObject*);
+    FnSetObject setObject=(FnSetObject)Proc("il2cpp_field_set_value_object");
+    BOOL ok=TRUE;
+
+    for(int i=0;i<backup->count;i++) {
+        H58VisualBackupItem* item=&backup->items[i];
+        if(!item->field) continue;
+
+        if(item->mode==2) {
+            if(!setObject) { ok=FALSE; continue; }
+            setObject(backup->button,item->field,item->originalObject);
+            continue;
+        }
+
+        if(item->mode==1) {
+            Il2CppObject* dstObj=0;
+            g_il2cpp.field_get_value(backup->button,item->field,&dstObj);
+            if(!dstObj) { ok=FALSE; continue; }
+
+            typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+            FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+            Il2CppClass* runtimeClass=objectGetClass ? objectGetClass(dstObj) : 0;
+            const MethodInfo* setSprite=runtimeClass ? g_il2cpp.class_get_method_from_name(runtimeClass,"set_sprite",1) : 0;
+            if(!setSprite) { ok=FALSE; continue; }
+
+            void* sp[1]; sp[0]=item->originalSprite;
+            Il2CppException* ex=0;
+            g_il2cpp.runtime_invoke(setSprite,dstObj,sp,&ex);
+            if(ex) ok=FALSE;
+        }
+    }
+
+    ClearVisualBackupH58(backup);
+    return ok;
+}
+
+static Il2CppObject* CaptureSelectedRemappedWeaponH58(BOOL baseWheel);
+static BOOL EquipExactWheelWeaponH58(Il2CppObject* weapon,const char* label);
+
 // H57: the two native scenes expose complementary 5-weapon variants.
 // Keep the 4 common sectors untouched and temporarily mirror only the five
 // mode-specific WeaponId pointers while a wheel is open.
@@ -1729,6 +1922,7 @@ static void ClearBaseSwapStateH57() {
     for(int i=0;i<5;i++) {
         g_h57BaseMappedButtons[i]=0;
         g_h57BaseOriginalWeapons[i]=0;
+        ClearVisualBackupH58(&g_h58BaseVisuals[i]);
     }
     g_h57BaseMappedCount=0;
 }
@@ -1865,6 +2059,8 @@ static BOOL RestoreBaseSwapH57() {
 
     BOOL ok=TRUE;
     for(int i=0;i<g_h57BaseMappedCount;i++) {
+        if(!RestoreButtonVisualPayloadH58(&g_h58BaseVisuals[i]))
+            ok=FALSE;
         if(!SetWheelButtonWeaponH57(g_h57BaseMappedButtons[i],buttonClass,getWeapon,g_h57BaseOriginalWeapons[i]))
             ok=FALSE;
     }
@@ -2218,6 +2414,16 @@ static BOOL ApplyDelayedBaseFilterH51() {
                     int m=g_h57BaseMappedCount++;
                     g_h57BaseMappedButtons[m]=button;
                     g_h57BaseOriginalWeapons[m]=weapon;
+
+                    Il2CppObject* sourceButton=FindLoadedWheelButtonForWeaponH58(baseTargets[k],button);
+                    if(sourceButton) {
+                        ApplyButtonVisualPayloadH58(button,sourceButton,buttonClass,&g_h58BaseVisuals[m]);
+                        LogA("[WHEEL H58] DLC->BASE native source button found; visual payload mirrored.");
+                    } else {
+                        InitVisualBackupH58(&g_h58BaseVisuals[m],button);
+                        LogA("[WHEEL H58] DLC->BASE source button not loaded; logical remap kept, visual payload unchanged.");
+                    }
+
                     enabled=TRUE;
                 }
                 break;
@@ -2276,10 +2482,14 @@ static BOOL HideNativeBaseWeaponWheel() {
     BOOL ok=TRUE;
     Il2CppException* ex=0;
 
+    Il2CppObject* h58SelectedWeapon=CaptureSelectedRemappedWeaponH58(TRUE);
+
     if(g_h51BaseUsesInputEvent) {
-        // Keep the temporary H57 mapping alive through native OnWheelUp so the
-        // selected sector resolves to the intended base WeaponId.
+        // H58 captures the selected remapped WeaponId before the native slot
+        // resolver runs, then re-applies that exact WeaponId after OnWheelUp.
         if(!InvokeInputManagerWheelEventFastH51(FALSE)) ok=FALSE;
+        if(h58SelectedWeapon && !EquipExactWheelWeaponH58(h58SelectedWeapon,"[WHEEL H58] BASE exact selected WeaponId"))
+            ok=FALSE;
     } else {
         if(view && hideMethod) {
             g_il2cpp.runtime_invoke(hideMethod,view,0,&ex);
