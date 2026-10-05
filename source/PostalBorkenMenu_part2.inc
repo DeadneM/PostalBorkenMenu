@@ -1957,108 +1957,48 @@ static BOOL ReplaceMatchingLocalIconLayersH62(Il2CppObject* button,
                                                Il2CppObject* targetSprite,
                                                BOOL baseState,
                                                int index) {
+    (void)originalSprite;
     if(!button || !targetSprite || index<0 || index>=5) return FALSE;
-    if(!g_componentGetGameObject || !g_gameObjectGetComponentsInChildren || !g_uiImage) return FALSE;
 
     Il2CppClass* buttonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
         g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
-    Il2CppClass* imageClass=g_il2cpp.class_from_name(g_uiImage,"UnityEngine.UI","Image");
-    Il2CppClass* unityObjectClass=g_coreImage ? g_il2cpp.class_from_name(
-        g_coreImage,"UnityEngine","Object") : 0;
-    if(!buttonClass || !imageClass || !unityObjectClass) return FALSE;
+    if(!buttonClass) return FALSE;
 
-    const FieldInfo* primaryField=g_il2cpp.class_get_field_from_name(buttonClass,"_weaponSelectedImage");
+    // H64: H55 already proved this is a named field on WeaponWheelButton.
+    // Touch ONLY this exact field. No child-Image enumeration.
     const FieldInfo* backgroundField=g_il2cpp.class_get_field_from_name(buttonClass,"_backgroundImage");
-    Il2CppObject* primaryImage=0;
-    Il2CppObject* wheelBackground=0;
-    if(primaryField) g_il2cpp.field_get_value(button,primaryField,&primaryImage);
-    if(backgroundField) g_il2cpp.field_get_value(button,backgroundField,&wheelBackground);
-
-    const Il2CppType* it=g_il2cpp.class_get_type(imageClass);
-    Il2CppObject* imageTypeObj=it ? g_il2cpp.type_get_object(it) : 0;
-    if(!imageTypeObj) return FALSE;
-
-    const MethodInfo* getObjectName=g_il2cpp.class_get_method_from_name(unityObjectClass,"get_name",0);
-
-    Il2CppException* ex=0;
-    Il2CppObject* go=g_il2cpp.runtime_invoke(g_componentGetGameObject,button,0,&ex);
-    if(ex || !go) {
-        if(ex) FormatExceptionToLog(ex);
+    if(!backgroundField) {
+        LogA("[WHEEL H64] _backgroundImage field unavailable.");
         return FALSE;
     }
 
-    BOOL includeInactive=TRUE;
-    void* pars[2]; pars[0]=imageTypeObj; pars[1]=&includeInactive;
-    ex=0;
-    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(g_gameObjectGetComponentsInChildren,go,pars,&ex);
-    if(ex || !arrObj) {
-        if(ex) FormatExceptionToLog(ex);
+    Il2CppObject* backgroundImage=0;
+    g_il2cpp.field_get_value(button,backgroundField,&backgroundImage);
+    if(!backgroundImage) {
+        LogA("[WHEEL H64] _backgroundImage is NULL.");
         return FALSE;
     }
 
-    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
-    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
-
-    Il2CppArray* arr=(Il2CppArray*)arrObj;
-    SIZE_T n=g_il2cpp.array_length(arr);
-    if(n>64) n=64;
-    unsigned int hdr=g_il2cpp.array_object_header_size();
-    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
-
-    int changed=0;
-    for(SIZE_T i=0;i<n;i++) {
-        Il2CppObject* image=elems[i];
-        if(!image || !objectGetClass) continue;
-
-        // Primary icon was already changed by H61. The wheel wedge/background
-        // is generic and must remain untouched.
-        if(image==primaryImage || image==wheelBackground) continue;
-
-        Il2CppClass* runtimeClass=objectGetClass(image);
-        const MethodInfo* getSprite=runtimeClass ? g_il2cpp.class_get_method_from_name(runtimeClass,"get_sprite",0) : 0;
-        const MethodInfo* setSprite=runtimeClass ? g_il2cpp.class_get_method_from_name(runtimeClass,"set_sprite",1) : 0;
-        if(!getSprite || !setSprite) continue;
-
-        ex=0;
-        Il2CppObject* current=g_il2cpp.runtime_invoke(getSprite,image,0,&ex);
-        if(ex || !current) continue;
-
-        // Never overwrite generic wheel-part art. Everything else local to the
-        // WeaponWheelButton is the weapon's secondary icon/fill layer.
-        char spriteName[192]; spriteName[0]=0;
-        if(getObjectName) {
-            ex=0;
-            Il2CppObject* nameObj=g_il2cpp.runtime_invoke(getObjectName,current,0,&ex);
-            if(!ex && nameObj)
-                CatalogManagedStringToAscii((Il2CppString*)nameObj,spriteName,192);
-        }
-        if(StrContainsNoCaseA(spriteName,"weapon_wheel_part")) continue;
-
-        int c=baseState ? g_h62BaseExtraCount[index] : g_h62DlcExtraCount[index];
-        if(c>=8) break;
-
-        void* sp[1]; sp[0]=targetSprite;
-        ex=0;
-        g_il2cpp.runtime_invoke(setSprite,image,sp,&ex);
-        if(ex) continue;
-
-        if(baseState) {
-            g_h62BaseExtraImages[index][c]=image;
-            g_h62BaseExtraOriginalSprites[index][c]=current;
-            g_h62BaseExtraCount[index]=c+1;
-        } else {
-            g_h62DlcExtraImages[index][c]=image;
-            g_h62DlcExtraOriginalSprites[index][c]=current;
-            g_h62DlcExtraCount[index]=c+1;
-        }
-
-        ++changed;
-        LogA("[WHEEL H63] secondary weapon visual layer replaced:");
-        if(spriteName[0]) LogA(spriteName);
+    Il2CppObject* originalBackgroundSprite=0;
+    if(!SetImageSpriteObjectH62(backgroundImage,targetSprite,&originalBackgroundSprite)) {
+        LogA("[WHEEL H64] failed to set exact _backgroundImage.sprite.");
+        return FALSE;
     }
 
-    LogIntA("[WHEEL H63] secondary weapon visual layers replaced: ",changed);
-    return changed>0;
+    ClearExtraLayersH62(baseState,index);
+
+    if(baseState) {
+        g_h62BaseExtraImages[index][0]=backgroundImage;
+        g_h62BaseExtraOriginalSprites[index][0]=originalBackgroundSprite;
+        g_h62BaseExtraCount[index]=1;
+    } else {
+        g_h62DlcExtraImages[index][0]=backgroundImage;
+        g_h62DlcExtraOriginalSprites[index][0]=originalBackgroundSprite;
+        g_h62DlcExtraCount[index]=1;
+    }
+
+    LogA("[WHEEL H64] exact _backgroundImage.sprite replaced.");
+    return TRUE;
 }
 
 static BOOL RestoreExtraIconLayersH62(BOOL baseState,int index) {
@@ -2748,7 +2688,7 @@ static BOOL ApplyDelayedBaseFilterH51() {
 
     g_h57BaseSwapApplied=TRUE;
     g_h51BaseFilterPending=0;
-    LogA("[WHEEL H63] H59 logic preserved; full BASE icon + weapon-background swap applied.");
+    LogA("[WHEEL H64] H59 logic preserved; H61 icon + exact _backgroundImage sprite applied.");
     return TRUE;
 }
 
@@ -3556,7 +3496,7 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
 
     g_h54DlcSwapApplied=TRUE;
     g_h54DlcSwapPending=0;
-    LogA("[WHEEL H63] H59 logic preserved; full DLC icon + weapon-background swap applied.");
+    LogA("[WHEEL H64] H59 logic preserved; H61 icon + exact _backgroundImage sprite applied.");
     return TRUE;
 }
 
