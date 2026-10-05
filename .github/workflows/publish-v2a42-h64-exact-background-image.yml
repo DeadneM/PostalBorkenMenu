@@ -1,0 +1,60 @@
+name: Publish V2A42-H64 Exact Background Image Test
+
+on:
+  push:
+    branches:
+      - dev/v2a42-h64-exact-background-image
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build import libraries
+        shell: cmd
+        run: |
+          lib /nologo /machine:x64 /def:build\kernel32_ext.def /out:build\kernel32_ext.lib
+          lib /nologo /machine:x64 /def:build\user32_ext.def /out:build\user32_ext.lib
+
+      - name: Build ASI
+        shell: cmd
+        run: |
+          cl /nologo /c /O2 /GS- /GR- /EHs-c- /Zl /Fo:build\PostalBorkenMenu.obj source\PostalBorkenMenu.cpp
+          link /nologo /DLL /MACHINE:X64 /NODEFAULTLIB /ENTRY:DllMain /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /OUT:build\PostalBorkenMenu.asi build\PostalBorkenMenu.obj build\kernel32_ext.lib build\user32_ext.lib
+
+      - name: Build DXGI loader
+        shell: cmd
+        run: |
+          cl /nologo /c /O2 /Oi- /GS- /GR- /EHs-c- /Zl /Fo:build\dxgi_asi_loader.obj proxy\dxgi_asi_loader.cpp
+          ml64 /nologo /c /Fo build\dxgi_thunks.obj proxy\dxgi_thunks.asm
+          link /nologo /DLL /MACHINE:X64 /NODEFAULTLIB /ENTRY:DllMain /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /DEF:proxy\dxgi_proxy.def /OUT:build\dxgi.dll build\dxgi_asi_loader.obj build\dxgi_thunks.obj kernel32.lib
+
+      - name: Package
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          Copy-Item build\dxgi.dll package\dxgi.dll
+          Copy-Item build\PostalBorkenMenu.asi package\PostalBorkenMenu.asi
+          Copy-Item config\PostalBorkenMenu.ini package\PostalBorkenMenu.ini
+          Copy-Item release\README.txt package\README.txt
+          $files=(Get-ChildItem package -File).Name
+          if($files.Count -ne 4){ throw "Package must contain exactly four files." }
+          Compress-Archive -Path package\* -DestinationPath POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H64_EXACT_BACKGROUND_IMAGE_TEST.zip -Force
+          Get-FileHash build\PostalBorkenMenu.asi -Algorithm SHA256 | Format-List
+          Get-FileHash build\dxgi.dll -Algorithm SHA256 | Format-List
+          Get-FileHash POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H64_EXACT_BACKGROUND_IMAGE_TEST.zip -Algorithm SHA256 | Format-List
+
+      - name: Publish prerelease
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "V2A42-H64-TEST" POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H64_EXACT_BACKGROUND_IMAGE_TEST.zip --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "V2A42-H64 TEST - Exact Background Image" --notes "H64 keeps the validated H63 focus-independent F1/window hook and H59/H61 weapon/icon logic. It removes H63's broad child-Image replacement. For the five swapped sectors, only WeaponWheelButton._weaponSelectedImage.sprite and the exact named WeaponWheelButton._backgroundImage.sprite are changed, then restored on close. No other UI Image is touched." --prerelease
