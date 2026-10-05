@@ -1755,10 +1755,45 @@ static Il2CppObject* g_h61BaseOriginalSprites[5]={0,0,0,0,0};
 static Il2CppObject* g_h61DlcIconButtons[5]={0,0,0,0,0};
 static Il2CppObject* g_h61DlcOriginalSprites[5]={0,0,0,0,0};
 
+// H62: cache all ten wheel sprites in ONE Resources scan instead of the H61
+// five-scans-per-open path.
+static Il2CppObject* g_h62BaseSpriteCache[5]={0,0,0,0,0};
+static Il2CppObject* g_h62DlcSpriteCache[5]={0,0,0,0,0};
+static volatile LONG g_h62SpriteScanAttempts=0;
+static volatile LONG g_h62SpriteCacheComplete=0;
+
+// H62: some WeaponWheelButton prefabs render the weapon through more than one
+// Image. H61 changed only _weaponSelectedImage, exposing the old icon below it.
+// Keep a tiny per-button backup for matching local Image layers.
+static Il2CppObject* g_h62BaseExtraImages[5][8]={{0}};
+static Il2CppObject* g_h62BaseExtraOriginalSprites[5][8]={{0}};
+static int g_h62BaseExtraCount[5]={0,0,0,0,0};
+static Il2CppObject* g_h62DlcExtraImages[5][8]={{0}};
+static Il2CppObject* g_h62DlcExtraOriginalSprites[5][8]={{0}};
+static int g_h62DlcExtraCount[5]={0,0,0,0,0};
+
+static void ClearExtraLayersH62(BOOL baseState,int index) {
+    if(index<0 || index>=5) return;
+    if(baseState) {
+        g_h62BaseExtraCount[index]=0;
+        for(int j=0;j<8;j++) {
+            g_h62BaseExtraImages[index][j]=0;
+            g_h62BaseExtraOriginalSprites[index][j]=0;
+        }
+    } else {
+        g_h62DlcExtraCount[index]=0;
+        for(int j=0;j<8;j++) {
+            g_h62DlcExtraImages[index][j]=0;
+            g_h62DlcExtraOriginalSprites[index][j]=0;
+        }
+    }
+}
+
 static void ClearBaseVisualStateH61() {
     for(int i=0;i<5;i++) {
         g_h61BaseIconButtons[i]=0;
         g_h61BaseOriginalSprites[i]=0;
+        ClearExtraLayersH62(TRUE,i);
     }
 }
 
@@ -1766,11 +1801,29 @@ static void ClearDlcVisualStateH61() {
     for(int i=0;i<5;i++) {
         g_h61DlcIconButtons[i]=0;
         g_h61DlcOriginalSprites[i]=0;
+        ClearExtraLayersH62(FALSE,i);
     }
 }
 
-static Il2CppObject* FindLoadedSpriteByExactNameH61(const char* wantedName) {
-    if(!wantedName || !wantedName[0]) return 0;
+static int CountCachedWheelSpritesH62() {
+    int n=0;
+    for(int i=0;i<5;i++) {
+        if(g_h62BaseSpriteCache[i]) ++n;
+        if(g_h62DlcSpriteCache[i]) ++n;
+    }
+    return n;
+}
+
+static BOOL BuildWheelSpriteCacheH62(BOOL forceRetry) {
+    int cached=CountCachedWheelSpritesH62();
+    if(cached==10) {
+        g_h62SpriteCacheComplete=1;
+        return TRUE;
+    }
+
+    LONG attempts=g_h62SpriteScanAttempts;
+    if(!forceRetry && attempts>=2) return FALSE;
+    InterlockedIncrement(&g_h62SpriteScanAttempts);
 
     Il2CppClass* spriteClass=g_coreImage ? g_il2cpp.class_from_name(
         g_coreImage,"UnityEngine","Sprite") : 0;
@@ -1778,22 +1831,24 @@ static Il2CppObject* FindLoadedSpriteByExactNameH61(const char* wantedName) {
         g_coreImage,"UnityEngine","Resources") : 0;
     Il2CppClass* unityObjectClass=g_coreImage ? g_il2cpp.class_from_name(
         g_coreImage,"UnityEngine","Object") : 0;
-    if(!spriteClass || !resourcesClass || !unityObjectClass) return 0;
+    if(!spriteClass || !resourcesClass || !unityObjectClass) return FALSE;
 
     const MethodInfo* findAll=FindMethodExact(resourcesClass,"FindObjectsOfTypeAll",1,g_systemTypeClass);
     const MethodInfo* getName=g_il2cpp.class_get_method_from_name(unityObjectClass,"get_name",0);
-    if(!findAll || !getName) return 0;
+    if(!findAll || !getName) return FALSE;
 
     const Il2CppType* st=g_il2cpp.class_get_type(spriteClass);
     Il2CppObject* typeObj=st ? g_il2cpp.type_get_object(st) : 0;
-    if(!typeObj) return 0;
+    if(!typeObj) return FALSE;
+
+    LogA("[WHEEL H62] Building 10-sprite wheel cache with ONE Resources scan...");
 
     void* pars[1]; pars[0]=typeObj;
     Il2CppException* ex=0;
     Il2CppObject* arrObj=g_il2cpp.runtime_invoke(findAll,0,pars,&ex);
     if(ex || !arrObj) {
         if(ex) FormatExceptionToLog(ex);
-        return 0;
+        return FALSE;
     }
 
     Il2CppArray* arr=(Il2CppArray*)arrObj;
@@ -1813,10 +1868,67 @@ static Il2CppObject* FindLoadedSpriteByExactNameH61(const char* wantedName) {
 
         char name[192]; name[0]=0;
         CatalogManagedStringToAscii((Il2CppString*)nameObj,name,192);
-        if(StrEqA(name,wantedName))
-            return sprite;
+
+        for(int k=0;k<5;k++) {
+            if(!g_h62BaseSpriteCache[k] && StrEqA(name,g_h61BaseIconNames[k]))
+                g_h62BaseSpriteCache[k]=sprite;
+            if(!g_h62DlcSpriteCache[k] && StrEqA(name,g_h61DlcIconNames[k]))
+                g_h62DlcSpriteCache[k]=sprite;
+        }
+    }
+
+    cached=CountCachedWheelSpritesH62();
+    LogIntA("[WHEEL H62] cached wheel sprites: ",cached);
+    if(cached==10) {
+        g_h62SpriteCacheComplete=1;
+        LogA("[WHEEL H62] Sprite cache complete. Shortcut opens require no global sprite scan.");
+        return TRUE;
+    }
+
+    LogA("[WHEEL H62] Sprite cache partial; one later retry is allowed.");
+    return FALSE;
+}
+
+static Il2CppObject* FindLoadedSpriteByExactNameH61(const char* wantedName) {
+    if(!wantedName || !wantedName[0]) return 0;
+
+    for(int k=0;k<5;k++) {
+        if(StrEqA(wantedName,g_h61BaseIconNames[k])) {
+            if(!g_h62BaseSpriteCache[k]) BuildWheelSpriteCacheH62(FALSE);
+            return g_h62BaseSpriteCache[k];
+        }
+        if(StrEqA(wantedName,g_h61DlcIconNames[k])) {
+            if(!g_h62DlcSpriteCache[k]) BuildWheelSpriteCacheH62(FALSE);
+            return g_h62DlcSpriteCache[k];
+        }
     }
     return 0;
+}
+
+static BOOL SetImageSpriteObjectH62(Il2CppObject* image,Il2CppObject* sprite,Il2CppObject** outOriginal) {
+    if(outOriginal) *outOriginal=0;
+    if(!image || !outOriginal) return FALSE;
+
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+    Il2CppClass* imageClass=objectGetClass ? objectGetClass(image) : 0;
+    if(!imageClass) return FALSE;
+
+    const MethodInfo* getSprite=g_il2cpp.class_get_method_from_name(imageClass,"get_sprite",0);
+    const MethodInfo* setSprite=g_il2cpp.class_get_method_from_name(imageClass,"set_sprite",1);
+    if(!getSprite || !setSprite) return FALSE;
+
+    Il2CppException* ex=0;
+    Il2CppObject* original=g_il2cpp.runtime_invoke(getSprite,image,0,&ex);
+    if(ex) return FALSE;
+
+    void* sp[1]; sp[0]=sprite;
+    ex=0;
+    g_il2cpp.runtime_invoke(setSprite,image,sp,&ex);
+    if(ex) return FALSE;
+
+    *outOriginal=original;
+    return TRUE;
 }
 
 static BOOL SetButtonIconSpriteH61(Il2CppObject* button,
@@ -1833,32 +1945,108 @@ static BOOL SetButtonIconSpriteH61(Il2CppObject* button,
     g_il2cpp.field_get_value(button,imageField,&image);
     if(!image) return FALSE;
 
-    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
-    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
-    Il2CppClass* imageClass=objectGetClass ? objectGetClass(image) : 0;
-    if(!imageClass) return FALSE;
+    if(!SetImageSpriteObjectH62(image,sprite,outOriginalSprite)) {
+        LogA("[WHEEL H62] failed to set _weaponSelectedImage sprite.");
+        return FALSE;
+    }
+    return TRUE;
+}
 
-    const MethodInfo* getSprite=g_il2cpp.class_get_method_from_name(imageClass,"get_sprite",0);
-    const MethodInfo* setSprite=g_il2cpp.class_get_method_from_name(imageClass,"set_sprite",1);
-    if(!getSprite || !setSprite) return FALSE;
+static BOOL ReplaceMatchingLocalIconLayersH62(Il2CppObject* button,
+                                               Il2CppObject* originalSprite,
+                                               Il2CppObject* targetSprite,
+                                               BOOL baseState,
+                                               int index) {
+    if(!button || !originalSprite || !targetSprite || index<0 || index>=5) return FALSE;
+    if(!g_componentGetGameObject || !g_gameObjectGetComponentsInChildren || !g_uiImage) return FALSE;
+
+    Il2CppClass* imageClass=g_il2cpp.class_from_name(g_uiImage,"UnityEngine.UI","Image");
+    if(!imageClass) return FALSE;
+    const Il2CppType* it=g_il2cpp.class_get_type(imageClass);
+    Il2CppObject* imageTypeObj=it ? g_il2cpp.type_get_object(it) : 0;
+    if(!imageTypeObj) return FALSE;
 
     Il2CppException* ex=0;
-    Il2CppObject* original=g_il2cpp.runtime_invoke(getSprite,image,0,&ex);
-    if(ex) {
-        FormatExceptionToLog(ex);
+    Il2CppObject* go=g_il2cpp.runtime_invoke(g_componentGetGameObject,button,0,&ex);
+    if(ex || !go) {
+        if(ex) FormatExceptionToLog(ex);
         return FALSE;
     }
 
-    void* sp[1]; sp[0]=sprite;
+    BOOL includeInactive=TRUE;
+    void* pars[2]; pars[0]=imageTypeObj; pars[1]=&includeInactive;
     ex=0;
-    g_il2cpp.runtime_invoke(setSprite,image,sp,&ex);
-    if(ex) {
-        FormatExceptionToLog(ex);
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(g_gameObjectGetComponentsInChildren,go,pars,&ex);
+    if(ex || !arrObj) {
+        if(ex) FormatExceptionToLog(ex);
         return FALSE;
     }
 
-    *outOriginalSprite=original;
-    return TRUE;
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+
+    Il2CppArray* arr=(Il2CppArray*)arrObj;
+    SIZE_T n=g_il2cpp.array_length(arr);
+    if(n>64) n=64;
+    unsigned int hdr=g_il2cpp.array_object_header_size();
+    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+
+    int changed=0;
+    for(SIZE_T i=0;i<n;i++) {
+        Il2CppObject* image=elems[i];
+        if(!image || !objectGetClass) continue;
+
+        Il2CppClass* runtimeClass=objectGetClass(image);
+        const MethodInfo* getSprite=runtimeClass ? g_il2cpp.class_get_method_from_name(runtimeClass,"get_sprite",0) : 0;
+        const MethodInfo* setSprite=runtimeClass ? g_il2cpp.class_get_method_from_name(runtimeClass,"set_sprite",1) : 0;
+        if(!getSprite || !setSprite) continue;
+
+        ex=0;
+        Il2CppObject* current=g_il2cpp.runtime_invoke(getSprite,image,0,&ex);
+        if(ex || current!=originalSprite) continue;
+
+        int c=baseState ? g_h62BaseExtraCount[index] : g_h62DlcExtraCount[index];
+        if(c>=8) break;
+
+        void* sp[1]; sp[0]=targetSprite;
+        ex=0;
+        g_il2cpp.runtime_invoke(setSprite,image,sp,&ex);
+        if(ex) continue;
+
+        if(baseState) {
+            g_h62BaseExtraImages[index][c]=image;
+            g_h62BaseExtraOriginalSprites[index][c]=current;
+            g_h62BaseExtraCount[index]=c+1;
+        } else {
+            g_h62DlcExtraImages[index][c]=image;
+            g_h62DlcExtraOriginalSprites[index][c]=current;
+            g_h62DlcExtraCount[index]=c+1;
+        }
+        ++changed;
+    }
+
+    LogIntA("[WHEEL H62] additional matching icon layers replaced: ",changed);
+    return changed>0;
+}
+
+static BOOL RestoreExtraIconLayersH62(BOOL baseState,int index) {
+    if(index<0 || index>=5) return TRUE;
+
+    int count=baseState ? g_h62BaseExtraCount[index] : g_h62DlcExtraCount[index];
+    BOOL ok=TRUE;
+
+    for(int j=0;j<count;j++) {
+        Il2CppObject* image=baseState ? g_h62BaseExtraImages[index][j] : g_h62DlcExtraImages[index][j];
+        Il2CppObject* sprite=baseState ? g_h62BaseExtraOriginalSprites[index][j] : g_h62DlcExtraOriginalSprites[index][j];
+        if(!image) continue;
+
+        Il2CppObject* ignored=0;
+        if(!SetImageSpriteObjectH62(image,sprite,&ignored))
+            ok=FALSE;
+    }
+
+    ClearExtraLayersH62(baseState,index);
+    return ok;
 }
 
 static BOOL RestoreButtonIconSpriteH61(Il2CppObject* button,
@@ -1873,22 +2061,8 @@ static BOOL RestoreButtonIconSpriteH61(Il2CppObject* button,
     g_il2cpp.field_get_value(button,imageField,&image);
     if(!image) return FALSE;
 
-    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
-    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
-    Il2CppClass* imageClass=objectGetClass ? objectGetClass(image) : 0;
-    if(!imageClass) return FALSE;
-
-    const MethodInfo* setSprite=g_il2cpp.class_get_method_from_name(imageClass,"set_sprite",1);
-    if(!setSprite) return FALSE;
-
-    void* sp[1]; sp[0]=originalSprite;
-    Il2CppException* ex=0;
-    g_il2cpp.runtime_invoke(setSprite,image,sp,&ex);
-    if(ex) {
-        FormatExceptionToLog(ex);
-        return FALSE;
-    }
-    return TRUE;
+    Il2CppObject* ignored=0;
+    return SetImageSpriteObjectH62(image,originalSprite,&ignored);
 }
 
 static BOOL ApplySlotIconH61(Il2CppObject* button,
@@ -1903,16 +2077,19 @@ static BOOL ApplySlotIconH61(Il2CppObject* button,
     const char* wanted=wantDlc ? g_h61DlcIconNames[k] : g_h61BaseIconNames[k];
     Il2CppObject* sprite=FindLoadedSpriteByExactNameH61(wanted);
     if(!sprite) {
-        LogIntA("[WHEEL H61] target sprite NOT loaded for slot: ",slot);
+        LogIntA("[WHEEL H62] target sprite NOT cached for slot: ",slot);
         LogA(wanted);
         return FALSE;
     }
 
     Il2CppObject* original=0;
     if(!SetButtonIconSpriteH61(button,buttonClass,sprite,&original)) {
-        LogIntA("[WHEEL H61] failed to set icon sprite for slot: ",slot);
+        LogIntA("[WHEEL H62] failed to set primary icon sprite for slot: ",slot);
         return FALSE;
     }
+
+    // H62: replace any second/underlay Image still drawing the old icon.
+    ReplaceMatchingLocalIconLayersH62(button,original,sprite,baseVisualState,visualIndex);
 
     if(baseVisualState) {
         g_h61BaseIconButtons[visualIndex]=button;
@@ -1922,9 +2099,17 @@ static BOOL ApplySlotIconH61(Il2CppObject* button,
         g_h61DlcOriginalSprites[visualIndex]=original;
     }
 
-    LogIntA(wantDlc ? "[WHEEL H61] DLC icon applied to slot: " : "[WHEEL H61] BASE icon applied to slot: ",slot);
-    LogA(wanted);
+    LogIntA(wantDlc ? "[WHEEL H62] DLC icon layers applied to slot: " : "[WHEEL H62] BASE icon layers applied to slot: ",slot);
     return TRUE;
+}
+
+static void PrewarmWheelSpriteCacheH62() {
+    if(!g_ready || g_shuttingDown || g_h62SpriteCacheComplete) return;
+
+    BOOL attached=FALSE; void* thread=0;
+    if(!EnsureIl2CppThread(&attached,&thread)) return;
+    BuildWheelSpriteCacheH62(TRUE);
+    ReleaseIl2CppThread(attached,thread);
 }
 
 static int SlotIndexH59(int slot) {
@@ -2129,9 +2314,11 @@ static BOOL RestoreBaseSwapH57() {
 
     BOOL ok=TRUE;
     for(int i=0;i<g_h57BaseMappedCount;i++) {
-        if(g_h61BaseIconButtons[i] &&
-           !RestoreButtonIconSpriteH61(g_h61BaseIconButtons[i],buttonClass,g_h61BaseOriginalSprites[i]))
-            ok=FALSE;
+        if(g_h61BaseIconButtons[i]) {
+            if(!RestoreExtraIconLayersH62(TRUE,i)) ok=FALSE;
+            if(!RestoreButtonIconSpriteH61(g_h61BaseIconButtons[i],buttonClass,g_h61BaseOriginalSprites[i]))
+                ok=FALSE;
+        }
 
         if(!SetWheelButtonWeaponH57(g_h57BaseMappedButtons[i],buttonClass,getWeapon,g_h57BaseOriginalWeapons[i]))
             ok=FALSE;
@@ -2515,8 +2702,10 @@ static BOOL ApplyDelayedBaseFilterH51() {
 
     if(g_h57BaseMappedCount!=5 || baseEnabled!=9) {
         for(int i=0;i<g_h57BaseMappedCount;i++) {
-            if(g_h61BaseIconButtons[i])
+            if(g_h61BaseIconButtons[i]) {
+                RestoreExtraIconLayersH62(TRUE,i);
                 RestoreButtonIconSpriteH61(g_h61BaseIconButtons[i],buttonClass,g_h61BaseOriginalSprites[i]);
+            }
             SetWheelButtonWeaponH57(g_h57BaseMappedButtons[i],buttonClass,getWeapon,g_h57BaseOriginalWeapons[i]);
         }
         ClearBaseSwapStateH57();
@@ -2527,7 +2716,7 @@ static BOOL ApplyDelayedBaseFilterH51() {
 
     g_h57BaseSwapApplied=TRUE;
     g_h51BaseFilterPending=0;
-    LogA("[WHEEL H61] H59 BASE logic preserved; direct native sprite-name mapping attempted.");
+    LogA("[WHEEL H62] H59 logic preserved; cached multi-layer BASE icon swap applied.");
     return TRUE;
 }
 
@@ -3315,8 +3504,10 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
 
     if(g_h54MappedCount!=5) {
         for(int i=0;i<g_h54MappedCount;i++) {
-            if(g_h61DlcIconButtons[i])
+            if(g_h61DlcIconButtons[i]) {
+                RestoreExtraIconLayersH62(FALSE,i);
                 RestoreButtonIconSpriteH61(g_h61DlcIconButtons[i],buttonClass,g_h61DlcOriginalSprites[i]);
+            }
             SetWheelButtonWeaponH54(g_h54MappedButtons[i],buttonClass,getWeapon,g_h54OriginalWeapons[i]);
         }
         ClearDlcSwapStateH54();
@@ -3333,7 +3524,7 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
 
     g_h54DlcSwapApplied=TRUE;
     g_h54DlcSwapPending=0;
-    LogA("[WHEEL H61] H59 DLC logic preserved; direct native sprite-name mapping attempted.");
+    LogA("[WHEEL H62] H59 logic preserved; cached multi-layer DLC icon swap applied.");
     return TRUE;
 }
 
@@ -3361,9 +3552,11 @@ static BOOL RestoreDlcSwapH54() {
 
     BOOL ok=TRUE;
     for(int i=0;i<g_h54MappedCount;i++) {
-        if(g_h61DlcIconButtons[i] &&
-           !RestoreButtonIconSpriteH61(g_h61DlcIconButtons[i],buttonClass,g_h61DlcOriginalSprites[i]))
-            ok=FALSE;
+        if(g_h61DlcIconButtons[i]) {
+            if(!RestoreExtraIconLayersH62(FALSE,i)) ok=FALSE;
+            if(!RestoreButtonIconSpriteH61(g_h61DlcIconButtons[i],buttonClass,g_h61DlcOriginalSprites[i]))
+                ok=FALSE;
+        }
 
         if(!SetWheelButtonWeaponH54(g_h54MappedButtons[i],buttonClass,getWeapon,g_h54OriginalWeapons[i]))
             ok=FALSE;
