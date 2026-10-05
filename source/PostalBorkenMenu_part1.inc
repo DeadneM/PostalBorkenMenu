@@ -36,6 +36,7 @@ typedef const char* LPCSTR;
 typedef char* LPSTR;
 typedef DWORD (__stdcall *LPTHREAD_START_ROUTINE)(void*);
 typedef LRESULT (__stdcall *WNDPROC)(HWND, UINT, WPARAM, LPARAM);
+typedef BOOL (__stdcall *WNDENUMPROC)(HWND, LPARAM);
 
 struct POINT { LONG x; LONG y; };
 struct RECT { LONG left; LONG top; LONG right; LONG bottom; };
@@ -91,6 +92,7 @@ __declspec(dllimport) DWORD __stdcall SetFilePointer(HANDLE, LONG, LONG*, DWORD)
 __declspec(dllimport) BOOL __stdcall CloseHandle(HANDLE);
 
 __declspec(dllimport) HWND __stdcall GetForegroundWindow(void);
+__declspec(dllimport) BOOL __stdcall EnumWindows(WNDENUMPROC, LPARAM);
 __declspec(dllimport) DWORD __stdcall GetWindowThreadProcessId(HWND, DWORD*);
 __declspec(dllimport) LONG_PTR __stdcall SetWindowLongPtrW(HWND, int, LONG_PTR);
 __declspec(dllimport) LRESULT __stdcall CallWindowProcW(WNDPROC, HWND, UINT, WPARAM, LPARAM);
@@ -107,6 +109,7 @@ __declspec(dllimport) int __stdcall GetWindowTextW(HWND, LPWSTR, int);
 __declspec(dllimport) HWND __stdcall SetFocus(HWND);
 __declspec(dllimport) BOOL __stdcall SetForegroundWindow(HWND);
 __declspec(dllimport) BOOL __stdcall IsWindow(HWND);
+__declspec(dllimport) BOOL __stdcall IsWindowVisible(HWND);
 __declspec(dllimport) BOOL __stdcall GetClientRect(HWND, RECT*);
 __declspec(dllimport) BOOL __stdcall ClientToScreen(HWND, POINT*);
 __declspec(dllimport) BOOL __stdcall SetWindowPos(HWND, HWND, int, int, int, int, UINT);
