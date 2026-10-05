@@ -1957,76 +1957,12 @@ static BOOL ReplaceMatchingLocalIconLayersH62(Il2CppObject* button,
                                                Il2CppObject* targetSprite,
                                                BOOL baseState,
                                                int index) {
-    if(!button || !originalSprite || !targetSprite || index<0 || index>=5) return FALSE;
-    if(!g_componentGetGameObject || !g_gameObjectGetComponentsInChildren || !g_uiImage) return FALSE;
-
-    Il2CppClass* imageClass=g_il2cpp.class_from_name(g_uiImage,"UnityEngine.UI","Image");
-    if(!imageClass) return FALSE;
-    const Il2CppType* it=g_il2cpp.class_get_type(imageClass);
-    Il2CppObject* imageTypeObj=it ? g_il2cpp.type_get_object(it) : 0;
-    if(!imageTypeObj) return FALSE;
-
-    Il2CppException* ex=0;
-    Il2CppObject* go=g_il2cpp.runtime_invoke(g_componentGetGameObject,button,0,&ex);
-    if(ex || !go) {
-        if(ex) FormatExceptionToLog(ex);
-        return FALSE;
-    }
-
-    BOOL includeInactive=TRUE;
-    void* pars[2]; pars[0]=imageTypeObj; pars[1]=&includeInactive;
-    ex=0;
-    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(g_gameObjectGetComponentsInChildren,go,pars,&ex);
-    if(ex || !arrObj) {
-        if(ex) FormatExceptionToLog(ex);
-        return FALSE;
-    }
-
-    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
-    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
-
-    Il2CppArray* arr=(Il2CppArray*)arrObj;
-    SIZE_T n=g_il2cpp.array_length(arr);
-    if(n>64) n=64;
-    unsigned int hdr=g_il2cpp.array_object_header_size();
-    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
-
-    int changed=0;
-    for(SIZE_T i=0;i<n;i++) {
-        Il2CppObject* image=elems[i];
-        if(!image || !objectGetClass) continue;
-
-        Il2CppClass* runtimeClass=objectGetClass(image);
-        const MethodInfo* getSprite=runtimeClass ? g_il2cpp.class_get_method_from_name(runtimeClass,"get_sprite",0) : 0;
-        const MethodInfo* setSprite=runtimeClass ? g_il2cpp.class_get_method_from_name(runtimeClass,"set_sprite",1) : 0;
-        if(!getSprite || !setSprite) continue;
-
-        ex=0;
-        Il2CppObject* current=g_il2cpp.runtime_invoke(getSprite,image,0,&ex);
-        if(ex || current!=originalSprite) continue;
-
-        int c=baseState ? g_h62BaseExtraCount[index] : g_h62DlcExtraCount[index];
-        if(c>=8) break;
-
-        void* sp[1]; sp[0]=targetSprite;
-        ex=0;
-        g_il2cpp.runtime_invoke(setSprite,image,sp,&ex);
-        if(ex) continue;
-
-        if(baseState) {
-            g_h62BaseExtraImages[index][c]=image;
-            g_h62BaseExtraOriginalSprites[index][c]=current;
-            g_h62BaseExtraCount[index]=c+1;
-        } else {
-            g_h62DlcExtraImages[index][c]=image;
-            g_h62DlcExtraOriginalSprites[index][c]=current;
-            g_h62DlcExtraCount[index]=c+1;
-        }
-        ++changed;
-    }
-
-    LogIntA("[WHEEL H62] additional matching icon layers replaced: ",changed);
-    return changed>0;
+    // H65 clean baseline: preserve H61 visual behavior exactly.
+    // H62 cache stays enabled for performance, but no secondary/background
+    // Image is modified here.
+    (void)button; (void)originalSprite; (void)targetSprite;
+    ClearExtraLayersH62(baseState,index);
+    return TRUE;
 }
 
 static BOOL RestoreExtraIconLayersH62(BOOL baseState,int index) {
@@ -2716,7 +2652,7 @@ static BOOL ApplyDelayedBaseFilterH51() {
 
     g_h57BaseSwapApplied=TRUE;
     g_h51BaseFilterPending=0;
-    LogA("[WHEEL H62] H59 logic preserved; cached multi-layer BASE icon swap applied.");
+    LogA("[WHEEL H65] H59 logic + H61 icon behavior preserved; H62 cache only.");
     return TRUE;
 }
 
@@ -3524,7 +3460,7 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
 
     g_h54DlcSwapApplied=TRUE;
     g_h54DlcSwapPending=0;
-    LogA("[WHEEL H62] H59 logic preserved; cached multi-layer DLC icon swap applied.");
+    LogA("[WHEEL H65] H59 logic + H61 icon behavior preserved; H62 cache only.");
     return TRUE;
 }
 
