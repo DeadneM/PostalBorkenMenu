@@ -1823,7 +1823,7 @@ static BOOL BuildWheelSpriteCacheH62(BOOL forceRetry) {
 
     LONG attempts=g_h62SpriteScanAttempts;
     if(!forceRetry && attempts>=2) return FALSE;
-    InterlockedIncrement(&g_h62SpriteScanAttempts);
+    g_h62SpriteScanAttempts=attempts+1;
 
     Il2CppClass* spriteClass=g_coreImage ? g_il2cpp.class_from_name(
         g_coreImage,"UnityEngine","Sprite") : 0;
