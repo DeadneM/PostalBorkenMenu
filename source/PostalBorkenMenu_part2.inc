@@ -1957,14 +1957,28 @@ static BOOL ReplaceMatchingLocalIconLayersH62(Il2CppObject* button,
                                                Il2CppObject* targetSprite,
                                                BOOL baseState,
                                                int index) {
-    if(!button || !originalSprite || !targetSprite || index<0 || index>=5) return FALSE;
+    if(!button || !targetSprite || index<0 || index>=5) return FALSE;
     if(!g_componentGetGameObject || !g_gameObjectGetComponentsInChildren || !g_uiImage) return FALSE;
 
+    Il2CppClass* buttonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
     Il2CppClass* imageClass=g_il2cpp.class_from_name(g_uiImage,"UnityEngine.UI","Image");
-    if(!imageClass) return FALSE;
+    Il2CppClass* unityObjectClass=g_coreImage ? g_il2cpp.class_from_name(
+        g_coreImage,"UnityEngine","Object") : 0;
+    if(!buttonClass || !imageClass || !unityObjectClass) return FALSE;
+
+    const FieldInfo* primaryField=g_il2cpp.class_get_field_from_name(buttonClass,"_weaponSelectedImage");
+    const FieldInfo* backgroundField=g_il2cpp.class_get_field_from_name(buttonClass,"_backgroundImage");
+    Il2CppObject* primaryImage=0;
+    Il2CppObject* wheelBackground=0;
+    if(primaryField) g_il2cpp.field_get_value(button,primaryField,&primaryImage);
+    if(backgroundField) g_il2cpp.field_get_value(button,backgroundField,&wheelBackground);
+
     const Il2CppType* it=g_il2cpp.class_get_type(imageClass);
     Il2CppObject* imageTypeObj=it ? g_il2cpp.type_get_object(it) : 0;
     if(!imageTypeObj) return FALSE;
+
+    const MethodInfo* getObjectName=g_il2cpp.class_get_method_from_name(unityObjectClass,"get_name",0);
 
     Il2CppException* ex=0;
     Il2CppObject* go=g_il2cpp.runtime_invoke(g_componentGetGameObject,button,0,&ex);
@@ -1996,6 +2010,10 @@ static BOOL ReplaceMatchingLocalIconLayersH62(Il2CppObject* button,
         Il2CppObject* image=elems[i];
         if(!image || !objectGetClass) continue;
 
+        // Primary icon was already changed by H61. The wheel wedge/background
+        // is generic and must remain untouched.
+        if(image==primaryImage || image==wheelBackground) continue;
+
         Il2CppClass* runtimeClass=objectGetClass(image);
         const MethodInfo* getSprite=runtimeClass ? g_il2cpp.class_get_method_from_name(runtimeClass,"get_sprite",0) : 0;
         const MethodInfo* setSprite=runtimeClass ? g_il2cpp.class_get_method_from_name(runtimeClass,"set_sprite",1) : 0;
@@ -2003,7 +2021,18 @@ static BOOL ReplaceMatchingLocalIconLayersH62(Il2CppObject* button,
 
         ex=0;
         Il2CppObject* current=g_il2cpp.runtime_invoke(getSprite,image,0,&ex);
-        if(ex || current!=originalSprite) continue;
+        if(ex || !current) continue;
+
+        // Never overwrite generic wheel-part art. Everything else local to the
+        // WeaponWheelButton is the weapon's secondary icon/fill layer.
+        char spriteName[192]; spriteName[0]=0;
+        if(getObjectName) {
+            ex=0;
+            Il2CppObject* nameObj=g_il2cpp.runtime_invoke(getObjectName,current,0,&ex);
+            if(!ex && nameObj)
+                CatalogManagedStringToAscii((Il2CppString*)nameObj,spriteName,192);
+        }
+        if(StrContainsNoCaseA(spriteName,"weapon_wheel_part")) continue;
 
         int c=baseState ? g_h62BaseExtraCount[index] : g_h62DlcExtraCount[index];
         if(c>=8) break;
@@ -2022,10 +2051,13 @@ static BOOL ReplaceMatchingLocalIconLayersH62(Il2CppObject* button,
             g_h62DlcExtraOriginalSprites[index][c]=current;
             g_h62DlcExtraCount[index]=c+1;
         }
+
         ++changed;
+        LogA("[WHEEL H63] secondary weapon visual layer replaced:");
+        if(spriteName[0]) LogA(spriteName);
     }
 
-    LogIntA("[WHEEL H62] additional matching icon layers replaced: ",changed);
+    LogIntA("[WHEEL H63] secondary weapon visual layers replaced: ",changed);
     return changed>0;
 }
 
@@ -2716,7 +2748,7 @@ static BOOL ApplyDelayedBaseFilterH51() {
 
     g_h57BaseSwapApplied=TRUE;
     g_h51BaseFilterPending=0;
-    LogA("[WHEEL H62] H59 logic preserved; cached multi-layer BASE icon swap applied.");
+    LogA("[WHEEL H63] H59 logic preserved; full BASE icon + weapon-background swap applied.");
     return TRUE;
 }
 
@@ -3524,7 +3556,7 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
 
     g_h54DlcSwapApplied=TRUE;
     g_h54DlcSwapPending=0;
-    LogA("[WHEEL H62] H59 logic preserved; cached multi-layer DLC icon swap applied.");
+    LogA("[WHEEL H63] H59 logic preserved; full DLC icon + weapon-background swap applied.");
     return TRUE;
 }
 
