@@ -1931,6 +1931,189 @@ static BOOL SetImageSpriteObjectH62(Il2CppObject* image,Il2CppObject* sprite,Il2
     return TRUE;
 }
 
+struct H66VisualPair {
+    Il2CppObject* selectedSprite;
+    Il2CppObject* backgroundSprite;
+};
+
+static H66VisualPair g_h66VisualPairs[2][10]={{0}};
+static volatile LONG g_h66VisualPairScanAttempts=0;
+
+static Il2CppObject* GetImageSpriteH66(Il2CppObject* image) {
+    if(!image) return 0;
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+    Il2CppClass* imageClass=objectGetClass ? objectGetClass(image) : 0;
+    if(!imageClass) return 0;
+    const MethodInfo* getSprite=g_il2cpp.class_get_method_from_name(imageClass,"get_sprite",0);
+    if(!getSprite) return 0;
+    Il2CppException* ex=0;
+    Il2CppObject* sprite=g_il2cpp.runtime_invoke(getSprite,image,0,&ex);
+    return ex ? 0 : sprite;
+}
+
+static int CountVisualPairsH66() {
+    int n=0;
+    for(int cat=0;cat<2;cat++)
+        for(int slot=1;slot<=9;slot++)
+            if(g_h66VisualPairs[cat][slot].selectedSprite &&
+               g_h66VisualPairs[cat][slot].backgroundSprite)
+                ++n;
+    return n;
+}
+
+static BOOL BuildNativeWheelVisualPairCacheH66(BOOL forceRetry) {
+    LONG attempts=g_h66VisualPairScanAttempts;
+    if(!forceRetry && attempts>=2) return CountVisualPairsH66()>0;
+    g_h66VisualPairScanAttempts=attempts+1;
+
+    Il2CppClass* buttonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
+    Il2CppClass* weaponClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    Il2CppClass* resourcesClass=g_coreImage ? g_il2cpp.class_from_name(
+        g_coreImage,"UnityEngine","Resources") : 0;
+    if(!buttonClass || !weaponClass || !resourcesClass) return FALSE;
+
+    const FieldInfo* weaponField=g_il2cpp.class_get_field_from_name(buttonClass,"_weaponId");
+    const FieldInfo* selectedField=g_il2cpp.class_get_field_from_name(buttonClass,"_weaponSelectedImage");
+    const FieldInfo* backgroundField=g_il2cpp.class_get_field_from_name(buttonClass,"_backgroundImage");
+    const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(weaponClass,"get_Category",0);
+    const MethodInfo* getSlot=g_il2cpp.class_get_method_from_name(weaponClass,"get_Slot",0);
+    const MethodInfo* findAll=FindMethodExact(resourcesClass,"FindObjectsOfTypeAll",1,g_systemTypeClass);
+    if(!weaponField || !selectedField || !backgroundField || !getCategory || !getSlot || !findAll)
+        return FALSE;
+
+    const Il2CppType* bt=g_il2cpp.class_get_type(buttonClass);
+    Il2CppObject* typeObj=bt ? g_il2cpp.type_get_object(bt) : 0;
+    if(!typeObj) return FALSE;
+
+    LogA("[WHEEL H66] Scanning loaded WeaponWheelButton resources for exact native visual pairs...");
+
+    void* pars[1]; pars[0]=typeObj;
+    Il2CppException* ex=0;
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(findAll,0,pars,&ex);
+    if(ex || !arrObj) {
+        if(ex) FormatExceptionToLog(ex);
+        return FALSE;
+    }
+
+    Il2CppArray* arr=(Il2CppArray*)arrObj;
+    SIZE_T n=g_il2cpp.array_length(arr);
+    if(n>512) n=512;
+    unsigned int hdr=g_il2cpp.array_object_header_size();
+    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+
+    for(SIZE_T i=0;i<n;i++) {
+        Il2CppObject* button=elems[i];
+        if(!button) continue;
+
+        // H66 deliberately avoids WeaponWheelButton.get_WeaponId().
+        // H60's resource-button method invocation was the unsafe path.
+        Il2CppObject* weapon=0;
+        g_il2cpp.field_get_value(button,weaponField,&weapon);
+        if(!weapon) continue;
+
+        ex=0;
+        Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,weapon,0,&ex);
+        if(ex || !catBox) continue;
+        void* catRaw=g_il2cpp.object_unbox(catBox);
+        if(!catRaw) continue;
+        int cat=*(int*)catRaw;
+        if(cat<0 || cat>1) continue;
+
+        ex=0;
+        Il2CppObject* slotBox=g_il2cpp.runtime_invoke(getSlot,weapon,0,&ex);
+        if(ex || !slotBox) continue;
+        void* slotRaw=g_il2cpp.object_unbox(slotBox);
+        if(!slotRaw) continue;
+        int slot=*(int*)slotRaw;
+        if(slot<1 || slot>9) continue;
+
+        Il2CppObject* selectedImage=0;
+        Il2CppObject* backgroundImage=0;
+        g_il2cpp.field_get_value(button,selectedField,&selectedImage);
+        g_il2cpp.field_get_value(button,backgroundField,&backgroundImage);
+        if(!selectedImage || !backgroundImage) continue;
+
+        Il2CppObject* selectedSprite=GetImageSpriteH66(selectedImage);
+        Il2CppObject* backgroundSprite=GetImageSpriteH66(backgroundImage);
+        if(!selectedSprite || !backgroundSprite) continue;
+
+        H66VisualPair* pair=&g_h66VisualPairs[cat][slot];
+        if(!pair->selectedSprite || !pair->backgroundSprite) {
+            pair->selectedSprite=selectedSprite;
+            pair->backgroundSprite=backgroundSprite;
+            LogIntA(cat==0 ? "[WHEEL H66] cached BASE visual pair slot: " :
+                             "[WHEEL H66] cached DLC visual pair slot: ",slot);
+        }
+    }
+
+    LogIntA("[WHEEL H66] exact native visual pairs cached: ",CountVisualPairsH66());
+    return CountVisualPairsH66()>0;
+}
+
+static BOOL ApplyNativeVisualPairH66(Il2CppObject* button,
+                                     Il2CppClass* buttonClass,
+                                     int slot,
+                                     BOOL wantDlc,
+                                     BOOL baseVisualState,
+                                     int visualIndex) {
+    if(!button || !buttonClass || slot<1 || slot>9 || visualIndex<0 || visualIndex>=5)
+        return FALSE;
+
+    int cat=wantDlc ? 1 : 0;
+    H66VisualPair* pair=&g_h66VisualPairs[cat][slot];
+    if(!pair->selectedSprite || !pair->backgroundSprite) {
+        BuildNativeWheelVisualPairCacheH66(FALSE);
+        pair=&g_h66VisualPairs[cat][slot];
+    }
+    if(!pair->selectedSprite || !pair->backgroundSprite) {
+        LogIntA("[WHEEL H66] exact opposite-mode visual pair unavailable for slot: ",slot);
+        return FALSE;
+    }
+
+    const FieldInfo* selectedField=g_il2cpp.class_get_field_from_name(buttonClass,"_weaponSelectedImage");
+    const FieldInfo* backgroundField=g_il2cpp.class_get_field_from_name(buttonClass,"_backgroundImage");
+    if(!selectedField || !backgroundField) return FALSE;
+
+    Il2CppObject* selectedImage=0;
+    Il2CppObject* backgroundImage=0;
+    g_il2cpp.field_get_value(button,selectedField,&selectedImage);
+    g_il2cpp.field_get_value(button,backgroundField,&backgroundImage);
+    if(!selectedImage || !backgroundImage) return FALSE;
+
+    Il2CppObject* originalSelected=0;
+    Il2CppObject* originalBackground=0;
+    if(!SetImageSpriteObjectH62(selectedImage,pair->selectedSprite,&originalSelected))
+        return FALSE;
+
+    if(!SetImageSpriteObjectH62(backgroundImage,pair->backgroundSprite,&originalBackground)) {
+        Il2CppObject* ignored=0;
+        SetImageSpriteObjectH62(selectedImage,originalSelected,&ignored);
+        return FALSE;
+    }
+
+    ClearExtraLayersH62(baseVisualState,visualIndex);
+    if(baseVisualState) {
+        g_h61BaseIconButtons[visualIndex]=button;
+        g_h61BaseOriginalSprites[visualIndex]=originalSelected;
+        g_h62BaseExtraImages[visualIndex][0]=backgroundImage;
+        g_h62BaseExtraOriginalSprites[visualIndex][0]=originalBackground;
+        g_h62BaseExtraCount[visualIndex]=1;
+    } else {
+        g_h61DlcIconButtons[visualIndex]=button;
+        g_h61DlcOriginalSprites[visualIndex]=originalSelected;
+        g_h62DlcExtraImages[visualIndex][0]=backgroundImage;
+        g_h62DlcExtraOriginalSprites[visualIndex][0]=originalBackground;
+        g_h62DlcExtraCount[visualIndex]=1;
+    }
+
+    LogIntA(wantDlc ? "[WHEEL H66] exact DLC visual pair applied to slot: " :
+                      "[WHEEL H66] exact BASE visual pair applied to slot: ",slot);
+    return TRUE;
+}
+
 static BOOL SetButtonIconSpriteH61(Il2CppObject* button,
                                    Il2CppClass* buttonClass,
                                    Il2CppObject* sprite,
@@ -2010,6 +2193,12 @@ static BOOL ApplySlotIconH61(Il2CppObject* button,
     int k=SlotIndexH59(slot);
     if(k<0 || visualIndex<0 || visualIndex>=5) return FALSE;
 
+    // H66 first tries the exact native pair from the opposite wheel:
+    // selected weapon image + its matching background image.
+    if(ApplyNativeVisualPairH66(button,buttonClass,slot,wantDlc,baseVisualState,visualIndex))
+        return TRUE;
+
+    // Safe fallback: H65/H61 icon-only behavior, never touching background.
     const char* wanted=wantDlc ? g_h61DlcIconNames[k] : g_h61BaseIconNames[k];
     Il2CppObject* sprite=FindLoadedSpriteByExactNameH61(wanted);
     if(!sprite) {
@@ -2045,6 +2234,7 @@ static void PrewarmWheelSpriteCacheH62() {
     BOOL attached=FALSE; void* thread=0;
     if(!EnsureIl2CppThread(&attached,&thread)) return;
     BuildWheelSpriteCacheH62(TRUE);
+    BuildNativeWheelVisualPairCacheH66(TRUE);
     ReleaseIl2CppThread(attached,thread);
 }
 
@@ -2652,7 +2842,7 @@ static BOOL ApplyDelayedBaseFilterH51() {
 
     g_h57BaseSwapApplied=TRUE;
     g_h51BaseFilterPending=0;
-    LogA("[WHEEL H65] H59 logic + H61 icon behavior preserved; H62 cache only.");
+    LogA("[WHEEL H66] H59 logic preserved; exact opposite-mode native visual pair requested, H61 fallback retained.");
     return TRUE;
 }
 
@@ -3460,7 +3650,7 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
 
     g_h54DlcSwapApplied=TRUE;
     g_h54DlcSwapPending=0;
-    LogA("[WHEEL H65] H59 logic + H61 icon behavior preserved; H62 cache only.");
+    LogA("[WHEEL H66] H59 logic preserved; exact opposite-mode native visual pair requested, H61 fallback retained.");
     return TRUE;
 }
 
