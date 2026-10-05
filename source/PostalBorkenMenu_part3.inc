@@ -705,10 +705,15 @@ static DWORD __stdcall ModThread(void*) {
         LogA("[ERROR] Exact-name WeaponId resolver was not retained.");
     LogA(g_skipStartupLogos ? "[SPLASH H40] Skip Startup Logos config: ENABLED (default)." : "[SPLASH H40] Skip Startup Logos config: DISABLED.");
     if (!InitIl2Cpp()) return 0;
+
+    // H62: pay the one global Sprite enumeration during startup instead of
+    // stalling the first wheel shortcut. Later opens use cached references.
+    PrewarmWheelSpriteCacheH62();
+
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] H61 preserves validated H59 logic exactly and changes only _weaponSelectedImage.sprite by exact native sprite names.");
+    LogA("[READY] H62 preserves validated H59 logic, caches all wheel sprites once, and swaps every matching local icon Image layer.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
