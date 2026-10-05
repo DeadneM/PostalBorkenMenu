@@ -620,7 +620,7 @@ struct H63WindowSearch {
     LONG bestArea;
 };
 
-static BOOL CALLBACK EnumGameWindowsH63(HWND hwnd, LPARAM lp) {
+static BOOL __stdcall EnumGameWindowsH63(HWND hwnd, LPARAM lp) {
     H63WindowSearch* s=(H63WindowSearch*)lp;
     if(!s || !hwnd || hwnd==g_menuHwnd || !IsWindow(hwnd) || !IsWindowVisible(hwnd))
         return TRUE;
