@@ -1,6 +1,7 @@
 LIBRARY USER32.dll
 EXPORTS
 GetForegroundWindow
+EnumWindows
 GetWindowThreadProcessId
 SetWindowLongPtrW
 CallWindowProcW
@@ -17,6 +18,7 @@ GetWindowTextW
 SetFocus
 SetForegroundWindow
 IsWindow
+IsWindowVisible
 GetClientRect
 ClientToScreen
 SetWindowPos
