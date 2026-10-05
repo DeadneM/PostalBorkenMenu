@@ -614,70 +614,94 @@ static void PollHotkeys() {
     }
 }
 
+struct H63WindowSearch {
+    DWORD pid;
+    HWND best;
+    LONG bestArea;
+};
+
+static BOOL __stdcall EnumGameWindowsH63(HWND hwnd, LPARAM lp) {
+    H63WindowSearch* s=(H63WindowSearch*)lp;
+    if(!s || !hwnd || hwnd==g_menuHwnd || !IsWindow(hwnd) || !IsWindowVisible(hwnd))
+        return TRUE;
+
+    DWORD wp=0;
+    GetWindowThreadProcessId(hwnd,&wp);
+    if(wp!=s->pid) return TRUE;
+
+    RECT r={};
+    if(!GetClientRect(hwnd,&r)) return TRUE;
+
+    LONG w=r.right-r.left;
+    LONG h=r.bottom-r.top;
+    if(w<320 || h<200) return TRUE;
+
+    LONG area=w*h;
+    if(area>s->bestArea) {
+        s->best=hwnd;
+        s->bestArea=area;
+    }
+    return TRUE;
+}
+
+static HWND FindOwnGameWindowH63() {
+    H63WindowSearch s={};
+    s.pid=GetCurrentProcessId();
+    s.best=0;
+    s.bestArea=0;
+    EnumWindows(EnumGameWindowsH63,(LPARAM)&s);
+    return s.best;
+}
+
 static BOOL HookGameWindow() {
-    DWORD pid=GetCurrentProcessId();
     HWND candidate=0;
     int stableSamples=0;
+    int quietTicks=0;
 
-    LogA("[WINDOW] Waiting for one stable foreground game window before subclassing.");
+    LogA("[WINDOW H63] Waiting for the game's own top-level window; foreground focus is NOT required.");
 
-    for (int k=0;k<600;k++) {
-        HWND h=GetForegroundWindow();
-        BOOL valid=FALSE;
+    while(!g_shuttingDown) {
+        HWND h=FindOwnGameWindowH63();
+        BOOL valid=(h && h!=g_menuHwnd && IsWindow(h));
 
-        if (h && h!=g_menuHwnd && IsWindow(h)) {
-            DWORD wp=0;
-            GetWindowThreadProcessId(h,&wp);
-
-            RECT r={};
-            if (wp==pid && GetClientRect(h,&r)) {
-                int w=(int)(r.right-r.left);
-                int hh=(int)(r.bottom-r.top);
-                if (w>=320 && hh>=200) valid=TRUE;
-            }
-        }
-
-        if (valid) {
-            if (h==candidate) {
+        if(valid) {
+            if(h==candidate) {
                 ++stableSamples;
             } else {
                 candidate=h;
                 stableSamples=1;
-                LogA("[WINDOW] New foreground candidate detected; stability timer restarted.");
+                quietTicks=0;
+                LogA("[WINDOW H63] Process-owned game window candidate detected.");
             }
 
-            if (stableSamples==10) {
-                LogA("[WINDOW] Candidate stable for 1 second.");
-                if (g_skipIntroVideos)
-                    LogA("[INTRO H13] Skip Intro preference enabled; no simulated input is emitted.");
-            } else if (stableSamples==20)
-                LogA("[WINDOW] Candidate stable for 2 seconds.");
-
-            if (stableSamples>=30) {
-                LogA("[WINDOW] Candidate stable for 3 seconds; installing WndProc subclass now.");
+            // Half a second is enough to reject transient launch windows while
+            // avoiding the old 3-second foreground-only dependency.
+            if(stableSamples>=5) {
                 LONG_PTR old=SetWindowLongPtrW(candidate,GWLP_WNDPROC,(LONG_PTR)GameWndProc);
-                if (old) {
+                if(old) {
                     g_gameHwnd=candidate;
                     g_oldGameWndProc=(WNDPROC)old;
-                    LogA("[OK] Stable game window subclass installed - F1 overlay ready");
+                    LogA("[OK] H63 process-owned game window subclass installed - F1 overlay ready");
                     return TRUE;
                 }
 
-                LogA("[WINDOW] Subclass attempt failed; candidate stability reset.");
+                LogA("[WINDOW H63] Subclass attempt failed; will keep retrying instead of terminating the mod.");
                 candidate=0;
                 stableSamples=0;
             }
         } else {
-            if (candidate || stableSamples)
-                LogA("[WINDOW] Foreground candidate lost; stability timer reset.");
             candidate=0;
             stableSamples=0;
+
+            // Keep the log useful without spamming it forever.
+            ++quietTicks;
+            if(quietTicks==1 || (quietTicks%100)==0)
+                LogA("[WINDOW H63] Game window not ready yet; retrying in background.");
         }
 
         Sleep(100);
     }
 
-    LogA("[ERROR] Could not find a stable game window to subclass");
     return FALSE;
 }
 
@@ -690,7 +714,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H61 DIRECT SPRITE LOOKUP TEST");
+    LogA("PostalBorkenMenu V2A42-H65 CLEAN H61 + H63 INIT TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
@@ -713,7 +737,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] H62 preserves validated H59 logic, caches all wheel sprites once, and swaps every matching local icon Image layer.");
+    LogA("[READY] H65 clean baseline: H59 weapon logic + H61 icon behavior + H62 sprite cache + validated H63 focus-independent F1 initialization.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
