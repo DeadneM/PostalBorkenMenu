@@ -705,41 +705,64 @@ static BOOL HookGameWindow() {
     return FALSE;
 }
 
+static void WaitForStableGameWindowBeforeIl2CppH75() {
+    HWND candidate=0;
+    int stableSamples=0;
+
+    LogA("[STARTUP H75] Waiting for a stable process-owned game window before IL2CPP attach.");
+
+    for(int i=0;i<300 && !g_shuttingDown;i++) {
+        HWND h=FindOwnGameWindowH63();
+        if(h && IsWindow(h)) {
+            if(h==candidate) {
+                ++stableSamples;
+            } else {
+                candidate=h;
+                stableSamples=1;
+            }
+
+            if(stableSamples>=10) {
+                LogA("[STARTUP H75] Stable game window detected; applying 1500 ms grace period.");
+                Sleep(1500);
+                return;
+            }
+        } else {
+            candidate=0;
+            stableSamples=0;
+        }
+
+        Sleep(100);
+    }
+
+    LogA("[STARTUP H75] Stable-window wait timed out; continuing fail-open.");
+}
+
 static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LoadConfig();
 
-    // H39 runs before normal H13 initialization and calls Unity's own native
-    // CancelSplashScreen when the exact state machine enters Begin/Fade.
-    H39WatchAndCancelNativeSplash();
-
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H74 NATIVE TAP WHEEL SEMANTICS TEST");
+    LogA("PostalBorkenMenu V2A42-H75 DEFERRED STARTUP INIT TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
-    LogIntA("[SPLASH H39] UnityPlayer exact-build verification: ",(int)g_h39UnityPlayerVerified);
-    LogIntA("[SPLASH H39] Real CancelSplashScreen calls: ",(int)g_h39CancelCalls);
-    LogIntA("[SPLASH H39] Confirmed state=3/active=0 after cancel: ",(int)g_h39CancelConfirmed);
-    LogIntA("[SPLASH H39] Re-Begin events seen after cancel: ",(int)g_h39RebeginsSeen);
-    LogIntA("[SPLASH H39] Last observed native splash state: ",(int)g_h39LastState);
-    if (g_dormantExactNameResolver)
-        LogA("[OK] Exact-name WeaponId resolver linked; cleaned Arsenal/Special dispatcher active.");
-    else
-        LogA("[ERROR] Exact-name WeaponId resolver was not retained.");
-    LogA(g_skipStartupLogos ? "[SPLASH H40] Skip Startup Logos config: ENABLED (default)." : "[SPLASH H40] Skip Startup Logos config: DISABLED.");
-    if (!InitIl2Cpp()) return 0;
+    LogA("[STARTUP H75] H39 native CancelSplashScreen DISABLED.");
+    LogA("[STARTUP H75] H13 metadata audit DISABLED.");
+    LogA("[STARTUP H75] H62 sprite prewarm DISABLED.");
+    LogA("[STARTUP H75] automatic No Crosshair startup scan DEFERRED.");
+    if(g_skipStartupLogos)
+        LogA("[STARTUP H75] Skip Startup Logos setting is temporarily bypassed for stability testing.");
 
-    // H62: pay the one global Sprite enumeration during startup instead of
-    // stalling the first wheel shortcut. Later opens use cached references.
-    PrewarmWheelSpriteCacheH62();
+    WaitForStableGameWindowBeforeIl2CppH75();
+    if (!InitIl2Cpp()) return 0;
 
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] H74 preserves H65 mapping/visual behavior, uses native OnWheelDown/OnWheelUp for base wheel tap/hold semantics, and disables heavy wheel audits.");
+    LogA("[READY] H75 keeps validated H74 wheel semantics and defers risky optional startup work.");
 
-    if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
+    if(g_noCrosshair)
+        LogA("[STARTUP H75] No Crosshair is configured but not auto-applied during startup.");
 
     MSG m;
     while (!g_shuttingDown) {
