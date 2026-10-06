@@ -234,6 +234,8 @@ static WNDPROC g_oldGameWndProc = 0;
 static WCHAR g_iniPath[MAX_PATH_W];
 static WCHAR g_logPath[MAX_PATH_W];
 static volatile LONG g_ready = 0;
+// H77 lazy IL2CPP init state: 0 dormant, 1 initializing, 2 ready, 3 failed.
+static volatile LONG g_h77LazyInitState = 0;
 static volatile LONG g_menuVisible = 0;
 static volatile LONG g_shuttingDown = 0;
 static volatile LONG g_noCrosshair = 0;
