@@ -2001,6 +2001,120 @@ static BOOL RestoreButtonIconSpriteH61(Il2CppObject* button,
     return SetImageSpriteObjectH62(image,originalSprite,&ignored);
 }
 
+static void NormalizeSceneNameH67(const char* src,char* dst,int cap) {
+    if(!dst || cap<=1) return;
+    dst[0]=0;
+    if(!src) return;
+    int n=0;
+    for(int i=0;src[i] && n<cap-1;i++) {
+        char c=src[i];
+        if(c>='A' && c<='Z') c=(char)(c-'A'+'a');
+        if((c>='a' && c<='z') || (c>='0' && c<='9')) dst[n++]=c;
+    }
+    dst[n]=0;
+}
+
+static BOOL StartsWithA_H67(const char* s,const char* prefix) {
+    if(!s || !prefix) return FALSE;
+    for(int i=0;prefix[i];i++) if(s[i]!=prefix[i]) return FALSE;
+    return TRUE;
+}
+
+static BOOL ContainsDigitA_H67(const char* s) {
+    if(!s) return FALSE;
+    for(int i=0;s[i];i++) if(s[i]>='0' && s[i]<='9') return TRUE;
+    return FALSE;
+}
+
+static BOOL GetActiveLevelNameH67(char* out,int cap,int* outBuildIndex) {
+    if(out && cap>0) out[0]=0;
+    if(outBuildIndex) *outBuildIndex=-1;
+    if(!out || cap<=1 || !g_coreImage) return FALSE;
+
+    Il2CppClass* sceneManagerClass=g_il2cpp.class_from_name(
+        g_coreImage,"UnityEngine.SceneManagement","SceneManager");
+    Il2CppClass* sceneClass=g_il2cpp.class_from_name(
+        g_coreImage,"UnityEngine.SceneManagement","Scene");
+    if(!sceneManagerClass || !sceneClass) {
+        LogA("[WHEEL H67] SceneManager/Scene metadata unavailable.");
+        return FALSE;
+    }
+
+    const MethodInfo* getActiveScene=g_il2cpp.class_get_method_from_name(sceneManagerClass,"GetActiveScene",0);
+    const MethodInfo* getName=g_il2cpp.class_get_method_from_name(sceneClass,"get_name",0);
+    const MethodInfo* getBuildIndex=g_il2cpp.class_get_method_from_name(sceneClass,"get_buildIndex",0);
+    if(!getActiveScene || !getName) {
+        LogA("[WHEEL H67] GetActiveScene/get_name unavailable.");
+        return FALSE;
+    }
+
+    Il2CppException* ex=0;
+    Il2CppObject* sceneObj=g_il2cpp.runtime_invoke(getActiveScene,0,0,&ex);
+    if(ex || !sceneObj) {
+        if(ex) FormatExceptionToLog(ex);
+        LogA("[WHEEL H67] GetActiveScene failed.");
+        return FALSE;
+    }
+
+    ex=0;
+    Il2CppObject* nameObj=g_il2cpp.runtime_invoke(getName,sceneObj,0,&ex);
+    if(ex || !nameObj) {
+        if(ex) FormatExceptionToLog(ex);
+        LogA("[WHEEL H67] Scene.get_name failed.");
+        return FALSE;
+    }
+
+    CatalogManagedStringToAscii((Il2CppString*)nameObj,out,cap);
+
+    if(outBuildIndex && getBuildIndex) {
+        ex=0;
+        Il2CppObject* idxBox=g_il2cpp.runtime_invoke(getBuildIndex,sceneObj,0,&ex);
+        if(!ex && idxBox) {
+            void* raw=g_il2cpp.object_unbox(idxBox);
+            if(raw) *outBuildIndex=*(int*)raw;
+        }
+    }
+    return out[0]!=0;
+}
+
+static BOOL IsCurrentLevelDlcH67() {
+    char sceneName[192]; sceneName[0]=0;
+    int buildIndex=-1;
+
+    if(!GetActiveLevelNameH67(sceneName,192,&buildIndex)) {
+        LogA("[WHEEL H67] Level detection failed -> NORMAL game.");
+        return FALSE;
+    }
+
+    char normalized[192]; normalized[0]=0;
+    NormalizeSceneNameH67(sceneName,normalized,192);
+
+    BOOL isDlc=FALSE;
+    if(StrContainsNoCaseA(normalized,"sunofthebeach") ||
+       StrContainsNoCaseA(normalized,"shiphappens") ||
+       StrContainsNoCaseA(normalized,"erectionday") ||
+       StrContainsNoCaseA(normalized,"electionday") ||
+       StrContainsNoCaseA(normalized,"oralofficewardown") ||
+       StrContainsNoCaseA(normalized,"theoralofficewardown"))
+        isDlc=TRUE;
+
+    if(!isDlc && ContainsDigitA_H67(normalized) &&
+       (StartsWithA_H67(normalized,"dlc") || StartsWithA_H67(normalized,"ptsd")))
+        isDlc=TRUE;
+
+    if(!isDlc &&
+       (StrContainsNoCaseA(normalized,"thesesunnydaze") ||
+        StrContainsNoCaseA(normalized,"sunnydaze")))
+        isDlc=TRUE;
+
+    LogA("[WHEEL H67] Active level:");
+    LogA(sceneName);
+    LogIntA("[WHEEL H67] Active scene build index: ",buildIndex);
+    LogA(isDlc ? "[WHEEL H67] Mode detected: DLC / These Sunny Daze."
+               : "[WHEEL H67] Mode detected: NORMAL game.");
+    return isDlc;
+}
+
 static BOOL ApplySlotIconH61(Il2CppObject* button,
                              Il2CppClass* buttonClass,
                              int slot,
