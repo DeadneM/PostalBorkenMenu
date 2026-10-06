@@ -714,7 +714,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H68 NATIVE SCENE MODE ICONS TEST");
+    LogA("PostalBorkenMenu V2A42-H70 EXACT DLC SELECTION TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
@@ -737,7 +737,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] H68 preserves H65 and detects NORMAL vs DLC from native wheel composition (9/0 vs 4/5) before choosing cross-mode icons.");
+    LogA("[READY] H70 preserves H65/H68 and forces the exact selected remapped DLC WeaponId after wheel close only in NORMAL scenes.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
