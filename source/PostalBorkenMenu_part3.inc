@@ -153,7 +153,106 @@ static void SelectMenuTab(int tab) {
     if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
 }
 
+static const int g_h72IdX[9]={0,64,98,87,34,-34,-87,-98,-64};
+static const int g_h72IdY[9]={-100,-77,-17,50,94,94,50,-17,-77};
+
+static const WCHAR* H72LabelForButtonId(int mode,int id) {
+    // Native button IDs from the validated H56 mirror:
+    // id1 slot2, id2 slot1, id4 slot3, id5 slot8, id6 slot4.
+    if(mode==1) {
+        if(id==1) return L"PISTOL";
+        if(id==2) return L"SHOVEL";
+        if(id==4) return L"SHOTGUN";
+        if(id==5) return L"DILDO BOW";
+        if(id==6) return L"MACHINE GUN";
+    } else if(mode==2) {
+        if(id==1) return L"PISS GUN";
+        if(id==2) return L"UMDRILL";
+        if(id==4) return L"MEAT SHOTGUN";
+        if(id==5) return L"NUCLEAR SYRINGE";
+        if(id==6) return L"BUBBLE GUN";
+    }
+    return 0;
+}
+
+static void PaintH72CrossOverlay(HWND hwnd) {
+    PAINTSTRUCT ps={};
+    HDC dc=BeginPaint(hwnd,&ps);
+    if(!dc) return;
+
+    RECT r={};
+    GetClientRect(hwnd,&r);
+    int w=r.right-r.left;
+    int h=r.bottom-r.top;
+
+    const COLORREF key=C(1,2,3);
+    Fill(dc,0,0,w,h,key);
+
+    int minDim=(w<h)?w:h;
+    int radius=(minDim*31)/100;
+    if(radius<150) radius=150;
+    if(radius>330) radius=330;
+
+    int mode=(int)g_h72CrossVisualMode;
+    const int ids[5]={1,2,4,5,6};
+
+    for(int k=0;k<5;k++) {
+        int id=ids[k];
+        const WCHAR* label=H72LabelForButtonId(mode,id);
+        if(!label) continue;
+
+        int x=w/2 + (g_h72IdX[id-1]*radius)/100;
+        int y=h/2 + (g_h72IdY[id-1]*radius)/100;
+        int bw=(w>=1800)?210:170;
+        int bh=(h>=1000)?68:56;
+
+        COLORREF fill=(mode==2)?C(111,38,92):C(38,45,58);
+        Fill(dc,x-bw/2,y-bh/2,x+bw/2,y+bh/2,fill);
+        Text(dc,label,x-bw/2+6,y-bh/2,x+bw/2-6,y+bh/2,C(250,250,252),DT_CENTER);
+    }
+
+    Text(dc,
+         mode==2 ? L"DLC WEAPON WHEEL" : L"NORMAL WEAPON WHEEL",
+         0,h/2-18,w,h/2+18,C(242,242,245),DT_CENTER);
+
+    EndPaint(hwnd,&ps);
+}
+
+static void SyncH72CrossOverlay() {
+    if(!g_menuHwnd || !g_gameHwnd) return;
+
+    if(g_h72CrossVisualMode!=0 && !g_menuVisible) {
+        RECT r={}; POINT p={0,0};
+        if(!GetClientRect(g_gameHwnd,&r) || !ClientToScreen(g_gameHwnd,&p)) return;
+
+        int w=r.right-r.left;
+        int h=r.bottom-r.top;
+        if(w<320 || h<200) return;
+
+        if(!g_h72OverlayShown) {
+            SetLayeredWindowAttributes(g_menuHwnd,C(1,2,3),255,LWA_COLORKEY);
+            g_h72OverlayShown=1;
+            ShowWindow(g_menuHwnd,SW_SHOWNOACTIVATE);
+        }
+
+        SetWindowPos(g_menuHwnd,(HWND)(LONG_PTR)-1,p.x,p.y,w,h,SWP_NOACTIVATE);
+        InvalidateRect(g_menuHwnd,0,TRUE);
+        return;
+    }
+
+    if(g_h72OverlayShown) {
+        ShowWindow(g_menuHwnd,SW_HIDE);
+        g_h72OverlayShown=0;
+        SetLayeredWindowAttributes(g_menuHwnd,0,242,LWA_ALPHA);
+        UpdateOverlayPosition();
+    }
+}
+
 static void PaintOverlay(HWND hwnd) {
+    if(g_h72CrossVisualMode!=0 && g_h72OverlayShown) {
+        PaintH72CrossOverlay(hwnd);
+        return;
+    }
     PAINTSTRUCT ps={}; HDC dc=BeginPaint(hwnd,&ps); if(!dc) return;
     Fill(dc,0,0,OVERLAY_W,OVERLAY_H,C(16,17,20));
     Fill(dc,0,0,OVERLAY_W,54,C(31,33,39));
@@ -374,6 +473,8 @@ static WNDPROC BeginEarlyShutdown(HWND hwnd, const char* reason) {
         g_baseWheelVk=0;
         g_dlcWheelActive=0;
         g_dlcWheelVk=0;
+        g_h72CrossVisualMode=0;
+        g_h72OverlayShown=0;
         g_bindIndex=-1;
         g_menuVisible=0;
         LogA(reason);
@@ -470,6 +571,8 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
 
 static void PollHotkeys() {
     if (g_shuttingDown) return;
+
+    SyncH72CrossOverlay();
 
     HWND fg=GetForegroundWindow();
     BOOL active=(fg && fg==g_gameHwnd);
@@ -714,7 +817,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H65 CLEAN H61 + H63 INIT TEST");
+    LogA("PostalBorkenMenu V2A42-H72 NATIVE WHEEL VISUAL OVERLAY TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
@@ -730,14 +833,13 @@ static DWORD __stdcall ModThread(void*) {
     LogA(g_skipStartupLogos ? "[SPLASH H40] Skip Startup Logos config: ENABLED (default)." : "[SPLASH H40] Skip Startup Logos config: DISABLED.");
     if (!InitIl2Cpp()) return 0;
 
-    // H62: pay the one global Sprite enumeration during startup instead of
-    // stalling the first wheel shortcut. Later opens use cached references.
-    PrewarmWheelSpriteCacheH62();
+    // H72: no startup Sprite scan. Cross-mode visuals are a pure Win32/GDI
+    // overlay and H59 keeps the native wheel/equip path underneath.
 
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] H65 clean baseline: H59 weapon logic + H61 icon behavior + H62 sprite cache + validated H63 focus-independent F1 initialization.");
+    LogA("[READY] H72 preserves H59 native cross-mode selection/equip; H55/H56 audits and sprite scans are disabled; five variable sectors are masked by a visual-only overlay.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
