@@ -1693,6 +1693,11 @@ static Il2CppObject* GetBaseWheelButtonFromCollection(Il2CppObject* collection, 
 
 static BOOL InvokeInputManagerWheelEventFastH51(BOOL down);
 static int ReadPlayerWheelEnabledH49();
+static BOOL InspectNativeWheelCategoriesH49(Il2CppObject* wheel,
+                                             const FieldInfo* buttonsField,
+                                             const MethodInfo* buttonGetWeapon,
+                                             const MethodInfo* getCategory,
+                                             int* outBase,int* outDlc,int* outOther);
 static volatile LONG g_h51BaseFilterPending=0;
 static BOOL g_h51BaseUsesInputEvent=FALSE;
 
