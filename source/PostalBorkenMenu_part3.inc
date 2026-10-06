@@ -714,7 +714,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H65 CLEAN H61 + H63 INIT TEST");
+    LogA("PostalBorkenMenu V2A42-H67 LEVEL-AWARE WHEEL ICONS TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
@@ -737,7 +737,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] H65 clean baseline: H59 weapon logic + H61 icon behavior + H62 sprite cache + validated H63 focus-independent F1 initialization.");
+    LogA("[READY] H67 preserves H65 and chooses cross-mode wheel icons from the active level: DLC level -> normal-wheel icons; normal level -> DLC-wheel icons.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
