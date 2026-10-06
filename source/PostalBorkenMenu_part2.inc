@@ -2164,6 +2164,201 @@ static int CollectCanonicalWeaponsBySlotsH59(int wantedCategory,Il2CppObject* ou
     return found;
 }
 
+// H71: pre-resolved WeaponIds for the virtual cross-mode wheel.
+// Indexed by native slot 1..9. DLC-specific slots are 1,2,3,4,8;
+// common slots 5,6,7,9 deliberately reuse the base WeaponId.
+static Il2CppObject* g_h71BaseWeapons[10]={0};
+static Il2CppObject* g_h71DlcWeapons[10]={0};
+static volatile LONG g_h71WeaponCacheReady=0;
+static volatile LONG g_h71WeaponCacheAttempts=0;
+
+static BOOL PreferWeaponCandidateH71(Il2CppObject* current,Il2CppObject* candidate) {
+    if(!candidate) return FALSE;
+    if(!current) return TRUE;
+    return IsAkimboLikeWeaponNameH59(current) && !IsAkimboLikeWeaponNameH59(candidate);
+}
+
+static BOOL BuildVirtualWeaponCacheH71() {
+    if(g_h71WeaponCacheReady) return TRUE;
+    ++g_h71WeaponCacheAttempts;
+
+    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    Il2CppClass* resourcesClass=g_coreImage ? g_il2cpp.class_from_name(
+        g_coreImage,"UnityEngine","Resources") : 0;
+    if(!weaponIdClass || !resourcesClass) return FALSE;
+
+    const MethodInfo* findAll=FindMethodExact(resourcesClass,"FindObjectsOfTypeAll",1,g_systemTypeClass);
+    const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Category",0);
+    const MethodInfo* getSlot=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Slot",0);
+    if(!findAll || !getCategory || !getSlot) return FALSE;
+
+    const Il2CppType* wt=g_il2cpp.class_get_type(weaponIdClass);
+    Il2CppObject* typeObj=wt ? g_il2cpp.type_get_object(wt) : 0;
+    if(!typeObj) return FALSE;
+
+    void* fp[1]; fp[0]=typeObj;
+    Il2CppException* ex=0;
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(findAll,0,fp,&ex);
+    if(ex || !arrObj) {
+        if(ex) FormatExceptionToLog(ex);
+        return FALSE;
+    }
+
+    Il2CppArray* arr=(Il2CppArray*)arrObj;
+    SIZE_T n=g_il2cpp.array_length(arr);
+    if(n>1024) return FALSE;
+    unsigned int hdr=g_il2cpp.array_object_header_size();
+    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+
+    for(SIZE_T i=0;i<n;i++) {
+        Il2CppObject* weapon=elems[i];
+        if(!weapon) continue;
+
+        ex=0;
+        Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,weapon,0,&ex);
+        if(ex || !catBox) continue;
+        void* catRaw=g_il2cpp.object_unbox(catBox);
+        if(!catRaw) continue;
+        int category=*(int*)catRaw;
+        if(category!=0 && category!=1) continue;
+
+        ex=0;
+        Il2CppObject* slotBox=g_il2cpp.runtime_invoke(getSlot,weapon,0,&ex);
+        if(ex || !slotBox) continue;
+        void* slotRaw=g_il2cpp.object_unbox(slotBox);
+        if(!slotRaw) continue;
+        int slot=*(int*)slotRaw;
+        if(slot<1 || slot>9) continue;
+
+        if(category==0) {
+            if(PreferWeaponCandidateH71(g_h71BaseWeapons[slot],weapon))
+                g_h71BaseWeapons[slot]=weapon;
+        } else if(SlotIndexH59(slot)>=0) {
+            if(PreferWeaponCandidateH71(g_h71DlcWeapons[slot],weapon))
+                g_h71DlcWeapons[slot]=weapon;
+        }
+    }
+
+    int baseFound=0,dlcFound=0;
+    for(int slot=1;slot<=9;slot++) if(g_h71BaseWeapons[slot]) ++baseFound;
+    for(int i=0;i<5;i++) if(g_h71DlcWeapons[g_h59VariableSlots[i]]) ++dlcFound;
+
+    LogIntA("[WHEEL H71] cached base WeaponId slots: ",baseFound);
+    LogIntA("[WHEEL H71] cached DLC variable WeaponId slots: ",dlcFound);
+
+    if(baseFound>=9 && dlcFound==5) {
+        g_h71WeaponCacheReady=1;
+        LogA("[WHEEL H71] virtual wheel WeaponId cache READY; hotkey path requires no Resources scan.");
+        return TRUE;
+    }
+
+    LogA("[WHEEL H71] virtual wheel WeaponId cache incomplete; background retry allowed.");
+    return FALSE;
+}
+
+static BOOL DetectSceneModeH71() {
+    Il2CppClass* wheelClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent") : 0;
+    Il2CppClass* buttonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
+    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    if(!wheelClass || !buttonClass || !weaponIdClass) return FALSE;
+
+    const FieldInfo* buttonsField=g_il2cpp.class_get_field_from_name(wheelClass,"_weaponWheelButtons");
+    const MethodInfo* getWeapon=g_il2cpp.class_get_method_from_name(buttonClass,"get_WeaponId",0);
+    const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(weaponIdClass,"get_Category",0);
+    if(!buttonsField || !getWeapon || !getCategory) return FALSE;
+
+    Il2CppObject* wheel=FindLiveObject(wheelClass);
+    if(!wheel) return FALSE;
+
+    int baseCount=0,dlcCount=0,otherCount=0;
+    if(!InspectNativeWheelCategoriesH49(
+        wheel,buttonsField,getWeapon,getCategory,&baseCount,&dlcCount,&otherCount))
+        return FALSE;
+
+    LONG mode=0;
+    if(baseCount>=9 && dlcCount==0) mode=1;
+    else if(baseCount==4 && dlcCount>=5) mode=2;
+    else if(dlcCount>0) mode=2;
+    else if(baseCount>0) mode=1;
+
+    if(mode && mode!=g_h71SceneMode) {
+        g_h71SceneMode=mode;
+        LogA(mode==1 ? "[WHEEL H71] scene mode -> NORMAL (virtual DLC wheel enabled)."
+                     : "[WHEEL H71] scene mode -> DLC (virtual BASE wheel enabled).");
+    }
+    return mode!=0;
+}
+
+static void RefreshVirtualWheelRuntimeH71() {
+    if(!g_ready || g_shuttingDown) return;
+
+    BOOL attached=FALSE; void* thread=0;
+    if(!EnsureIl2CppThread(&attached,&thread)) return;
+
+    if(!g_h71WeaponCacheReady && g_h71WeaponCacheAttempts<6)
+        BuildVirtualWeaponCacheH71();
+
+    DetectSceneModeH71();
+
+    ReleaseIl2CppThread(attached,thread);
+}
+
+static BOOL EquipVirtualWheelSlotH71(int category,int slot) {
+    if(!g_ready || g_shuttingDown || slot<1 || slot>9) return FALSE;
+
+    BOOL attached=FALSE; void* thread=0;
+    if(!EnsureIl2CppThread(&attached,&thread)) return FALSE;
+
+    Il2CppObject* weapon=0;
+    if(category==1 && SlotIndexH59(slot)>=0)
+        weapon=g_h71DlcWeapons[slot];
+    else
+        weapon=g_h71BaseWeapons[slot];
+
+    if(!weapon) {
+        LogIntA("[WHEEL H71] cached WeaponId missing for slot: ",slot);
+        ReleaseIl2CppThread(attached,thread);
+        return FALSE;
+    }
+
+    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    Il2CppClass* inventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerInventoryComponent") : 0;
+    Il2CppClass* weaponsInventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.Inventory","WeaponsInventory") : 0;
+
+    BOOL ok=FALSE;
+    if(weaponIdClass && inventoryClass && weaponsInventoryClass) {
+        const FieldInfo* controllerField=g_il2cpp.class_get_field_from_name(
+            inventoryClass,"_weaponsController");
+        Il2CppObject* playerInv=FindLiveObject(inventoryClass);
+        Il2CppObject* weaponsInv=0;
+        if(playerInv && controllerField)
+            g_il2cpp.field_get_value(playerInv,controllerField,&weaponsInv);
+
+        if(playerInv && weaponsInv) {
+            ok=SafeAddAndEquipWeaponId(
+                playerInv,weaponsInv,inventoryClass,weaponsInventoryClass,weaponIdClass,weapon,
+                category==1 ? "[WHEEL H71] virtual DLC AddWeapon completed"
+                            : "[WHEEL H71] virtual BASE AddWeapon completed");
+        }
+    }
+
+    char name[128]; name[0]=0;
+    GetWeaponNameH54(weapon,name,128);
+    LogA(ok ? "[WHEEL H71] virtual wheel equipped:" : "[WHEEL H71] virtual wheel equip FAILED:");
+    LogA(name);
+    LogIntA("[WHEEL H71] selected slot: ",slot);
+
+    ReleaseIl2CppThread(attached,thread);
+    return ok;
+}
+
 static void ClearBaseSwapStateH57() {
     for(int i=0;i<5;i++) {
         g_h57BaseMappedButtons[i]=0;
