@@ -215,6 +215,7 @@ __declspec(dllimport) void __stdcall PostQuitMessage(int);
 #define WS_EX_LAYERED 0x00080000L
 #define WS_EX_TRANSPARENT 0x00000020L
 #define WS_EX_NOACTIVATE 0x08000000L
+#define LWA_COLORKEY 0x00000001UL
 #define LWA_ALPHA 0x00000002UL
 #define SW_SHOWNOACTIVATE 4
 #define SWP_NOSIZE 0x0001
@@ -254,6 +255,12 @@ static volatile LONG g_baseWheelActive = 0;
 static int g_baseWheelVk = 0;
 static volatile LONG g_dlcWheelActive = 0;
 static int g_dlcWheelVk = 0;
+
+// H72 visual-only cross-mode overlay.
+// 0 = hidden, 1 = show BASE labels over DLC-native wheel,
+// 2 = show DLC labels over BASE-native wheel.
+static volatile LONG g_h72CrossVisualMode = 0;
+static volatile LONG g_h72OverlayShown = 0;
 static BYTE g_keyPrev[256] = {};
 static int g_bindIndex = -1;
 static int g_overlayX = 32;
