@@ -3926,6 +3926,167 @@ static BOOL InitIl2Cpp() {
     return TRUE;
 }
 
+
+static BOOL H79InterestingName(const char* n) {
+    if(!n || !n[0]) return FALSE;
+    return StrContainsNoCaseA(n,"wheel") ||
+           StrContainsNoCaseA(n,"weapon") ||
+           StrContainsNoCaseA(n,"button") ||
+           StrContainsNoCaseA(n,"select") ||
+           StrContainsNoCaseA(n,"previous") ||
+           StrContainsNoCaseA(n,"next") ||
+           StrContainsNoCaseA(n,"show") ||
+           StrContainsNoCaseA(n,"hide") ||
+           StrContainsNoCaseA(n,"enable") ||
+           StrContainsNoCaseA(n,"disable") ||
+           StrContainsNoCaseA(n,"category") ||
+           StrContainsNoCaseA(n,"item") ||
+           StrContainsNoCaseA(n,"slot");
+}
+
+static void H79LogType(const Il2CppType* t,const char* label) {
+    if(label) LogA(label);
+    if(!t) { LogA("<null type>"); return; }
+    Il2CppClass* tc=g_il2cpp.class_from_type(t);
+    if(!tc) { LogA("<unresolved type>"); return; }
+    const char* ns=g_il2cpp.class_get_namespace(tc);
+    const char* cn=g_il2cpp.class_get_name(tc);
+    if(ns && ns[0]) LogA(ns);
+    if(cn) LogA(cn);
+}
+
+static void H79LogFieldValue(Il2CppClass* klass,Il2CppObject* live,const FieldInfo* f,const char* fn) {
+    if(!klass || !f || !fn) return;
+
+    typedef unsigned int (*FnFieldGetFlags)(const FieldInfo*);
+    typedef const Il2CppType* (*FnFieldGetType)(const FieldInfo*);
+    typedef void (*FnFieldStaticGetValue)(const FieldInfo*,void*);
+    typedef int (*FnClassIsEnum)(Il2CppClass*);
+
+    FnFieldGetFlags getFlags=(FnFieldGetFlags)Proc("il2cpp_field_get_flags");
+    FnFieldGetType getType=(FnFieldGetType)Proc("il2cpp_field_get_type");
+    FnFieldStaticGetValue staticGet=(FnFieldStaticGetValue)Proc("il2cpp_field_static_get_value");
+    FnClassIsEnum classIsEnum=(FnClassIsEnum)Proc("il2cpp_class_is_enum");
+    if(!getFlags || !getType) return;
+
+    unsigned int flags=getFlags(f);
+    BOOL isStatic=(flags & 0x10U) ? TRUE : FALSE;
+    const Il2CppType* t=getType(f);
+    Il2CppClass* tc=t ? g_il2cpp.class_from_type(t) : 0;
+    const char* ns=tc ? g_il2cpp.class_get_namespace(tc) : 0;
+    const char* cn=tc ? g_il2cpp.class_get_name(tc) : 0;
+
+    BOOL primitive=FALSE;
+    if(ns && StrEqA(ns,"System") && cn) {
+        primitive=StrEqA(cn,"Int32") || StrEqA(cn,"UInt32") ||
+                  StrEqA(cn,"Int16") || StrEqA(cn,"UInt16") ||
+                  StrEqA(cn,"Byte") || StrEqA(cn,"SByte") ||
+                  StrEqA(cn,"Int64") || StrEqA(cn,"UInt64") ||
+                  StrEqA(cn,"Boolean");
+    }
+    BOOL isEnum=(tc && classIsEnum && classIsEnum(tc)) ? TRUE : FALSE;
+
+    if(primitive || isEnum) {
+        unsigned __int64 raw=0;
+        if(isStatic) {
+            if(!staticGet) return;
+            staticGet(f,&raw);
+        } else {
+            if(!live) return;
+            g_il2cpp.field_get_value(live,f,&raw);
+        }
+        LogIntA("[WHEEL H79] current field value low32: ",(int)(raw & 0xFFFFFFFFu));
+    } else {
+        Il2CppObject* value=0;
+        if(isStatic) {
+            if(!staticGet) return;
+            staticGet(f,&value);
+        } else {
+            if(!live) return;
+            g_il2cpp.field_get_value(live,f,&value);
+        }
+        LogIntA("[WHEEL H79] current object non-null: ",value?1:0);
+    }
+}
+
+static void AuditNativeWheelClassH79(const char* ns,const char* cn) {
+    if(!g_assemblyCSharp || !cn) return;
+    Il2CppClass* klass=g_il2cpp.class_from_name(g_assemblyCSharp,ns?ns:"",cn);
+    if(!klass) {
+        LogA("[WHEEL H79] class unresolved:");
+        LogA(cn);
+        return;
+    }
+
+    LogA("[WHEEL H79] ============================================================");
+    LogA("[WHEEL H79] CLASS");
+    if(ns && ns[0]) LogA(ns);
+    LogA(cn);
+
+    Il2CppObject* live=FindLiveObject(klass);
+    LogIntA("[WHEEL H79] live object found: ",live?1:0);
+
+    void* mi=0;
+    const MethodInfo* m=0;
+    int methodCount=0;
+    while((m=g_il2cpp.class_get_methods(klass,&mi))!=0 && methodCount<256) {
+        ++methodCount;
+        const char* mn=g_il2cpp.method_get_name(m);
+        if(!H79InterestingName(mn)) continue;
+
+        LogA("[WHEEL H79 METHOD]");
+        LogA(mn);
+        LogIntA("[WHEEL H79] instance: ",g_il2cpp.method_is_instance(m)?1:0);
+        unsigned int pc=g_il2cpp.method_get_param_count(m);
+        LogIntA("[WHEEL H79] param count: ",(int)pc);
+        H79LogType(g_il2cpp.method_get_return_type(m),"[WHEEL H79] return type:");
+        for(unsigned int pi=0; pi<pc && pi<8; ++pi)
+            H79LogType(g_il2cpp.method_get_param(m,pi),"[WHEEL H79] param type:");
+    }
+
+    typedef unsigned int (*FnFieldGetFlags)(const FieldInfo*);
+    typedef SIZE_T (*FnFieldGetOffset)(const FieldInfo*);
+    typedef const Il2CppType* (*FnFieldGetType)(const FieldInfo*);
+    FnFieldGetFlags getFlags=(FnFieldGetFlags)Proc("il2cpp_field_get_flags");
+    FnFieldGetOffset getOffset=(FnFieldGetOffset)Proc("il2cpp_field_get_offset");
+    FnFieldGetType getType=(FnFieldGetType)Proc("il2cpp_field_get_type");
+
+    void* fi=0;
+    const FieldInfo* fld=0;
+    int fieldCount=0;
+    while((fld=g_il2cpp.class_get_fields(klass,&fi))!=0 && fieldCount<256) {
+        ++fieldCount;
+        const char* fn=g_il2cpp.field_get_name(fld);
+        if(!H79InterestingName(fn)) continue;
+
+        LogA("[WHEEL H79 FIELD]");
+        LogA(fn);
+        if(getFlags) {
+            unsigned int flags=getFlags(fld);
+            LogIntA("[WHEEL H79] static: ",(flags & 0x10U)?1:0);
+        }
+        if(getOffset) LogIntA("[WHEEL H79] offset: ",(int)getOffset(fld));
+        if(getType) H79LogType(getType(fld),"[WHEEL H79] field type:");
+
+        H79LogFieldValue(klass,live,fld,fn);
+    }
+}
+
+static void AuditNativeWheelApiH79() {
+    static BOOL done=FALSE;
+    if(done || !g_ready || g_shuttingDown) return;
+    done=TRUE;
+
+    LogA("[WHEEL H79] ############################################################");
+    LogA("[WHEEL H79] NATIVE WEAPON-WHEEL API AUDIT");
+    LogA("[WHEEL H79] Metadata only: no sprite scan, no child UI scan, no remap.");
+    AuditNativeWheelClassH79("Hyperstrange.PBD","InputManager");
+    AuditNativeWheelClassH79("Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent");
+    AuditNativeWheelClassH79("Hyperstrange.PBD.PlayerView","PlayerWheelView");
+    AuditNativeWheelClassH79("Hyperstrange.PBD","Player");
+    LogA("[WHEEL H79] ############################################################");
+}
+
 static BOOL EnsureLazyIl2CppH77(const char* reason) {
     if(g_ready) return TRUE;
     if(g_shuttingDown) return FALSE;
@@ -3948,6 +4109,7 @@ static BOOL EnsureLazyIl2CppH77(const char* reason) {
     if(ok) {
         g_h77LazyInitState=2;
         LogA("[LAZY H77] IL2CPP READY. Gameplay commands/hotkeys are now enabled.");
+        AuditNativeWheelApiH79();
         if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
         return TRUE;
     }
