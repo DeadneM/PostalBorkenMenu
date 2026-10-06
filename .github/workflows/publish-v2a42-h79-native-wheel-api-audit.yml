@@ -52,4 +52,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "V2A42-H79-TEST" POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H79_NATIVE_WHEEL_API_AUDIT_TEST.zip --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "V2A42-H79 TEST - Native Wheel API Audit" --notes "Diagnostic build from validated H77. H79 performs a metadata-only audit of InputManager, PlayerWeaponWheelComponent, PlayerWheelView and Player immediately after lazy IL2CPP initialization. No sprite scan, child UI scan, new equip logic or extra cross-mode visual work is added. Goal: identify the game's own native selector/path for opening the DLC weapon wheel in the normal campaign." --prerelease
+          $args = @(
+            "release","create","V2A42-H79-TEST",
+            "POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H79_NATIVE_WHEEL_API_AUDIT_TEST.zip",
+            "--repo","${{ github.repository }}",
+            "--target","${{ github.sha }}",
+            "--title","V2A42-H79 TEST - Native Wheel API Audit",
+            "--notes","Diagnostic build from validated H77. H79 performs a metadata-only audit of InputManager, PlayerWeaponWheelComponent, PlayerWheelView and Player immediately after lazy IL2CPP initialization. No sprite scan, child UI scan, new equip logic or extra cross-mode visual work is added. Goal: identify the game's own native selector/path for opening the DLC weapon wheel in the normal campaign.",
+            "--prerelease"
+          )
+          for($i=1; $i -le 6; $i++) {
+            & gh @args
+            if($LASTEXITCODE -eq 0) { exit 0 }
+            Write-Host "GitHub release API failed on attempt $i; retrying..."
+            Start-Sleep -Seconds (5 * $i)
+          }
+          exit 1
