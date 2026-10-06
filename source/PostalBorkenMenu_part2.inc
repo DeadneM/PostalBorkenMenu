@@ -2631,7 +2631,18 @@ static BOOL ApplyDelayedBaseFilterH51() {
 
     g_h57BaseSwapApplied=TRUE;
     g_h51BaseFilterPending=0;
-    LogA("[WHEEL H65] H59 logic + H61 icon behavior preserved; H62 cache only.");
+
+    if(!g_h78AuditBaseInDlcDone) {
+        AuditMappedButtonChildImagesH78(
+            "[WHEEL H78] direction: DLC scene -> BASE wheel",
+            g_h57BaseMappedButtons,
+            g_h57BaseMappedCount,
+            buttonClass,
+            getWeapon);
+        g_h78AuditBaseInDlcDone=TRUE;
+    }
+
+    LogA("[WHEEL H78] H77/H74 behavior preserved; visual audit only.");
     return TRUE;
 }
 
@@ -3211,6 +3222,168 @@ static void LogImageSpriteH55(Il2CppObject* imageObj,const char* label) {
     LogUnityObjectNameH55(sprite,"[WHEEL H55] sprite name:");
 }
 
+
+static BOOL g_h78AuditBaseInDlcDone=FALSE;
+static BOOL g_h78AuditDlcInBaseDone=FALSE;
+
+static BOOL GetUnityObjectNameH78(Il2CppObject* obj,char* out,int cap) {
+    if(out && cap>0) out[0]=0;
+    if(!obj || !out || cap<=1 || !g_coreImage) return FALSE;
+
+    Il2CppClass* objectClass=g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Object");
+    const MethodInfo* getName=objectClass ? g_il2cpp.class_get_method_from_name(objectClass,"get_name",0) : 0;
+    if(!getName) return FALSE;
+
+    Il2CppException* ex=0;
+    Il2CppObject* nameObj=g_il2cpp.runtime_invoke(getName,obj,0,&ex);
+    if(ex || !nameObj) return FALSE;
+
+    CatalogManagedStringToAscii((Il2CppString*)nameObj,out,cap);
+    return out[0]!=0;
+}
+
+static BOOL GetImageSpriteH78(Il2CppObject* image,Il2CppObject** outSprite) {
+    if(outSprite) *outSprite=0;
+    if(!image || !outSprite) return FALSE;
+
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+    Il2CppClass* imageClass=objectGetClass ? objectGetClass(image) : 0;
+    if(!imageClass) return FALSE;
+
+    const MethodInfo* getSprite=g_il2cpp.class_get_method_from_name(imageClass,"get_sprite",0);
+    if(!getSprite) return FALSE;
+
+    Il2CppException* ex=0;
+    Il2CppObject* sprite=g_il2cpp.runtime_invoke(getSprite,image,0,&ex);
+    if(ex) return FALSE;
+
+    *outSprite=sprite;
+    return TRUE;
+}
+
+static int GetImageEnabledH78(Il2CppObject* image) {
+    if(!image) return -1;
+
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+    Il2CppClass* imageClass=objectGetClass ? objectGetClass(image) : 0;
+    if(!imageClass) return -1;
+
+    const MethodInfo* getEnabled=g_il2cpp.class_get_method_from_name(imageClass,"get_enabled",0);
+    if(!getEnabled) return -1;
+
+    Il2CppException* ex=0;
+    Il2CppObject* box=g_il2cpp.runtime_invoke(getEnabled,image,0,&ex);
+    if(ex || !box) return -1;
+    void* raw=g_il2cpp.object_unbox(box);
+    if(!raw) return -1;
+    return (*(BYTE*)raw) ? 1 : 0;
+}
+
+static void AuditMappedButtonChildImagesH78(const char* direction,
+                                             Il2CppObject** buttons,
+                                             int count,
+                                             Il2CppClass* buttonClass,
+                                             const MethodInfo* getWeapon) {
+    if(!buttons || count<=0 || !buttonClass || !getWeapon) return;
+    if(!g_componentGetGameObject || !g_gameObjectGetComponentsInChildren || !g_uiImage) {
+        LogA("[WHEEL H78] child Image audit bridge unavailable.");
+        return;
+    }
+
+    Il2CppClass* imageClass=g_il2cpp.class_from_name(g_uiImage,"UnityEngine.UI","Image");
+    if(!imageClass) {
+        LogA("[WHEEL H78] UnityEngine.UI.Image unresolved.");
+        return;
+    }
+
+    const Il2CppType* it=g_il2cpp.class_get_type(imageClass);
+    Il2CppObject* imageTypeObj=it ? g_il2cpp.type_get_object(it) : 0;
+    if(!imageTypeObj) return;
+
+    const FieldInfo* primaryField=g_il2cpp.class_get_field_from_name(buttonClass,"_weaponSelectedImage");
+    const FieldInfo* backgroundField=g_il2cpp.class_get_field_from_name(buttonClass,"_backgroundImage");
+
+    LogA("[WHEEL H78] ============================================================");
+    LogA("[WHEEL H78] CROSS-MODE CHILD IMAGE AUDIT");
+    if(direction) LogA(direction);
+
+    for(int bi=0; bi<count && bi<5; ++bi) {
+        Il2CppObject* button=buttons[bi];
+        if(!button) continue;
+
+        Il2CppException* ex=0;
+        Il2CppObject* weapon=g_il2cpp.runtime_invoke(getWeapon,button,0,&ex);
+        char weaponName[128]; weaponName[0]=0;
+        if(!ex && weapon) GetWeaponNameH54(weapon,weaponName,128);
+
+        Il2CppObject* primaryImage=0;
+        Il2CppObject* backgroundImage=0;
+        if(primaryField) g_il2cpp.field_get_value(button,primaryField,&primaryImage);
+        if(backgroundField) g_il2cpp.field_get_value(button,backgroundField,&backgroundImage);
+
+        LogA("[WHEEL H78] ------------------------------------------------------------");
+        LogIntA("[WHEEL H78] mapped button index: ",bi);
+        LogA("[WHEEL H78] current WeaponId:");
+        LogA(weaponName[0] ? weaponName : "<unknown>");
+
+        ex=0;
+        Il2CppObject* go=g_il2cpp.runtime_invoke(g_componentGetGameObject,button,0,&ex);
+        if(ex || !go) {
+            if(ex) FormatExceptionToLog(ex);
+            continue;
+        }
+
+        BOOL includeInactive=TRUE;
+        void* pars[2]; pars[0]=imageTypeObj; pars[1]=&includeInactive;
+        ex=0;
+        Il2CppObject* arrObj=g_il2cpp.runtime_invoke(g_gameObjectGetComponentsInChildren,go,pars,&ex);
+        if(ex || !arrObj) {
+            if(ex) FormatExceptionToLog(ex);
+            continue;
+        }
+
+        Il2CppArray* arr=(Il2CppArray*)arrObj;
+        SIZE_T n=g_il2cpp.array_length(arr);
+        if(n>32) n=32;
+        LogIntA("[WHEEL H78] child Image count: ",(int)n);
+
+        unsigned int hdr=g_il2cpp.array_object_header_size();
+        Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+
+        for(SIZE_T ii=0; ii<n; ++ii) {
+            Il2CppObject* image=elems[ii];
+            if(!image) continue;
+
+            Il2CppObject* sprite=0;
+            GetImageSpriteH78(image,&sprite);
+
+            char spriteName[192]; spriteName[0]=0;
+            char objectName[192]; objectName[0]=0;
+            if(sprite) GetUnityObjectNameH78(sprite,spriteName,192);
+
+            Il2CppObject* imageGo=0;
+            ex=0;
+            imageGo=g_il2cpp.runtime_invoke(g_componentGetGameObject,image,0,&ex);
+            if(!ex && imageGo) GetUnityObjectNameH78(imageGo,objectName,192);
+
+            LogIntA("[WHEEL H78] Image index: ",(int)ii);
+            LogA("[WHEEL H78] GameObject:");
+            LogA(objectName[0] ? objectName : "<unnamed>");
+            LogA("[WHEEL H78] sprite:");
+            LogA(spriteName[0] ? spriteName : "<null>");
+            LogIntA("[WHEEL H78] enabled: ",GetImageEnabledH78(image));
+
+            if(image==primaryImage) LogA("[WHEEL H78] role: _weaponSelectedImage");
+            else if(image==backgroundImage) LogA("[WHEEL H78] role: _backgroundImage");
+            else LogA("[WHEEL H78] role: OTHER");
+        }
+    }
+
+    LogA("[WHEEL H78] ============================================================");
+}
+
 static BOOL IsVisualTypeNameH55(const char* ns,const char* cn) {
     if(!cn) return FALSE;
     if(StrContainsNoCaseA(cn,"Sprite")) return TRUE;
@@ -3434,7 +3607,18 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
 
     g_h54DlcSwapApplied=TRUE;
     g_h54DlcSwapPending=0;
-    LogA("[WHEEL H65] H59 logic + H61 icon behavior preserved; H62 cache only.");
+
+    if(!g_h78AuditDlcInBaseDone) {
+        AuditMappedButtonChildImagesH78(
+            "[WHEEL H78] direction: NORMAL scene -> DLC wheel",
+            g_h54MappedButtons,
+            g_h54MappedCount,
+            buttonClass,
+            getWeapon);
+        g_h78AuditDlcInBaseDone=TRUE;
+    }
+
+    LogA("[WHEEL H78] H77/H74 behavior preserved; visual audit only.");
     return TRUE;
 }
 
