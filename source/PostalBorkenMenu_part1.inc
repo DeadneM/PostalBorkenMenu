@@ -120,6 +120,7 @@ __declspec(dllimport) int __stdcall FillRect(HDC, const RECT*, HBRUSH);
 __declspec(dllimport) int __stdcall DrawTextW(HDC, LPCWSTR, int, RECT*, UINT);
 __declspec(dllimport) BOOL __stdcall SetLayeredWindowAttributes(HWND, COLORREF, BYTE, DWORD);
 __declspec(dllimport) short __stdcall GetAsyncKeyState(int);
+__declspec(dllimport) BOOL __stdcall GetCursorPos(POINT*);
 __declspec(dllimport) BOOL __stdcall PeekMessageW(MSG*, HWND, UINT, UINT, UINT);
 __declspec(dllimport) BOOL __stdcall DestroyWindow(HWND);
 __declspec(dllimport) void __stdcall PostQuitMessage(int);
@@ -254,6 +255,14 @@ static volatile LONG g_baseWheelActive = 0;
 static int g_baseWheelVk = 0;
 static volatile LONG g_dlcWheelActive = 0;
 static int g_dlcWheelVk = 0;
+
+// H71 virtual cross-mode wheel state.
+// Scene mode: 0 unknown, 1 normal campaign, 2 These Sunny Daze.
+static volatile LONG g_h71SceneMode = 0;
+static volatile LONG g_h71VirtualWheelActive = 0;
+static int g_h71VirtualWheelCategory = 0; // 0 base, 1 DLC
+static int g_h71VirtualWheelVk = 0;
+static int g_h71VirtualWheelSelectedSlot = 1;
 static BYTE g_keyPrev[256] = {};
 static int g_bindIndex = -1;
 static int g_overlayX = 32;
