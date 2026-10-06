@@ -738,7 +738,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H77 LAZY IL2CPP INIT TEST");
+    LogA("PostalBorkenMenu V2A42-H79 NATIVE WHEEL API AUDIT");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
@@ -762,7 +762,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] H77 startup-safe shell ready; H74 wheel semantics retained after lazy IL2CPP initialization.");
+    LogA("[READY] H79 preserves H77 lazy startup and H74 wheel semantics; native wheel API metadata audit runs once after lazy IL2CPP init.");
 
     if(g_noCrosshair)
         LogA("[LAZY H77] No Crosshair will become available after lazy IL2CPP initialization.");
