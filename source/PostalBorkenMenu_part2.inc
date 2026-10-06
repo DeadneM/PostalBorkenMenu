@@ -2471,9 +2471,8 @@ static BOOL ShowNativeBaseWeaponWheel() {
 
     LogIntA("[WHEEL H51] BASE buttons before open: ",baseCount);
     LogIntA("[WHEEL H51] DLC buttons before open: ",dlcCount);
-    AuditCurrentWheelLayoutH56(
-        (dlcCount>0) ? "[WHEEL H56] DLC SCENE native layout" : "[WHEEL H56] NORMAL SCENE native layout",
-        baseCount,dlcCount);
+    // H72: heavy H55/H56 visual audit is disabled in runtime builds.
+    g_h72CrossVisualMode = (dlcCount>0) ? 1 : 0;
 
     if(baseCount<=0) {
         LogA("[WHEEL H51] No base buttons available.");
@@ -2617,9 +2616,9 @@ static BOOL ApplyDelayedBaseFilterH51() {
                         g_h57BaseMappedButtons[m]=button;
                         g_h57BaseOriginalWeapons[m]=weapon;
 
-                        // H61 visual-only: DLC scene currently shows DLC sprites,
-                        // so replace just the icon with the base-game sprite.
-                        ApplySlotIconH61(button,buttonClass,sourceSlot,FALSE,TRUE,m);
+                        // H72 visual-only strategy: preserve the native sprite
+                        // payload untouched. A separate overlay masks/labels the
+                        // five cross-mode variable sectors.
 
                         enabled=TRUE;
                     }
@@ -2652,7 +2651,7 @@ static BOOL ApplyDelayedBaseFilterH51() {
 
     g_h57BaseSwapApplied=TRUE;
     g_h51BaseFilterPending=0;
-    LogA("[WHEEL H65] H59 logic + H61 icon behavior preserved; H62 cache only.");
+    LogA("[WHEEL H72] H59 native mapping preserved; cross-mode sprites untouched and masked by visual overlay.");
     return TRUE;
 }
 
@@ -2709,6 +2708,7 @@ static BOOL HideNativeBaseWeaponWheel() {
     g_h51BaseFilterPending=0;
     g_h51BaseUsesInputEvent=FALSE;
     g_baseWheelActive=0;
+    g_h72CrossVisualMode=0;
     LogA("[WHEEL H51] Base wheel closed; native buttons restored.");
     return ok;
 }
@@ -3420,9 +3420,9 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
                     g_h54MappedButtons[m]=button;
                     g_h54OriginalWeapons[m]=original;
 
-                    // H61 visual-only: normal scene currently shows base sprites,
-                    // so replace just the icon with the DLC sprite.
-                    ApplySlotIconH61(button,buttonClass,sourceSlot,TRUE,FALSE,m);
+                    // H72 visual-only strategy: preserve the native sprite
+                    // payload untouched. A separate overlay masks/labels the
+                    // five cross-mode variable sectors.
 
                     BOOL enabled=TRUE;
                     void* ep[1]; ep[0]=&enabled;
@@ -3434,9 +3434,6 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
     }
 
     LogIntA("[WHEEL H54] BASE->DLC slots swapped AFTER native open: ",g_h54MappedCount);
-
-    if(g_h54MappedCount==5)
-        LogMappedButtonVisualsH55(buttonClass,getWeapon);
 
     if(g_h54MappedCount!=5) {
         for(int i=0;i<g_h54MappedCount;i++) {
@@ -3456,11 +3453,9 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
     // here. H54 manually enabled all five remapped sectors already; the global
     // native refresh is scene/category-aware and can immediately hide them again.
 
-    LogWeaponWheelButtonMetaH54();
-
     g_h54DlcSwapApplied=TRUE;
     g_h54DlcSwapPending=0;
-    LogA("[WHEEL H65] H59 logic + H61 icon behavior preserved; H62 cache only.");
+    LogA("[WHEEL H72] H59 native mapping preserved; cross-mode sprites untouched and masked by visual overlay.");
     return TRUE;
 }
 
@@ -3525,9 +3520,8 @@ static BOOL ShowNativeDlcWeaponWheel() {
     int baseCount=0,dlcCount=0,otherCount=0;
     InspectNativeWheelCategoriesH49(wheel,buttonsField,buttonGetWeapon,getCategory,&baseCount,&dlcCount,&otherCount);
 
-    AuditCurrentWheelLayoutH56(
-        (dlcCount>0) ? "[WHEEL H56] DLC SCENE native layout" : "[WHEEL H56] NORMAL SCENE native layout",
-        baseCount,dlcCount);
+    // H72: heavy H55/H56 visual audit is disabled in runtime builds.
+    g_h72CrossVisualMode = (dlcCount==0) ? 2 : 0;
 
     if(!InvokeInputManagerWheelEventFastH51(TRUE)) return FALSE;
 
@@ -3555,6 +3549,7 @@ static BOOL HideNativeDlcWeaponWheel() {
     g_h54DlcSwapPending=0;
     g_h49InputWheelActive=FALSE;
     g_dlcWheelActive=0;
+    g_h72CrossVisualMode=0;
     return ok;
 }
 
