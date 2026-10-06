@@ -1,57 +1,62 @@
 # DLC / Base Weapon Wheel Status
 
-## Validated checkpoint: V2A42-H59
+## Validated checkpoint: V2A42-H65
 
-H59 is the current validated development checkpoint for weapon-wheel logic.
+H65 is the current validated clean baseline for the DLC/Base weapon-wheel work.
 
-It is built from the H57 9/9-wheel baseline and replaces the old guessed name-order mapping with native `WeaponId.get_Slot()` pairing.
+It combines only the parts validated in game:
 
-### Variable slot pairs
+- H59: logical weapon pairing by native WeaponId slots 1, 2, 3, 4 and 8
+- H61: primary cross-mode weapon-icon replacement
+- H62: cached one-scan sprite lookup for fast wheel opening
+- H63: focus-independent F1/window initialization
+
+Broad secondary/background visual experiments from H62/H63/H64 are not part of H65.
+
+## Variable slot pairs
 
 | Native slot | Base game | These Sunny Daze |
 | --- | --- | --- |
-| 1 | melee / Shovel | UmDrill |
+| 1 | Shovel | UmDrill |
 | 2 | Pistol | PissGun |
 | 3 | Shotgun | MeatShotgun |
 | 4 | MachineGun | BubbleGumMachineGun |
 | 8 | DildoBow | NuclearSyringe |
 
-Slots **5, 6, 7 and 9** are common/native and are not remapped.
+Slots 5, 6, 7 and 9 are common/native and are never remapped.
 
-This specifically fixes the H57-era logical errors where:
-- melee and pistol could be inverted,
-- CatCanon could be treated as a variable weapon twice,
-- the slot-4 machine gun was absent from the variable mapping,
-- shotgun/cat-gun behavior could be shifted.
+## User-validated H65 behavior
 
-## User-validated H59 behavior
+- normal wheel in normal mode: correct
+- DLC wheel in DLC mode: correct
+- cross-mode population: 9/9
+- cross-mode weapon calls: correct
+- cross-mode primary weapon icon: correct
+- wheel shortcut performance: fixed by H62 cache
+- F1/menu initialization no longer depends on POSTAL being foreground at startup
 
-- Normal wheel in normal mode: correct logical weapon set.
-- DLC wheel in DLC mode: correct logical weapon set.
-- Both wheel contexts populate all 9 sectors.
+## Remaining visual issue
 
-## Known remaining cross-mode limitation
+A second scene-native weapon silhouette can remain visible behind the corrected cross-mode weapon icon.
 
-The wheel identity/presentation is still scene-native:
+Runtime audits prove WeaponWheelButton._backgroundImage is not that silhouette. It uses the same generic sprite, weapon_wheel_part_light, in both normal and DLC scenes.
 
-- DLC wheel requested in normal mode currently presents the normal-mode wheel.
-- Normal wheel requested in DLC mode currently presents the DLC-mode wheel.
+Do not rework H59, H61, H62 or H63 while fixing this remaining visual layer.
 
-This means the remaining problem is **not** the H59 weapon-slot pairing.
+## H68 detector
 
-Do not rework the validated H59 slot map unless a later test disproves it.
+H68 experimentally validates a reliable mode detector from the live native wheel composition:
 
-## Next target
+- normal game: 9 base-category buttons / 0 DLC-category buttons
+- These Sunny Daze: 4 base-category buttons / 5 DLC-category buttons
 
-The next build should preserve H59 exactly and investigate how the game chooses:
-- the active wheel layout,
-- per-sector button identity,
-- per-sector icon/sprite source,
-- scene/mode-specific wheel presentation.
+This is preferred over the rejected H67 SceneManager name detector.
 
-Icon correction should follow the wheel-identity fix rather than be developed independently against the wrong wheel presentation.
+## Current experiment
+
+H69 audits every child UnityEngine.UI.Image under the five remapped buttons and only replaces a secondary Image when its sprite name exactly matches the pre-swap weapon sprite name. This tests for duplicate Sprite instances that share an asset name but not the same object pointer.
 
 ## Stability note
 
 V2A42-H43 remains the stable public release.
-H59 is a validated development checkpoint and is published as a prerelease/test build.
+V2A42-H65 is the current validated development checkpoint.
