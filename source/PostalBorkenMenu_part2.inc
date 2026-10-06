@@ -1701,6 +1701,16 @@ static void LogUnityObjectNameH55(Il2CppObject* obj,const char* label);
 static void LogImageSpriteH55(Il2CppObject* imageObj,const char* label);
 static BOOL GetWeaponNameH54(Il2CppObject* weapon,char* out,int cap);
 
+// H78 visual audit is defined later, after the H55 helpers, but the BASE
+// mirror path appears earlier in this translation unit.
+static BOOL g_h78AuditBaseInDlcDone=FALSE;
+static BOOL g_h78AuditDlcInBaseDone=FALSE;
+static void AuditMappedButtonChildImagesH78(const char* direction,
+                                             Il2CppObject** buttons,
+                                             int count,
+                                             Il2CppClass* buttonClass,
+                                             const MethodInfo* getWeapon);
+
 // H57: the two native scenes expose complementary 5-weapon variants.
 // Keep the 4 common sectors untouched and temporarily mirror only the five
 // mode-specific WeaponId pointers while a wheel is open.
@@ -3222,9 +3232,6 @@ static void LogImageSpriteH55(Il2CppObject* imageObj,const char* label) {
     LogUnityObjectNameH55(sprite,"[WHEEL H55] sprite name:");
 }
 
-
-static BOOL g_h78AuditBaseInDlcDone=FALSE;
-static BOOL g_h78AuditDlcInBaseDone=FALSE;
 
 static BOOL GetUnityObjectNameH78(Il2CppObject* obj,char* out,int cap) {
     if(out && cap>0) out[0]=0;
