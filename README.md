@@ -12,7 +12,7 @@
 
 **V2A42-H43** remains the current stable public release.
 
-**V2A42-H65** is the current user-validated development checkpoint for the DLC/Base weapon-wheel work.
+**V2A42-H74** is the current user-validated development checkpoint for the DLC/Base weapon-wheel work.
 
 It preserves the validated H13 gameplay/stability foundation and adds the now-validated native Unity startup-logo skip.
 
@@ -239,7 +239,8 @@ Development progressed through:
 - **V2A42-H61**: validated cross-mode primary weapon-icon replacement
 - **V2A42-H62**: cached sprite lookup removes the wheel-shortcut hitch
 - **V2A42-H63**: focus-independent F1/window initialization
-- **V2A42-H65**: clean validated baseline combining H59 + H61 + H62 + H63; current development checkpoint
+- **V2A42-H65**: clean validated baseline combining H59 + H61 + H62 + H63
+- **V2A42-H74**: validated native tap/hold weapon-wheel semantics for both base and DLC wheel shortcuts; current development checkpoint
 - **V2A42-H68**: experimental native 9/0 vs 4/5 mode detector, confirmed by runtime logs
 
 The detailed engineering notebook is kept under `docs/`.
