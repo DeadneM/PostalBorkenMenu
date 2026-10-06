@@ -2679,7 +2679,7 @@ static BOOL ApplyDelayedBaseFilterH51() {
 
     g_h57BaseSwapApplied=TRUE;
     g_h51BaseFilterPending=0;
-    LogA("[WHEEL H68] H65 preserved; icon replacement selected by native wheel-composition mode.");
+    LogA("[WHEEL H70] H68 mode detection preserved; exact DLC selection force enabled only in NORMAL scene.");
     return TRUE;
 }
 
@@ -3096,6 +3096,88 @@ static BOOL GetWeaponNameH54(Il2CppObject* weapon,char* out,int cap) {
     return out[0]!=0;
 }
 
+static Il2CppObject* CaptureSelectedDlcWeaponH70() {
+    if(!g_h54DlcSwapApplied || g_h54MappedCount<=0) return 0;
+
+    Il2CppClass* wheelClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent") : 0;
+    Il2CppClass* buttonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
+    if(!wheelClass || !buttonClass) return 0;
+
+    const FieldInfo* selectedField=g_il2cpp.class_get_field_from_name(wheelClass,"_selectedButton");
+    const FieldInfo* weaponField=g_il2cpp.class_get_field_from_name(buttonClass,"_weaponId");
+    if(!selectedField || !weaponField) {
+        LogA("[WHEEL H70] _selectedButton/_weaponId field unavailable.");
+        return 0;
+    }
+
+    Il2CppObject* wheel=FindLiveObject(wheelClass);
+    if(!wheel) return 0;
+
+    Il2CppObject* selectedButton=0;
+    g_il2cpp.field_get_value(wheel,selectedField,&selectedButton);
+    if(!selectedButton) {
+        LogA("[WHEEL H70] No selected button at DLC-wheel release.");
+        return 0;
+    }
+
+    BOOL remapped=FALSE;
+    for(int i=0;i<g_h54MappedCount;i++) {
+        if(g_h54MappedButtons[i]==selectedButton) {
+            remapped=TRUE;
+            break;
+        }
+    }
+    if(!remapped) {
+        LogA("[WHEEL H70] Selected button is common/native; exact force not required.");
+        return 0;
+    }
+
+    Il2CppObject* weapon=0;
+    g_il2cpp.field_get_value(selectedButton,weaponField,&weapon);
+    if(!weapon) {
+        LogA("[WHEEL H70] Selected remapped button has NULL WeaponId.");
+        return 0;
+    }
+
+    char name[128]; name[0]=0;
+    GetWeaponNameH54(weapon,name,128);
+    LogA("[WHEEL H70] Captured selected remapped DLC WeaponId:");
+    LogA(name);
+    return weapon;
+}
+
+static BOOL EquipExactDlcWeaponH70(Il2CppObject* weapon) {
+    if(!weapon) return TRUE;
+
+    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+    Il2CppClass* inventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerInventoryComponent") : 0;
+    Il2CppClass* weaponsInventoryClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.Inventory","WeaponsInventory") : 0;
+    if(!weaponIdClass || !inventoryClass || !weaponsInventoryClass) return FALSE;
+
+    const FieldInfo* controllerField=g_il2cpp.class_get_field_from_name(inventoryClass,"_weaponsController");
+    if(!controllerField) return FALSE;
+
+    Il2CppObject* playerInv=FindLiveObject(inventoryClass);
+    if(!playerInv) return FALSE;
+
+    Il2CppObject* weaponsInv=0;
+    g_il2cpp.field_get_value(playerInv,controllerField,&weaponsInv);
+    if(!weaponsInv) return FALSE;
+
+    BOOL ok=SafeAddAndEquipWeaponId(
+        playerInv,weaponsInv,inventoryClass,weaponsInventoryClass,weaponIdClass,weapon,
+        "[WHEEL H70] Native AddWeapon(exact selected DLC WeaponId) completed");
+
+    LogA(ok ? "[WHEEL H70] Exact selected DLC WeaponId equipped successfully."
+            : "[WHEEL H70] Exact selected DLC WeaponId equip FAILED.");
+    return ok;
+}
+
 static int FindExactDlcTargetsH54(Il2CppObject* out[5]) {
     return CollectCanonicalWeaponsBySlotsH59(1,out);
 }
@@ -3491,7 +3573,7 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
 
     g_h54DlcSwapApplied=TRUE;
     g_h54DlcSwapPending=0;
-    LogA("[WHEEL H68] H65 preserved; icon replacement selected by native wheel-composition mode.");
+    LogA("[WHEEL H70] H68 mode detection preserved; exact DLC selection force enabled only in NORMAL scene.");
     return TRUE;
 }
 
@@ -3577,7 +3659,18 @@ static BOOL ShowNativeDlcWeaponWheel() {
 static BOOL HideNativeDlcWeaponWheel() {
     if(!g_dlcWheelActive || !g_h49InputWheelActive) return TRUE;
 
+    // H70: only the cross-mode DLC wheel in a NORMAL scene needs an exact
+    // post-close equip. Native DLC scenes keep the game's own selection path.
+    Il2CppObject* h70SelectedWeapon=0;
+    if(g_h68NativeSceneMode==1 && g_h54DlcSwapApplied)
+        h70SelectedWeapon=CaptureSelectedDlcWeaponH70();
+
     BOOL ok=InvokeInputManagerWheelEventFastH51(FALSE);
+
+    if(h70SelectedWeapon) {
+        if(!EquipExactDlcWeaponH70(h70SelectedWeapon))
+            ok=FALSE;
+    }
 
     if(g_h54DlcSwapApplied) {
         if(!RestoreDlcSwapH54()) ok=FALSE;
