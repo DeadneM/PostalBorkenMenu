@@ -2691,6 +2691,9 @@ static BOOL ApplyDelayedBaseFilterH51() {
 
     ClearBaseSwapStateH57();
 
+    // H67: detect current level once for this wheel-open pass.
+    const BOOL h67IsDlcLevel=IsCurrentLevelDlcH67();
+
     int baseEnabled=0;
     for(int i=0;i<count;i++) {
         Il2CppObject* button=GetBaseWheelButtonFromCollection(collection,collectionClass,isArray,i);
@@ -2731,9 +2734,13 @@ static BOOL ApplyDelayedBaseFilterH51() {
                         g_h57BaseMappedButtons[m]=button;
                         g_h57BaseOriginalWeapons[m]=weapon;
 
-                        // H61 visual-only: DLC scene currently shows DLC sprites,
-                        // so replace just the icon with the base-game sprite.
-                        ApplySlotIconH61(button,buttonClass,sourceSlot,FALSE,TRUE,m);
+                        // H67: if we are physically inside a DLC level, the
+                        // requested NORMAL wheel must receive NORMAL icons.
+                        if(h67IsDlcLevel) {
+                            ApplySlotIconH61(button,buttonClass,sourceSlot,FALSE,TRUE,m);
+                        } else {
+                            LogIntA("[WHEEL H67] NORMAL level -> BASE icon swap skipped for slot: ",sourceSlot);
+                        }
 
                         enabled=TRUE;
                     }
@@ -2766,7 +2773,7 @@ static BOOL ApplyDelayedBaseFilterH51() {
 
     g_h57BaseSwapApplied=TRUE;
     g_h51BaseFilterPending=0;
-    LogA("[WHEEL H65] H59 logic + H61 icon behavior preserved; H62 cache only.");
+    LogA("[WHEEL H67] H65 logic preserved; icon replacement selected by active-level mode.");
     return TRUE;
 }
 
@@ -3508,6 +3515,9 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
 
     ClearDlcSwapStateH54();
 
+    // H67: detect current level once for this wheel-open pass.
+    const BOOL h67IsDlcLevel=IsCurrentLevelDlcH67();
+
     for(int i=0;i<count && g_h54MappedCount<5;i++) {
         Il2CppObject* button=GetBaseWheelButtonFromCollection(collection,collectionClass,isArray,i);
         if(!button) continue;
@@ -3534,9 +3544,13 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
                     g_h54MappedButtons[m]=button;
                     g_h54OriginalWeapons[m]=original;
 
-                    // H61 visual-only: normal scene currently shows base sprites,
-                    // so replace just the icon with the DLC sprite.
-                    ApplySlotIconH61(button,buttonClass,sourceSlot,TRUE,FALSE,m);
+                    // H67: outside DLC levels we are in the normal game, so the
+                    // requested DLC wheel must receive DLC icons.
+                    if(!h67IsDlcLevel) {
+                        ApplySlotIconH61(button,buttonClass,sourceSlot,TRUE,FALSE,m);
+                    } else {
+                        LogIntA("[WHEEL H67] DLC level -> DLC icon swap skipped for slot: ",sourceSlot);
+                    }
 
                     BOOL enabled=TRUE;
                     void* ep[1]; ep[0]=&enabled;
@@ -3574,7 +3588,7 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
 
     g_h54DlcSwapApplied=TRUE;
     g_h54DlcSwapPending=0;
-    LogA("[WHEEL H65] H59 logic + H61 icon behavior preserved; H62 cache only.");
+    LogA("[WHEEL H67] H65 logic preserved; icon replacement selected by active-level mode.");
     return TRUE;
 }
 
