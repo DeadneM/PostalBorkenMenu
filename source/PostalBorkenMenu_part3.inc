@@ -714,7 +714,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H74 NATIVE TAP WHEEL SEMANTICS TEST");
+    LogA("PostalBorkenMenu V2A42-H76 NO IL2CPP STARTUP BISECT TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
@@ -728,18 +728,22 @@ static DWORD __stdcall ModThread(void*) {
     else
         LogA("[ERROR] Exact-name WeaponId resolver was not retained.");
     LogA(g_skipStartupLogos ? "[SPLASH H40] Skip Startup Logos config: ENABLED (default)." : "[SPLASH H40] Skip Startup Logos config: DISABLED.");
-    if (!InitIl2Cpp()) return 0;
 
-    // H62: pay the one global Sprite enumeration during startup instead of
-    // stalling the first wheel shortcut. Later opens use cached references.
-    PrewarmWheelSpriteCacheH62();
+    // H76 hard startup bisect:
+    // absolutely no IL2CPP domain access, metadata resolution, Resources scan,
+    // command bridge setup, sprite prewarm or crosshair scan is allowed here.
+    // H39 startup-logo skipping remains exactly as in validated H74.
+    LogA("[STARTUP H76] InitIl2Cpp BYPASSED completely.");
+    LogA("[STARTUP H76] H62 sprite prewarm BYPASSED.");
+    LogA("[STARTUP H76] automatic No Crosshair startup application BYPASSED.");
 
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] H74 preserves H65 mapping/visual behavior, uses native OnWheelDown/OnWheelUp for base wheel tap/hold semantics, and disables heavy wheel audits.");
+    LogA("[READY] H76 startup bisect active: Win32 overlay/hotkeys only, IL2CPP intentionally OFF.");
 
-    if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
+    if (g_noCrosshair)
+        LogA("[STARTUP H76] No Crosshair configured but unavailable in no-IL2CPP bisect.");
 
     MSG m;
     while (!g_shuttingDown) {
