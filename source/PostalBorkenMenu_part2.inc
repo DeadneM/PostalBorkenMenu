@@ -3926,7 +3926,10 @@ static BOOL InitIl2Cpp() {
     g_crosshairControllerClass=FindClassBySimpleName("PlayerCrosshairController");
     g_currentCrosshairField=g_crosshairControllerClass ? g_il2cpp.class_get_field_from_name(g_crosshairControllerClass,"_currentCrosshair") : 0;
 
-    RunTargetedNoVideoAndCrosshairAuditH13();
+    // H73 startup stability bisect:
+    // do NOT enumerate/log DebugManager, NO_VIDEO and PlayerCrosshairController
+    // metadata during startup. The audit helpers remain linked for later work.
+    LogA("[STARTUP H73] H13 metadata audit skipped.");
 
     g_timeManagerClass=FindClassBySimpleName("TimeManager");
     g_timeScaleSetter=g_timeManagerClass ? FindMethodExact(g_timeManagerClass,"SetGameTimeScale",1,g_floatClass) : 0;
