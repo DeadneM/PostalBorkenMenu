@@ -709,20 +709,16 @@ static DWORD __stdcall ModThread(void*) {
     BuildPaths();
     LoadConfig();
 
-    // H39 runs before normal H13 initialization and calls Unity's own native
-    // CancelSplashScreen when the exact state machine enters Begin/Fade.
-    H39WatchAndCancelNativeSplash();
-
+    // H73 startup stability bisect:
+    // Never call UnityPlayer::CancelSplashScreen from the ASI worker thread.
+    // H39 remains linked but dormant in this test build.
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H65 CLEAN H61 + H63 INIT TEST");
+    LogA("PostalBorkenMenu V2A42-H73 STARTUP STABILITY BISECT TEST");
+    LogA("[STARTUP H73] H39 native CancelSplashScreen call DISABLED.");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
-    LogIntA("[SPLASH H39] UnityPlayer exact-build verification: ",(int)g_h39UnityPlayerVerified);
-    LogIntA("[SPLASH H39] Real CancelSplashScreen calls: ",(int)g_h39CancelCalls);
-    LogIntA("[SPLASH H39] Confirmed state=3/active=0 after cancel: ",(int)g_h39CancelConfirmed);
-    LogIntA("[SPLASH H39] Re-Begin events seen after cancel: ",(int)g_h39RebeginsSeen);
-    LogIntA("[SPLASH H39] Last observed native splash state: ",(int)g_h39LastState);
+    LogA("[STARTUP H73] Skip Startup Logos is temporarily bypassed for this stability test.");
     if (g_dormantExactNameResolver)
         LogA("[OK] Exact-name WeaponId resolver linked; cleaned Arsenal/Special dispatcher active.");
     else
@@ -730,16 +726,17 @@ static DWORD __stdcall ModThread(void*) {
     LogA(g_skipStartupLogos ? "[SPLASH H40] Skip Startup Logos config: ENABLED (default)." : "[SPLASH H40] Skip Startup Logos config: DISABLED.");
     if (!InitIl2Cpp()) return 0;
 
-    // H62: pay the one global Sprite enumeration during startup instead of
-    // stalling the first wheel shortcut. Later opens use cached references.
-    PrewarmWheelSpriteCacheH62();
+    // H73: no global Sprite enumeration before the main menu.
+    LogA("[STARTUP H73] H62 sprite prewarm skipped.");
 
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] H65 clean baseline: H59 weapon logic + H61 icon behavior + H62 sprite cache + validated H63 focus-independent F1 initialization.");
+    LogA("[READY] H73 startup bisect ready; H65 gameplay paths preserved after initialization.");
 
-    if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
+    // H73: do not run the crosshair Resources scan automatically before the menu.
+    if (g_noCrosshair)
+        LogA("[STARTUP H73] No Crosshair startup application deferred.");
 
     MSG m;
     while (!g_shuttingDown) {
