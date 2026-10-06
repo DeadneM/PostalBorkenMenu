@@ -12,9 +12,9 @@
 
 **V2A42-H43** remains the current stable public release.
 
-**V2A42-H74** is the current user-validated development checkpoint for the DLC/Base weapon-wheel work.
+**V2A42-H77** is the current user-validated development checkpoint.
 
-It preserves the validated H13 gameplay/stability foundation and adds the now-validated native Unity startup-logo skip.
+It preserves the validated H74 weapon-wheel behavior and moves IL2CPP initialization out of process startup. H77 initializes IL2CPP lazily on the mod worker thread after the first explicit F1 or bound gameplay-hotkey action, avoiding the pre-menu startup freeze while keeping the mod functional.
 
 Validated H43 behavior:
 
@@ -45,7 +45,7 @@ README.txt
 
 ### DLC / Base weapon-wheel status
 
-H65 is the validated clean baseline for both 9-sector wheels. It preserves H59 slot pairing, H61 primary icon replacement, the H62 sprite cache, and the H63 focus-independent F1 initialization.
+H74 is the validated weapon-wheel behavior checkpoint. It preserves H59 slot pairing and native tap/hold semantics for both Base Weapon Wheel and DLC Weapon Wheel. H77 keeps that wheel behavior unchanged while changing only when IL2CPP initialization occurs.
 
 The five mode-specific weapon pairs are now matched strictly by native `WeaponId.get_Slot()` values:
 
@@ -69,11 +69,11 @@ Known remaining cross-mode visual limitation:
 
 H68 validates a reliable native mode detector from live wheel composition: normal game = 9 base / 0 DLC, These Sunny Daze = 4 base / 5 DLC.
 
-The remaining work is strictly visual and must not rework H59/H61/H62/H63.
+The remaining wheel work is strictly visual and must not rework the validated H59/H74 input and selection behavior.
 
 ### Open work
 
-- identify and replace only the exact secondary weapon-silhouette layer while preserving validated H65 behavior
+- identify and replace only the exact secondary weapon-silhouette layer while preserving validated H74/H77 behavior
 - H9-H12 wheel experiments remain rejected and must not be reused as a base
 - the game's own **Skip Intro Videos** setting is left to the game; PostalBorkenMenu no longer duplicates it.
 
@@ -173,7 +173,7 @@ Native rows are preserved. Synthetic features are added as separate commands rat
 
 POSTAL: Brain-Damaged is an **x64 Unity IL2CPP** game. The audited build used during development identifies as Unity **2021.3.14f1**.
 
-PostalBorkenMenu dynamically resolves IL2CPP exports and metadata names at runtime. The mod follows a temporary attach/detach policy for IL2CPP work and avoids keeping permanent GC handles for command objects.
+PostalBorkenMenu dynamically resolves IL2CPP exports and metadata names at runtime. Since H77, this initialization is lazy rather than automatic at process startup: the Win32 shell and startup-logo path load first, and IL2CPP initializes on the mod worker thread after the first explicit F1 or bound gameplay-hotkey action. The mod follows a temporary attach/detach policy for IL2CPP work and avoids keeping permanent GC handles for command objects.
 
 The V2A8 shutdown model fences IL2CPP work early during game shutdown and removes the permanent crosshair polling loop that caused an exit-race regression in V2A7.
 
@@ -240,7 +240,8 @@ Development progressed through:
 - **V2A42-H62**: cached sprite lookup removes the wheel-shortcut hitch
 - **V2A42-H63**: focus-independent F1/window initialization
 - **V2A42-H65**: clean validated baseline combining H59 + H61 + H62 + H63
-- **V2A42-H74**: validated native tap/hold weapon-wheel semantics for both base and DLC wheel shortcuts; current development checkpoint
+- **V2A42-H74**: validated native tap/hold weapon-wheel semantics for both base and DLC wheel shortcuts
+- **V2A42-H77**: validated lazy IL2CPP initialization after startup; removes the pre-menu initialization path while preserving H74 wheel behavior; current development checkpoint
 - **V2A42-H68**: experimental native 9/0 vs 4/5 mode detector, confirmed by runtime logs
 
 The detailed engineering notebook is kept under `docs/`.
