@@ -2471,9 +2471,7 @@ static BOOL ShowNativeBaseWeaponWheel() {
 
     LogIntA("[WHEEL H51] BASE buttons before open: ",baseCount);
     LogIntA("[WHEEL H51] DLC buttons before open: ",dlcCount);
-    AuditCurrentWheelLayoutH56(
-        (dlcCount>0) ? "[WHEEL H56] DLC SCENE native layout" : "[WHEEL H56] NORMAL SCENE native layout",
-        baseCount,dlcCount);
+    // H74: runtime H55/H56 wheel-layout audit disabled.
 
     if(baseCount<=0) {
         LogA("[WHEEL H51] No base buttons available.");
@@ -2495,37 +2493,18 @@ static BOOL ShowNativeBaseWeaponWheel() {
         return TRUE;
     }
 
-    // Non-DLC scene: preserve the validated H43 behavior.
-    for (int i=0;i<count;i++) {
-        Il2CppObject* button=GetBaseWheelButtonFromCollection(collection,collectionClass,isArray,i);
-        if (!button) continue;
-        Il2CppException* ex=0;
-        Il2CppObject* weapon=g_il2cpp.runtime_invoke(buttonGetWeapon,button,0,&ex);
-        if (ex || !weapon) continue;
-        ex=0;
-        Il2CppObject* catBox=g_il2cpp.runtime_invoke(getCategory,weapon,0,&ex);
-        if (ex || !catBox) continue;
-        void* raw=g_il2cpp.object_unbox(catBox);
-        if (!raw) continue;
-        BOOL enabled=(*(int*)raw==0) ? TRUE : FALSE;
-        void* ep[1]; ep[0]=&enabled;
-        ex=0;
-        g_il2cpp.runtime_invoke(buttonEnable,button,ep,&ex);
-    }
-
-    Il2CppException* ex=0;
-    g_il2cpp.runtime_invoke(showMethod,view,0,&ex);
-    if (ex) {
-        FormatExceptionToLog(ex);
-        ex=0;
-        g_il2cpp.runtime_invoke(restoreMethod,wheel,0,&ex);
+    // H74: normal scene also uses the real InputManager OnWheelDown event.
+    // This preserves the game's native tap semantics:
+    // short press = swap with previous weapon, hold = show/select wheel.
+    if(!InvokeInputManagerWheelEventFastH51(TRUE)) {
+        LogA("[WHEEL H74] Native OnWheelDown failed in normal scene.");
         return FALSE;
     }
 
-    g_h51BaseUsesInputEvent=FALSE;
+    g_h51BaseUsesInputEvent=TRUE;
     g_h51BaseFilterPending=0;
     g_baseWheelActive=1;
-    LogA("[WHEEL H51] Base-game wheel opened through preserved H43 path.");
+    LogA("[WHEEL H74] Base wheel opened through native OnWheelDown; tap/hold semantics preserved.");
     return TRUE;
 }
 
@@ -3435,9 +3414,6 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
 
     LogIntA("[WHEEL H54] BASE->DLC slots swapped AFTER native open: ",g_h54MappedCount);
 
-    if(g_h54MappedCount==5)
-        LogMappedButtonVisualsH55(buttonClass,getWeapon);
-
     if(g_h54MappedCount!=5) {
         for(int i=0;i<g_h54MappedCount;i++) {
             if(g_h61DlcIconButtons[i]) {
@@ -3455,8 +3431,6 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
     // H57 intentionally does NOT call PlayerWeaponWheelComponent.EnableButtons()
     // here. H54 manually enabled all five remapped sectors already; the global
     // native refresh is scene/category-aware and can immediately hide them again.
-
-    LogWeaponWheelButtonMetaH54();
 
     g_h54DlcSwapApplied=TRUE;
     g_h54DlcSwapPending=0;
