@@ -12,7 +12,7 @@
 
 **V2A42-H43** remains the current stable public release.
 
-**V2A42-H59** is the current user-validated development checkpoint for the DLC/Base weapon-wheel work.
+**V2A42-H65** is the current user-validated development checkpoint for the DLC/Base weapon-wheel work.
 
 It preserves the validated H13 gameplay/stability foundation and adds the now-validated native Unity startup-logo skip.
 
@@ -45,7 +45,7 @@ README.txt
 
 ### DLC / Base weapon-wheel status
 
-H59 validates the logical weapon pairing for both 9-sector wheels.
+H65 is the validated clean baseline for both 9-sector wheels. It preserves H59 slot pairing, H61 primary icon replacement, the H62 sprite cache, and the H63 focus-independent F1 initialization.
 
 The five mode-specific weapon pairs are now matched strictly by native `WeaponId.get_Slot()` values:
 
@@ -62,16 +62,18 @@ Validated H59 result:
 - DLC wheel in DLC mode: logically correct
 - both wheels populate all 9 sectors
 
-Known remaining cross-mode limitation:
-- requesting the DLC wheel while playing normal mode still displays the normal-mode wheel presentation
-- requesting the normal wheel while playing DLC still displays the DLC-mode wheel presentation
+Known remaining cross-mode visual limitation:
+- the remapped weapon and its primary icon are correct
+- a second scene-native weapon silhouette can remain visible behind that icon
+- `_backgroundImage` is generic wheel art and is not the source of the silhouette
 
-The next wheel work must therefore focus on cross-mode wheel identity/presentation, not on reworking the now-validated logical slot pairing.
+H68 validates a reliable native mode detector from live wheel composition: normal game = 9 base / 0 DLC, These Sunny Daze = 4 base / 5 DLC.
+
+The remaining work is strictly visual and must not rework H59/H61/H62/H63.
 
 ### Open work
 
-- fix cross-mode wheel identity/presentation while preserving H59 slot pairing
-- correct cross-mode icons only after wheel identity is resolved
+- identify and replace only the exact secondary weapon-silhouette layer while preserving validated H65 behavior
 - H9-H12 wheel experiments remain rejected and must not be reused as a base
 - the game's own **Skip Intro Videos** setting is left to the game; PostalBorkenMenu no longer duplicates it.
 
@@ -233,7 +235,12 @@ Development progressed through:
 - **V2A42-H40**: added persistent Skip Startup Logos menu toggle
 - **V2A42-H43**: safe menu cleanup; Help, Log Time and redundant Skip Intro Videos hidden without shifting internal command indices; current stable public release
 - **V2A42-H57**: first validated 9/9 population in both wheel contexts using bidirectional temporary remapping
-- **V2A42-H59**: validated logical wheel pairing by native slots 1,2,3,4,8; fixes melee/pistol inversion, duplicate CatCanon remap, missing slot-4 machine gun, and shifted shotgun mapping; current development checkpoint
+- **V2A42-H59**: validated logical wheel pairing by native slots 1,2,3,4,8
+- **V2A42-H61**: validated cross-mode primary weapon-icon replacement
+- **V2A42-H62**: cached sprite lookup removes the wheel-shortcut hitch
+- **V2A42-H63**: focus-independent F1/window initialization
+- **V2A42-H65**: clean validated baseline combining H59 + H61 + H62 + H63; current development checkpoint
+- **V2A42-H68**: experimental native 9/0 vs 4/5 mode detector, confirmed by runtime logs
 
 The detailed engineering notebook is kept under `docs/`.
 
