@@ -1,8 +1,8 @@
 # DLC / Base Weapon Wheel Status
 
-## Validated checkpoint: V2A42-H65
+## Validated checkpoint: V2A42-H74
 
-H65 is the current validated clean baseline for the DLC/Base weapon-wheel work.
+H74 is the current validated development checkpoint. It builds on the H65 clean baseline and restores the game's native tap/hold semantics for both weapon-wheel shortcuts.
 
 It combines only the parts validated in game:
 
@@ -59,4 +59,4 @@ H69 audits every child UnityEngine.UI.Image under the five remapped buttons and 
 ## Stability note
 
 V2A42-H43 remains the stable public release.
-V2A42-H65 is the current validated development checkpoint.
+V2A42-H74 is the current validated development checkpoint.
