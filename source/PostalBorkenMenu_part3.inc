@@ -153,6 +153,8 @@ static void SelectMenuTab(int tab) {
     if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
 }
 
+static void UpdateOverlayPosition();
+
 static const int g_h72IdX[9]={0,64,98,87,34,-34,-87,-98,-64};
 static const int g_h72IdY[9]={-100,-77,-17,50,94,94,50,-17,-77};
 
