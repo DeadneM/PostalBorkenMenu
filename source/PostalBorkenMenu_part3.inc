@@ -537,6 +537,25 @@ static void PollHotkeys() {
             return;
         }
 
+        // H77: a bound mod hotkey is an explicit safe-time signal from the user.
+        // Initialize here on the worker thread, never during process startup and
+        // never from the game's WndProc.
+        if(pressed && !g_ready && !g_shuttingDown && vk!=VK_F1) {
+            BOOL boundModKey=FALSE;
+            for(int h77i=0; h77i<CMD_COUNT; ++h77i) {
+                if(g_cmds[h77i].vk && g_cmds[h77i].vk==vk) {
+                    boundModKey=TRUE;
+                    break;
+                }
+            }
+            if(boundModKey) {
+                if(!EnsureLazyIl2CppH77("[LAZY H77] Trigger: bound gameplay hotkey.")) {
+                    LogA("[LAZY H77] Hotkey ignored because IL2CPP initialization is unavailable.");
+                    return;
+                }
+            }
+        }
+
         // Both weapon wheels are HOLD interactions. The base wheel keeps the
         // validated V2A20 path; the DLC wheel uses a V2A20-style empty-shell path with no GiveAllWeapons fallback.
         if (g_ready && !g_shuttingDown && !g_menuVisible) {
@@ -591,6 +610,11 @@ static void PollHotkeys() {
             g_baseWheelVk=0;
             g_dlcWheelVk=0;
             ToggleOverlay();
+
+            // F1 is the preferred explicit initialization point. This runs on
+            // ModThread, so the game WndProc is never blocked by InitIl2Cpp().
+            if(g_menuVisible && !g_ready && !g_shuttingDown)
+                EnsureLazyIl2CppH77("[LAZY H77] Trigger: F1 overlay opened by user.");
             return;
         }
 
@@ -714,7 +738,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H74 NATIVE TAP WHEEL SEMANTICS TEST");
+    LogA("PostalBorkenMenu V2A42-H77 LAZY IL2CPP INIT TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
@@ -728,18 +752,20 @@ static DWORD __stdcall ModThread(void*) {
     else
         LogA("[ERROR] Exact-name WeaponId resolver was not retained.");
     LogA(g_skipStartupLogos ? "[SPLASH H40] Skip Startup Logos config: ENABLED (default)." : "[SPLASH H40] Skip Startup Logos config: DISABLED.");
-    if (!InitIl2Cpp()) return 0;
 
-    // H62: pay the one global Sprite enumeration during startup instead of
-    // stalling the first wheel shortcut. Later opens use cached references.
-    PrewarmWheelSpriteCacheH62();
+    // H77: do not touch the IL2CPP domain during startup.
+    // Initialization is performed later from ModThread/PollHotkeys only,
+    // after an explicit user action (F1 or a bound gameplay hotkey).
+    LogA("[LAZY H77] Automatic startup IL2CPP initialization disabled.");
+    LogA("[LAZY H77] Press F1 or a bound gameplay hotkey after reaching the menu/game to initialize.");
 
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] H74 preserves H65 mapping/visual behavior, uses native OnWheelDown/OnWheelUp for base wheel tap/hold semantics, and disables heavy wheel audits.");
+    LogA("[READY] H77 startup-safe shell ready; H74 wheel semantics retained after lazy IL2CPP initialization.");
 
-    if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
+    if(g_noCrosshair)
+        LogA("[LAZY H77] No Crosshair will become available after lazy IL2CPP initialization.");
 
     MSG m;
     while (!g_shuttingDown) {

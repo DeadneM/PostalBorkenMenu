@@ -3836,8 +3836,7 @@ static BOOL InitIl2Cpp() {
     LogA("[OK] GameAssembly.dll found");
     if (!ResolveIl2CppApi()) return FALSE;
     LogA("[OK] IL2CPP exports resolved");
-    LogA("[ .. ] Delaying IL2CPP domain access by 2500 ms to avoid racing Unity startup...");
-    Sleep(2500);
+    LogA("[LAZY H77] User-triggered IL2CPP init; startup race delay skipped.");
     for (int k=0;k<300 && !g_domain;k++) { g_domain=g_il2cpp.domain_get(); if(!g_domain) Sleep(100); }
     if (!g_domain) { LogA("[ERROR] IL2CPP domain unavailable"); return FALSE; }
 
@@ -3900,7 +3899,7 @@ static BOOL InitIl2Cpp() {
     g_crosshairControllerClass=FindClassBySimpleName("PlayerCrosshairController");
     g_currentCrosshairField=g_crosshairControllerClass ? g_il2cpp.class_get_field_from_name(g_crosshairControllerClass,"_currentCrosshair") : 0;
 
-    RunTargetedNoVideoAndCrosshairAuditH13();
+    LogA("[LAZY H77] H13 metadata audit skipped during lazy init.");
 
     g_timeManagerClass=FindClassBySimpleName("TimeManager");
     g_timeScaleSetter=g_timeManagerClass ? FindMethodExact(g_timeManagerClass,"SetGameTimeScale",1,g_floatClass) : 0;
@@ -3925,5 +3924,37 @@ static BOOL InitIl2Cpp() {
     else LogA("[WARN] Only a subset of native developer commands resolved");
     g_ready=1;
     return TRUE;
+}
+
+static BOOL EnsureLazyIl2CppH77(const char* reason) {
+    if(g_ready) return TRUE;
+    if(g_shuttingDown) return FALSE;
+
+    if(g_h77LazyInitState==1) {
+        LogA("[LAZY H77] Initialization already in progress.");
+        return FALSE;
+    }
+    if(g_h77LazyInitState==3) {
+        LogA("[LAZY H77] Previous lazy initialization failed; not retrying in this session.");
+        return FALSE;
+    }
+
+    g_h77LazyInitState=1;
+    LogA("[LAZY H77] ========================================");
+    LogA("[LAZY H77] Starting IL2CPP initialization on demand.");
+    if(reason) LogA(reason);
+
+    BOOL ok=InitIl2Cpp();
+    if(ok) {
+        g_h77LazyInitState=2;
+        LogA("[LAZY H77] IL2CPP READY. Gameplay commands/hotkeys are now enabled.");
+        if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
+        return TRUE;
+    }
+
+    g_h77LazyInitState=3;
+    LogA("[LAZY H77] IL2CPP initialization FAILED.");
+    if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
+    return FALSE;
 }
 
