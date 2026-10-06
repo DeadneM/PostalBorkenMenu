@@ -153,7 +153,174 @@ static void SelectMenuTab(int tab) {
     if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
 }
 
+static const int g_h71WheelPointX[9]={0,64,98,87,34,-34,-87,-98,-64};
+static const int g_h71WheelPointY[9]={-100,-77,-17,50,94,94,50,-17,-77};
+
+static const WCHAR* VirtualWheelLabelH71(int category,int slot) {
+    static const WCHAR* base[10]={
+        L"",
+        L"1  SHOVEL",
+        L"2  PISTOL",
+        L"3  SHOTGUN",
+        L"4  MACHINE GUN",
+        L"5  COMMON SLOT",
+        L"6  COMMON SLOT",
+        L"7  COMMON SLOT",
+        L"8  DILDO BOW",
+        L"9  COMMON SLOT"
+    };
+    static const WCHAR* dlc[10]={
+        L"",
+        L"1  UMDRILL",
+        L"2  PISS GUN",
+        L"3  MEAT SHOTGUN",
+        L"4  BUBBLE GUN",
+        L"5  COMMON SLOT",
+        L"6  COMMON SLOT",
+        L"7  COMMON SLOT",
+        L"8  NUCLEAR SYRINGE",
+        L"9  COMMON SLOT"
+    };
+    if(slot<1 || slot>9) return L"";
+    return category==1 ? dlc[slot] : base[slot];
+}
+
+static void VirtualWheelPointH71(int slot,int w,int h,int* outX,int* outY) {
+    if(!outX || !outY || slot<1 || slot>9) return;
+    int minDim=w<h ? w : h;
+    int radius=minDim/3;
+    if(radius<120) radius=120;
+    if(radius>260) radius=260;
+    *outX=w/2 + (g_h71WheelPointX[slot-1]*radius)/100;
+    *outY=h/2 + (g_h71WheelPointY[slot-1]*radius)/100;
+}
+
+static void PaintVirtualWheelH71(HWND hwnd) {
+    PAINTSTRUCT ps={};
+    HDC dc=BeginPaint(hwnd,&ps);
+    if(!dc) return;
+
+    RECT cr={};
+    GetClientRect(hwnd,&cr);
+    int w=cr.right-cr.left;
+    int h=cr.bottom-cr.top;
+
+    Fill(dc,0,0,w,h,C(8,9,12));
+    Text(dc,
+         g_h71VirtualWheelCategory==1 ? L"VIRTUAL DLC WEAPON WHEEL" : L"VIRTUAL NORMAL WEAPON WHEEL",
+         0,18,w,50,C(245,245,248),DT_CENTER);
+    Text(dc,L"Move cursor or press 1-9  •  Release wheel key to equip",
+         0,50,w,78,C(175,180,190),DT_CENTER);
+
+    for(int slot=1;slot<=9;slot++) {
+        int x=0,y=0;
+        VirtualWheelPointH71(slot,w,h,&x,&y);
+        int bw=150,bh=46;
+        BOOL selected=(slot==g_h71VirtualWheelSelectedSlot);
+        Fill(dc,x-bw/2,y-bh/2,x+bw/2,y+bh/2,
+             selected ? C(120,66,148) : C(38,41,49));
+        Text(dc,VirtualWheelLabelH71(g_h71VirtualWheelCategory,slot),
+             x-bw/2+4,y-bh/2,x+bw/2-4,y+bh/2,
+             selected ? C(255,255,255) : C(215,218,224),DT_CENTER);
+    }
+
+    Text(dc,L"H71 minimal functional test  •  no native cross-mode wheel calls",
+         0,h-44,w,h-16,C(145,150,160),DT_CENTER);
+
+    EndPaint(hwnd,&ps);
+}
+
+static void ShowVirtualWheelH71(int category,int vk) {
+    if(!g_menuHwnd || !g_gameHwnd || g_h71VirtualWheelActive) return;
+
+    RECT r={}; POINT p={0,0};
+    if(!GetClientRect(g_gameHwnd,&r) || !ClientToScreen(g_gameHwnd,&p)) return;
+
+    int w=r.right-r.left;
+    int h=r.bottom-r.top;
+    if(w<320 || h<200) return;
+
+    g_h71VirtualWheelCategory=(category==1)?1:0;
+    g_h71VirtualWheelVk=vk;
+    g_h71VirtualWheelSelectedSlot=1;
+    g_h71VirtualWheelActive=1;
+
+    SetLayeredWindowAttributes(g_menuHwnd,0,190,LWA_ALPHA);
+    SetWindowPos(g_menuHwnd,(HWND)(LONG_PTR)-1,p.x,p.y,w,h,SWP_NOACTIVATE);
+    ShowWindow(g_menuHwnd,SW_SHOWNOACTIVATE);
+    InvalidateRect(g_menuHwnd,0,TRUE);
+
+    LogA(category==1 ? "[WHEEL H71] virtual DLC wheel opened." :
+                       "[WHEEL H71] virtual BASE wheel opened.");
+}
+
+static void UpdateVirtualWheelSelectionH71() {
+    if(!g_h71VirtualWheelActive || !g_gameHwnd) return;
+
+    POINT cur={0,0};
+    POINT origin={0,0};
+    RECT r={};
+    if(!GetCursorPos(&cur) || !GetClientRect(g_gameHwnd,&r) || !ClientToScreen(g_gameHwnd,&origin))
+        return;
+
+    int w=r.right-r.left;
+    int h=r.bottom-r.top;
+    int cx=origin.x+w/2;
+    int cy=origin.y+h/2;
+    LONG dx=cur.x-cx;
+    LONG dy=cur.y-cy;
+
+    // Many FPS games keep the OS cursor centered while using raw mouse input.
+    // In that case keep the previous selection; number keys remain available.
+    if((dx*dx + dy*dy) < (70*70))
+        return;
+
+    int bestSlot=g_h71VirtualWheelSelectedSlot;
+    unsigned long bestDist=0xFFFFFFFFUL;
+
+    for(int slot=1;slot<=9;slot++) {
+        int px=0,py=0;
+        VirtualWheelPointH71(slot,w,h,&px,&py);
+        LONG sx=(LONG)(origin.x+px)-cur.x;
+        LONG sy=(LONG)(origin.y+py)-cur.y;
+        unsigned long dist=(unsigned long)(sx*sx + sy*sy);
+        if(dist<bestDist) {
+            bestDist=dist;
+            bestSlot=slot;
+        }
+    }
+
+    if(bestSlot!=g_h71VirtualWheelSelectedSlot) {
+        g_h71VirtualWheelSelectedSlot=bestSlot;
+        InvalidateRect(g_menuHwnd,0,TRUE);
+    }
+}
+
+static void HideVirtualWheelH71(BOOL commitSelection) {
+    if(!g_h71VirtualWheelActive) return;
+
+    int category=g_h71VirtualWheelCategory;
+    int slot=g_h71VirtualWheelSelectedSlot;
+
+    g_h71VirtualWheelActive=0;
+    g_h71VirtualWheelVk=0;
+    ShowWindow(g_menuHwnd,SW_HIDE);
+    SetLayeredWindowAttributes(g_menuHwnd,0,242,LWA_ALPHA);
+    UpdateOverlayPosition();
+
+    if(commitSelection) {
+        LogIntA("[WHEEL H71] virtual wheel release slot: ",slot);
+        EquipVirtualWheelSlotH71(category,slot);
+    } else {
+        LogA("[WHEEL H71] virtual wheel cancelled.");
+    }
+}
+
 static void PaintOverlay(HWND hwnd) {
+    if(g_h71VirtualWheelActive) {
+        PaintVirtualWheelH71(hwnd);
+        return;
+    }
     PAINTSTRUCT ps={}; HDC dc=BeginPaint(hwnd,&ps); if(!dc) return;
     Fill(dc,0,0,OVERLAY_W,OVERLAY_H,C(16,17,20));
     Fill(dc,0,0,OVERLAY_W,54,C(31,33,39));
@@ -374,6 +541,8 @@ static WNDPROC BeginEarlyShutdown(HWND hwnd, const char* reason) {
         g_baseWheelVk=0;
         g_dlcWheelActive=0;
         g_dlcWheelVk=0;
+        g_h71VirtualWheelActive=0;
+        g_h71VirtualWheelVk=0;
         g_bindIndex=-1;
         g_menuVisible=0;
         LogA(reason);
@@ -482,6 +651,9 @@ static void PollHotkeys() {
         PostMessageW(g_gameHwnd,WM_APP_DLCWHEEL,0,0);
         g_dlcWheelVk=0;
     }
+    if (!active && g_h71VirtualWheelActive) {
+        HideVirtualWheelH71(FALSE);
+    }
 
     // H51 base-wheel behavior is intentionally preserved byte-for-byte.
     static int h51FilterDivider=0;
@@ -505,6 +677,16 @@ static void PollHotkeys() {
         h54DlcSwapDivider=0;
     }
 
+    // H71 performs all expensive discovery away from the hotkey path.
+    static int h71BackgroundDivider=0;
+    if(active && !g_h71VirtualWheelActive && ++h71BackgroundDivider>=200) {
+        h71BackgroundDivider=0;
+        RefreshVirtualWheelRuntimeH71();
+    }
+
+    if(g_h71VirtualWheelActive)
+        UpdateVirtualWheelSelectionH71();
+
     for (int vk=8; vk<256; ++vk) {
         if (g_shuttingDown) return;
 
@@ -515,6 +697,22 @@ static void PollHotkeys() {
         g_keyPrev[vk]=down;
 
         if (!active || (!pressed && !released)) continue;
+
+        if(g_h71VirtualWheelActive) {
+            if(released && vk==g_h71VirtualWheelVk) {
+                HideVirtualWheelH71(TRUE);
+                return;
+            }
+            if(pressed && vk>=0x31 && vk<=0x39) {
+                g_h71VirtualWheelSelectedSlot=vk-0x30;
+                if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
+                return;
+            }
+            if(pressed && vk==VK_ESCAPE) {
+                HideVirtualWheelH71(FALSE);
+                return;
+            }
+        }
 
         if (g_bindIndex>=0) {
             if (!pressed) continue;
@@ -545,6 +743,14 @@ static void PollHotkeys() {
 
                 if(StrEqA(g_cmds[i].className,"__BaseWeaponWheel")) {
                     if(pressed) {
+                        // In DLC scenes, BASE is cross-mode: use H71 virtual wheel.
+                        if(g_h71SceneMode==2) {
+                            if(g_dlcWheelActive) PostMessageW(g_gameHwnd,WM_APP_DLCWHEEL,0,0);
+                            ShowVirtualWheelH71(0,vk);
+                            return;
+                        }
+
+                        // Normal scene keeps the native base wheel untouched.
                         if(g_dlcWheelActive) PostMessageW(g_gameHwnd,WM_APP_DLCWHEEL,0,0);
                         g_baseWheelVk=vk;
                         PostMessageW(g_gameHwnd,WM_APP_BASEWHEEL,0,1);
@@ -559,6 +765,14 @@ static void PollHotkeys() {
 
                 if(StrEqA(g_cmds[i].className,"__DlcWeaponWheel")) {
                     if(pressed) {
+                        // In normal scenes, DLC is cross-mode: use H71 virtual wheel.
+                        if(g_h71SceneMode==1) {
+                            if(g_baseWheelActive) PostMessageW(g_gameHwnd,WM_APP_BASEWHEEL,0,0);
+                            ShowVirtualWheelH71(1,vk);
+                            return;
+                        }
+
+                        // Native DLC scene keeps the native DLC wheel untouched.
                         if(g_baseWheelActive) PostMessageW(g_gameHwnd,WM_APP_BASEWHEEL,0,0);
                         g_dlcWheelVk=vk;
                         PostMessageW(g_gameHwnd,WM_APP_DLCWHEEL,0,1);
@@ -586,6 +800,7 @@ static void PollHotkeys() {
         if (!pressed) continue;
 
         if (vk==VK_F1) {
+            if(g_h71VirtualWheelActive) HideVirtualWheelH71(FALSE);
             if(g_baseWheelActive) PostMessageW(g_gameHwnd,WM_APP_BASEWHEEL,0,0);
             if(g_dlcWheelActive) PostMessageW(g_gameHwnd,WM_APP_DLCWHEEL,0,0);
             g_baseWheelVk=0;
@@ -714,7 +929,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H65 CLEAN H61 + H63 INIT TEST");
+    LogA("PostalBorkenMenu V2A42-H71 VIRTUAL CROSS-MODE WHEEL TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
@@ -734,10 +949,13 @@ static DWORD __stdcall ModThread(void*) {
     // stalling the first wheel shortcut. Later opens use cached references.
     PrewarmWheelSpriteCacheH62();
 
+    // H71 resolves WeaponIds and scene mode before hotkeys become active.
+    RefreshVirtualWheelRuntimeH71();
+
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] H65 clean baseline: H59 weapon logic + H61 icon behavior + H62 sprite cache + validated H63 focus-independent F1 initialization.");
+    LogA("[READY] H71 preserves H65 native wheels in native modes; cross-mode uses a separate cached virtual wheel with no native wheel remap.");
 
     if (g_noCrosshair && g_gameHwnd) PostMessageW(g_gameHwnd,WM_APP_CROSSHAIR,0,0);
 
