@@ -1,8 +1,8 @@
 # DLC / Base Weapon Wheel Status
 
-## Validated checkpoint: V2A42-H74
+## Validated checkpoint: V2A42-H77
 
-H74 is the current validated development checkpoint. It builds on the H65 clean baseline and restores the game's native tap/hold semantics for both weapon-wheel shortcuts.
+H77 is the current validated development checkpoint. It preserves H74's native tap/hold weapon-wheel semantics and moves IL2CPP initialization out of process startup.
 
 It combines only the parts validated in game:
 
@@ -25,7 +25,7 @@ Broad secondary/background visual experiments from H62/H63/H64 are not part of H
 
 Slots 5, 6, 7 and 9 are common/native and are never remapped.
 
-## User-validated H65 behavior
+## User-validated wheel behavior
 
 - normal wheel in normal mode: correct
 - DLC wheel in DLC mode: correct
@@ -33,7 +33,8 @@ Slots 5, 6, 7 and 9 are common/native and are never remapped.
 - cross-mode weapon calls: correct
 - cross-mode primary weapon icon: correct
 - wheel shortcut performance: fixed by H62 cache
-- F1/menu initialization no longer depends on POSTAL being foreground at startup
+- F1/menu window initialization no longer depends on POSTAL being foreground at startup
+- H74 restores native short-tap previous-weapon swap and hold-to-open semantics for both wheel shortcuts
 
 ## Remaining visual issue
 
@@ -52,11 +53,23 @@ H68 experimentally validates a reliable mode detector from the live native wheel
 
 This is preferred over the rejected H67 SceneManager name detector.
 
-## Current experiment
+## Startup stability
 
-H69 audits every child UnityEngine.UI.Image under the five remapped buttons and only replaces a secondary Image when its sprite name exactly matches the pre-swap weapon sprite name. This tests for duplicate Sprite instances that share an asset name but not the same object pointer.
+H77 changes startup architecture without changing validated H74 weapon-wheel behavior:
+
+- no automatic IL2CPP initialization during process startup
+- H39 startup-logo skip remains active
+- F1 or the first bound gameplay hotkey triggers lazy IL2CPP initialization on the mod worker thread
+- the H13 metadata audit is skipped during lazy init
+- the H62 sprite prewarm is not performed at startup
+
+This is the validated fix for the pre-menu freeze observed with earlier automatic-startup initialization.
+
+## Current visual target
+
+The remaining cross-mode issue is visual only: identify the exact secondary weapon-silhouette layer that can remain behind the corrected primary icon. Do not change the validated H59/H74 selection/input path while investigating it.
 
 ## Stability note
 
 V2A42-H43 remains the stable public release.
-V2A42-H74 is the current validated development checkpoint.
+V2A42-H77 is the current validated development checkpoint.
