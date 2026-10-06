@@ -1731,6 +1731,28 @@ static const char* g_h57DlcNames[5]={
 static const int g_h59VariableSlots[5]={1,2,3,4,8};
 static int SlotIndexH59(int slot);
 
+// H68: scene/mode detector based only on the live native wheel composition.
+// NORMAL game: 9 base / 0 DLC.
+// These Sunny Daze: 4 base / 5 DLC.
+// 0 unknown, 1 normal, 2 DLC.
+static volatile LONG g_h68NativeSceneMode=0;
+
+static void UpdateNativeSceneModeH68(int baseCount,int dlcCount) {
+    LONG mode=0;
+    if(baseCount>=9 && dlcCount==0) mode=1;
+    else if(baseCount==4 && dlcCount>=5) mode=2;
+    else if(dlcCount>0) mode=2;
+    else if(baseCount>0) mode=1;
+
+    g_h68NativeSceneMode=mode;
+
+    LogIntA("[WHEEL H68] native base button count: ",baseCount);
+    LogIntA("[WHEEL H68] native DLC button count: ",dlcCount);
+    if(mode==2) LogA("[WHEEL H68] Scene mode detected: DLC / These Sunny Daze.");
+    else if(mode==1) LogA("[WHEEL H68] Scene mode detected: NORMAL game.");
+    else LogA("[WHEEL H68] Scene mode remains UNKNOWN.");
+}
+
 // H61: safe visual-only mapping. These names come from the game's own
 // native wheel snapshots logged by H56. We change ONLY _weaponSelectedImage.sprite.
 // No WeaponId, slot, category, selection or enable logic is modified here.
@@ -2471,6 +2493,7 @@ static BOOL ShowNativeBaseWeaponWheel() {
 
     LogIntA("[WHEEL H51] BASE buttons before open: ",baseCount);
     LogIntA("[WHEEL H51] DLC buttons before open: ",dlcCount);
+    UpdateNativeSceneModeH68(baseCount,dlcCount);
     AuditCurrentWheelLayoutH56(
         (dlcCount>0) ? "[WHEEL H56] DLC SCENE native layout" : "[WHEEL H56] NORMAL SCENE native layout",
         baseCount,dlcCount);
@@ -2617,9 +2640,13 @@ static BOOL ApplyDelayedBaseFilterH51() {
                         g_h57BaseMappedButtons[m]=button;
                         g_h57BaseOriginalWeapons[m]=weapon;
 
-                        // H61 visual-only: DLC scene currently shows DLC sprites,
-                        // so replace just the icon with the base-game sprite.
-                        ApplySlotIconH61(button,buttonClass,sourceSlot,FALSE,TRUE,m);
+                        // H68: only the cross-mode NORMAL wheel inside a
+                        // native DLC scene needs NORMAL/base icons.
+                        if(g_h68NativeSceneMode==2 || g_h68NativeSceneMode==0) {
+                            ApplySlotIconH61(button,buttonClass,sourceSlot,FALSE,TRUE,m);
+                        } else {
+                            LogIntA("[WHEEL H68] NORMAL scene -> BASE icon swap skipped for slot: ",sourceSlot);
+                        }
 
                         enabled=TRUE;
                     }
@@ -2652,7 +2679,7 @@ static BOOL ApplyDelayedBaseFilterH51() {
 
     g_h57BaseSwapApplied=TRUE;
     g_h51BaseFilterPending=0;
-    LogA("[WHEEL H65] H59 logic + H61 icon behavior preserved; H62 cache only.");
+    LogA("[WHEEL H68] H65 preserved; icon replacement selected by native wheel-composition mode.");
     return TRUE;
 }
 
@@ -3420,9 +3447,13 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
                     g_h54MappedButtons[m]=button;
                     g_h54OriginalWeapons[m]=original;
 
-                    // H61 visual-only: normal scene currently shows base sprites,
-                    // so replace just the icon with the DLC sprite.
-                    ApplySlotIconH61(button,buttonClass,sourceSlot,TRUE,FALSE,m);
+                    // H68: only the cross-mode DLC wheel inside the
+                    // native NORMAL scene needs DLC icons.
+                    if(g_h68NativeSceneMode==1 || g_h68NativeSceneMode==0) {
+                        ApplySlotIconH61(button,buttonClass,sourceSlot,TRUE,FALSE,m);
+                    } else {
+                        LogIntA("[WHEEL H68] DLC scene -> DLC icon swap skipped for slot: ",sourceSlot);
+                    }
 
                     BOOL enabled=TRUE;
                     void* ep[1]; ep[0]=&enabled;
@@ -3460,7 +3491,7 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
 
     g_h54DlcSwapApplied=TRUE;
     g_h54DlcSwapPending=0;
-    LogA("[WHEEL H65] H59 logic + H61 icon behavior preserved; H62 cache only.");
+    LogA("[WHEEL H68] H65 preserved; icon replacement selected by native wheel-composition mode.");
     return TRUE;
 }
 
@@ -3524,6 +3555,7 @@ static BOOL ShowNativeDlcWeaponWheel() {
 
     int baseCount=0,dlcCount=0,otherCount=0;
     InspectNativeWheelCategoriesH49(wheel,buttonsField,buttonGetWeapon,getCategory,&baseCount,&dlcCount,&otherCount);
+    UpdateNativeSceneModeH68(baseCount,dlcCount);
 
     AuditCurrentWheelLayoutH56(
         (dlcCount>0) ? "[WHEEL H56] DLC SCENE native layout" : "[WHEEL H56] NORMAL SCENE native layout",
