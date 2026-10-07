@@ -1,8 +1,8 @@
 # DLC / Base Weapon Wheel Status
 
-## Validated checkpoint: V2A42-H77
+## Validated checkpoint: V2A42-H80
 
-H77 is the current validated development checkpoint. It preserves H74's native tap/hold weapon-wheel semantics and moves IL2CPP initialization out of process startup.
+H80 is the current validated development checkpoint. It preserves H74's native tap/hold weapon-wheel semantics and H77's lazy IL2CPP startup architecture. User validation confirms the current functions behave correctly; only the alternative wheel icon background remains visually wrong.
 
 It combines only the parts validated in game:
 
@@ -38,11 +38,11 @@ Slots 5, 6, 7 and 9 are common/native and are never remapped.
 
 ## Remaining visual issue
 
-A second scene-native weapon silhouette can remain visible behind the corrected cross-mode weapon icon.
+The remaining defect is the weapon-specific background/silhouette behind the corrected icon on the alternative cross-mode wheel.
 
-Runtime audits prove WeaponWheelButton._backgroundImage is not that silhouette. It uses the same generic sprite, weapon_wheel_part_light, in both normal and DLC scenes.
+Runtime audits prove `WeaponWheelButton._backgroundImage` is not that layer. It uses the same generic `weapon_wheel_part_light` sprite in both normal and DLC scenes.
 
-Do not rework H59, H61, H62 or H63 while fixing this remaining visual layer.
+Do not rework H59, H74 or H77 while fixing this remaining visual layer. H80 is now the preferred validated checkpoint.
 
 ## H68 detector
 
@@ -67,9 +67,9 @@ This is the validated fix for the pre-menu freeze observed with earlier automati
 
 ## Current visual target
 
-The remaining cross-mode issue is visual only: identify the exact secondary weapon-silhouette layer that can remain behind the corrected primary icon. Do not change the validated H59/H74 selection/input path while investigating it.
+The remaining cross-mode issue is visual only: identify the exact icon-background / secondary silhouette layer behind the corrected foreground icon. Do not change the validated H59/H74 selection/input path or the H77 lazy-startup architecture while investigating it.
 
 ## Stability note
 
 V2A42-H43 remains the stable public release.
-V2A42-H77 is the current validated development checkpoint.
+V2A42-H80 is the current validated development checkpoint.
