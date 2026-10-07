@@ -12,9 +12,9 @@
 
 **V2A42-H43** remains the current stable public release.
 
-**V2A42-H77** is the current user-validated development checkpoint.
+**V2A42-H80** is the current user-validated development checkpoint.
 
-It preserves the validated H74 weapon-wheel behavior and moves IL2CPP initialization out of process startup. H77 initializes IL2CPP lazily on the mod worker thread after the first explicit F1 or bound gameplay-hotkey action, avoiding the pre-menu startup freeze while keeping the mod functional.
+It preserves the validated H74 weapon-wheel behavior and the H77 lazy IL2CPP startup architecture. H80 is user-validated in normal use; the only remaining known issue is visual: the icon background on the alternative cross-mode weapon wheel is still incorrect.
 
 Validated H43 behavior:
 
@@ -63,9 +63,10 @@ Validated H59 result:
 - both wheels populate all 9 sectors
 
 Known remaining cross-mode visual limitation:
-- the remapped weapon and its primary icon are correct
-- a second scene-native weapon silhouette can remain visible behind that icon
-- `_backgroundImage` is generic wheel art and is not the source of the silhouette
+- weapon selection and wheel behavior are correct
+- the foreground weapon icon is correct
+- the remaining defect is the background/silhouette behind icons on the alternative cross-mode wheel
+- `_backgroundImage` is generic wheel art and is not the source of that weapon-specific background
 
 H68 validates a reliable native mode detector from live wheel composition: normal game = 9 base / 0 DLC, These Sunny Daze = 4 base / 5 DLC.
 
@@ -73,7 +74,7 @@ The remaining wheel work is strictly visual and must not rework the validated H5
 
 ### Open work
 
-- identify and replace only the exact secondary weapon-silhouette layer while preserving validated H74/H77 behavior
+- identify and replace only the exact icon-background / secondary silhouette layer while preserving validated H74/H77/H80 behavior
 - H9-H12 wheel experiments remain rejected and must not be reused as a base
 - the game's own **Skip Intro Videos** setting is left to the game; PostalBorkenMenu no longer duplicates it.
 
@@ -241,7 +242,8 @@ Development progressed through:
 - **V2A42-H63**: focus-independent F1/window initialization
 - **V2A42-H65**: clean validated baseline combining H59 + H61 + H62 + H63
 - **V2A42-H74**: validated native tap/hold weapon-wheel semantics for both base and DLC wheel shortcuts
-- **V2A42-H77**: validated lazy IL2CPP initialization after startup; removes the pre-menu initialization path while preserving H74 wheel behavior; current development checkpoint
+- **V2A42-H77**: validated lazy IL2CPP initialization after startup; removes the pre-menu initialization path while preserving H74 wheel behavior
+- **V2A42-H80**: user-validated runtime checkpoint; all current functionality behaves correctly, with only the alternative wheel icon-background visual defect remaining; current development checkpoint
 - **V2A42-H68**: experimental native 9/0 vs 4/5 mode detector, confirmed by runtime logs
 
 The detailed engineering notebook is kept under `docs/`.
