@@ -1952,16 +1952,122 @@ static BOOL SetButtonIconSpriteH61(Il2CppObject* button,
     return TRUE;
 }
 
+static BOOL GetUnityObjectNameAsciiH82(Il2CppObject* obj,char* out,int cap) {
+    if(out && cap>0) out[0]=0;
+    if(!obj || !out || cap<=1 || !g_coreImage) return FALSE;
+
+    Il2CppClass* objectClass=g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Object");
+    const MethodInfo* getName=objectClass ? g_il2cpp.class_get_method_from_name(objectClass,"get_name",0) : 0;
+    if(!getName) return FALSE;
+
+    Il2CppException* ex=0;
+    Il2CppObject* nameObj=g_il2cpp.runtime_invoke(getName,obj,0,&ex);
+    if(ex || !nameObj) return FALSE;
+
+    CatalogManagedStringToAscii((Il2CppString*)nameObj,out,cap);
+    return out[0]!=0;
+}
+
+static BOOL GetImageSpriteObjectH82(Il2CppObject* image,Il2CppObject** outSprite) {
+    if(outSprite) *outSprite=0;
+    if(!image || !outSprite) return FALSE;
+
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+    Il2CppClass* imageClass=objectGetClass ? objectGetClass(image) : 0;
+    if(!imageClass) return FALSE;
+
+    const MethodInfo* getSprite=g_il2cpp.class_get_method_from_name(imageClass,"get_sprite",0);
+    if(!getSprite) return FALSE;
+
+    Il2CppException* ex=0;
+    Il2CppObject* sprite=g_il2cpp.runtime_invoke(getSprite,image,0,&ex);
+    if(ex) return FALSE;
+
+    *outSprite=sprite;
+    return TRUE;
+}
+
 static BOOL ReplaceMatchingLocalIconLayersH62(Il2CppObject* button,
                                                Il2CppObject* originalSprite,
                                                Il2CppObject* targetSprite,
                                                BOOL baseState,
                                                int index) {
-    // H65 clean baseline: preserve H61 visual behavior exactly.
-    // H62 cache stays enabled for performance, but no secondary/background
-    // Image is modified here.
-    (void)button; (void)originalSprite; (void)targetSprite;
+    // H82: inspect only Image fields declared directly on WeaponWheelButton.
+    // No GetComponentsInChildren, no global UI traversal. This targets a
+    // possible second weapon underlay that reuses the exact old icon sprite.
+    if(index<0 || index>=5) return FALSE;
     ClearExtraLayersH62(baseState,index);
+
+    if(!button || !originalSprite || !targetSprite || !g_assemblyCSharp || !g_uiImage)
+        return TRUE;
+
+    Il2CppClass* buttonClass=g_il2cpp.class_from_name(
+        g_assemblyCSharp,
+        "Hyperstrange.PBD.PlayerComponents.WeaponWheel",
+        "WeaponWheelButton");
+    Il2CppClass* uiImageClass=g_il2cpp.class_from_name(g_uiImage,"UnityEngine.UI","Image");
+    if(!buttonClass || !uiImageClass) return TRUE;
+
+    typedef const Il2CppType* (*FnFieldGetType)(const FieldInfo*);
+    FnFieldGetType fieldGetType=(FnFieldGetType)Proc("il2cpp_field_get_type");
+    if(!fieldGetType) return TRUE;
+
+    char originalName[192]; originalName[0]=0;
+    GetUnityObjectNameAsciiH82(originalSprite,originalName,192);
+
+    void* it=0;
+    const FieldInfo* field=0;
+    int matches=0;
+
+    while((field=g_il2cpp.class_get_fields(buttonClass,&it))!=0 && matches<8) {
+        const char* fn=g_il2cpp.field_get_name(field);
+        if(!fn) continue;
+        if(StrEqA(fn,"_weaponSelectedImage") || StrEqA(fn,"_backgroundImage"))
+            continue;
+
+        const Il2CppType* ft=fieldGetType(field);
+        Il2CppClass* fc=ft ? g_il2cpp.class_from_type(ft) : 0;
+        if(fc!=uiImageClass) continue;
+
+        Il2CppObject* image=0;
+        g_il2cpp.field_get_value(button,field,&image);
+        if(!image) continue;
+
+        Il2CppObject* currentSprite=0;
+        if(!GetImageSpriteObjectH82(image,&currentSprite) || !currentSprite)
+            continue;
+
+        BOOL same=(currentSprite==originalSprite) ? TRUE : FALSE;
+        if(!same && originalName[0]) {
+            char currentName[192]; currentName[0]=0;
+            if(GetUnityObjectNameAsciiH82(currentSprite,currentName,192) &&
+               StrEqA(currentName,originalName))
+                same=TRUE;
+        }
+        if(!same) continue;
+
+        Il2CppObject* previous=0;
+        if(!SetImageSpriteObjectH62(image,targetSprite,&previous))
+            continue;
+
+        if(baseState) {
+            g_h62BaseExtraImages[index][matches]=image;
+            g_h62BaseExtraOriginalSprites[index][matches]=previous;
+        } else {
+            g_h62DlcExtraImages[index][matches]=image;
+            g_h62DlcExtraOriginalSprites[index][matches]=previous;
+        }
+
+        LogA("[WHEEL H82] matched WeaponWheelButton Image field:");
+        LogA(fn);
+        ++matches;
+    }
+
+    if(baseState) g_h62BaseExtraCount[index]=matches;
+    else g_h62DlcExtraCount[index]=matches;
+
+    LogIntA("[WHEEL H82] field-only underlay replacements: ",matches);
     return TRUE;
 }
 
