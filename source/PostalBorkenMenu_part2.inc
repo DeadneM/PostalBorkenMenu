@@ -2600,6 +2600,12 @@ static BOOL ApplyDelayedBaseFilterH51() {
                         // so replace just the icon with the base-game sprite.
                         ApplySlotIconH61(button,buttonClass,sourceSlot,FALSE,TRUE,m);
 
+                        AuditCrossModeVisualStateH83(
+                            button,
+                            weapon,
+                            baseTargets[k],
+                            "[WHEEL H83] direction: DLC scene -> BASE wheel");
+
                         enabled=TRUE;
                     }
                 }
@@ -3221,6 +3227,133 @@ static BOOL IsVisualTypeNameH55(const char* ns,const char* cn) {
     return FALSE;
 }
 
+
+static BOOL g_h83VisualAuditDone=FALSE;
+
+static BOOL H83InterestingVisualType(const char* ns,const char* cn) {
+    if(!cn) return FALSE;
+    if(StrContainsNoCaseA(cn,"Sprite")) return TRUE;
+    if(StrContainsNoCaseA(cn,"Texture")) return TRUE;
+    if(StrContainsNoCaseA(cn,"Image")) return TRUE;
+    if(StrContainsNoCaseA(cn,"Material")) return TRUE;
+    if(StrContainsNoCaseA(cn,"GameObject")) return TRUE;
+    if(StrContainsNoCaseA(cn,"Animator")) return TRUE;
+    if(StrContainsNoCaseA(cn,"Canvas")) return TRUE;
+    if(StrContainsNoCaseA(cn,"Graphic")) return TRUE;
+    if(StrContainsNoCaseA(cn,"RectTransform")) return TRUE;
+    if(StrContainsNoCaseA(cn,"Color")) return TRUE;
+    if(ns && StrContainsNoCaseA(ns,"UnityEngine") && StrContainsNoCaseA(cn,"Object")) return TRUE;
+    return FALSE;
+}
+
+static void H83LogNamedObject(Il2CppObject* obj,const char* prefix) {
+    if(prefix) LogA(prefix);
+    if(!obj) {
+        LogA("<null>");
+        return;
+    }
+
+    Il2CppClass* objectClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Object") : 0;
+    const MethodInfo* getName=objectClass ? g_il2cpp.class_get_method_from_name(objectClass,"get_name",0) : 0;
+    if(!getName) {
+        LogA("<name unavailable>");
+        return;
+    }
+
+    Il2CppException* ex=0;
+    Il2CppObject* nameObj=g_il2cpp.runtime_invoke(getName,obj,0,&ex);
+    if(ex || !nameObj) {
+        LogA("<unnamed/non-Unity object>");
+        return;
+    }
+
+    char name[192]; name[0]=0;
+    CatalogManagedStringToAscii((Il2CppString*)nameObj,name,192);
+    LogA(name[0] ? name : "<empty name>");
+}
+
+static void H83AuditFields(Il2CppObject* obj,Il2CppClass* klass,const char* label,BOOL logAllFieldTypes) {
+    if(label) LogA(label);
+    if(!klass) {
+        LogA("[WHEEL H83] class unavailable.");
+        return;
+    }
+
+    typedef const Il2CppType* (*FnFieldGetType)(const FieldInfo*);
+    typedef int (*FnClassIsValueType)(Il2CppClass*);
+    FnFieldGetType fieldGetType=(FnFieldGetType)Proc("il2cpp_field_get_type");
+    FnClassIsValueType classIsValueType=(FnClassIsValueType)Proc("il2cpp_class_is_valuetype");
+    if(!fieldGetType) return;
+
+    void* it=0;
+    const FieldInfo* field=0;
+    int count=0;
+    while((field=g_il2cpp.class_get_fields(klass,&it))!=0 && count<128) {
+        ++count;
+        const char* fn=g_il2cpp.field_get_name(field);
+        const Il2CppType* ft=fieldGetType(field);
+        Il2CppClass* fc=ft ? g_il2cpp.class_from_type(ft) : 0;
+        const char* fns=fc ? g_il2cpp.class_get_namespace(fc) : 0;
+        const char* fcn=fc ? g_il2cpp.class_get_name(fc) : 0;
+
+        BOOL interesting=H83InterestingVisualType(fns,fcn);
+        if(!logAllFieldTypes && !interesting) continue;
+
+        LogA("[WHEEL H83 FIELD]");
+        LogA(fn ? fn : "<unnamed field>");
+        if(fns && fns[0]) LogA(fns);
+        if(fcn) LogA(fcn);
+
+        if(obj && fc && (!classIsValueType || !classIsValueType(fc))) {
+            Il2CppObject* value=0;
+            g_il2cpp.field_get_value(obj,field,&value);
+            if(value && interesting)
+                H83LogNamedObject(value,"[WHEEL H83] object name:");
+            else if(interesting)
+                LogA("[WHEEL H83] object value: <null>");
+        }
+    }
+}
+
+static void AuditCrossModeVisualStateH83(Il2CppObject* button,
+                                          Il2CppObject* sourceWeapon,
+                                          Il2CppObject* targetWeapon,
+                                          const char* direction) {
+    if(g_h83VisualAuditDone || !button || !sourceWeapon || !targetWeapon) return;
+    g_h83VisualAuditDone=TRUE;
+
+    Il2CppClass* buttonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,
+        "Hyperstrange.PBD.PlayerComponents.WeaponWheel",
+        "WeaponWheelButton") : 0;
+    Il2CppClass* weaponClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,
+        "Hyperstrange.PBD",
+        "WeaponId") : 0;
+
+    char srcName[128]; srcName[0]=0;
+    char dstName[128]; dstName[0]=0;
+    GetWeaponNameH54(sourceWeapon,srcName,128);
+    GetWeaponNameH54(targetWeapon,dstName,128);
+
+    LogA("[WHEEL H83] ############################################################");
+    LogA("[WHEEL H83] SINGLE-SLOT CROSS-MODE VISUAL STATE AUDIT");
+    if(direction) LogA(direction);
+    LogA("[WHEEL H83] source WeaponId:");
+    LogA(srcName[0] ? srcName : "<unknown>");
+    LogA("[WHEEL H83] target WeaponId:");
+    LogA(dstName[0] ? dstName : "<unknown>");
+
+    H83AuditFields(sourceWeapon,weaponClass,
+                   "[WHEEL H83] SOURCE WeaponId fields (all types):",TRUE);
+    H83AuditFields(targetWeapon,weaponClass,
+                   "[WHEEL H83] TARGET WeaponId fields (all types):",TRUE);
+    H83AuditFields(button,buttonClass,
+                   "[WHEEL H83] REMAPPED WeaponWheelButton visual fields:",FALSE);
+
+    LogA("[WHEEL H83] ############################################################");
+}
+
 static void LogWeaponIdVisualMetadataH55(Il2CppObject* weapon) {
     if(!weapon) return;
 
@@ -3402,6 +3535,12 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
                     // H61 visual-only: normal scene currently shows base sprites,
                     // so replace just the icon with the DLC sprite.
                     ApplySlotIconH61(button,buttonClass,sourceSlot,TRUE,FALSE,m);
+
+                    AuditCrossModeVisualStateH83(
+                        button,
+                        original,
+                        targets[k],
+                        "[WHEEL H83] direction: NORMAL scene -> DLC wheel");
 
                     BOOL enabled=TRUE;
                     void* ep[1]; ep[0]=&enabled;
