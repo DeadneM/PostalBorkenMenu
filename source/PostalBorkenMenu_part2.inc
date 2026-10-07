@@ -1700,6 +1700,10 @@ static BOOL g_h51BaseUsesInputEvent=FALSE;
 static void LogUnityObjectNameH55(Il2CppObject* obj,const char* label);
 static void LogImageSpriteH55(Il2CppObject* imageObj,const char* label);
 static BOOL GetWeaponNameH54(Il2CppObject* weapon,char* out,int cap);
+static void AuditCrossModeVisualStateH83(Il2CppObject* button,
+                                          Il2CppObject* sourceWeapon,
+                                          Il2CppObject* targetWeapon,
+                                          const char* direction);
 
 // H57: the two native scenes expose complementary 5-weapon variants.
 // Keep the 4 common sectors untouched and temporarily mirror only the five
