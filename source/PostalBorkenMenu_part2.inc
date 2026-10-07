@@ -3926,6 +3926,90 @@ static BOOL InitIl2Cpp() {
     return TRUE;
 }
 
+
+static BOOL H80InterestingButtonName(const char* n) {
+    if(!n || !n[0]) return FALSE;
+    return StrContainsNoCaseA(n,"weapon") ||
+           StrContainsNoCaseA(n,"icon") ||
+           StrContainsNoCaseA(n,"sprite") ||
+           StrContainsNoCaseA(n,"image") ||
+           StrContainsNoCaseA(n,"set_") ||
+           StrContainsNoCaseA(n,"init") ||
+           StrContainsNoCaseA(n,"setup") ||
+           StrContainsNoCaseA(n,"refresh") ||
+           StrContainsNoCaseA(n,"update") ||
+           StrContainsNoCaseA(n,"enable") ||
+           StrContainsNoCaseA(n,"select") ||
+           StrContainsNoCaseA(n,"button");
+}
+
+static void H80LogType(const Il2CppType* t,const char* label) {
+    if(label) LogA(label);
+    if(!t) { LogA("<null>"); return; }
+    Il2CppClass* tc=g_il2cpp.class_from_type(t);
+    if(!tc) { LogA("<unresolved>"); return; }
+    const char* ns=g_il2cpp.class_get_namespace(tc);
+    const char* cn=g_il2cpp.class_get_name(tc);
+    if(ns && ns[0]) LogA(ns);
+    if(cn) LogA(cn);
+}
+
+static void AuditWeaponWheelButtonApiH80() {
+    static BOOL done=FALSE;
+    if(done || !g_ready || g_shuttingDown || !g_assemblyCSharp) return;
+    done=TRUE;
+
+    Il2CppClass* klass=g_il2cpp.class_from_name(
+        g_assemblyCSharp,
+        "Hyperstrange.PBD.PlayerComponents.WeaponWheel",
+        "WeaponWheelButton");
+    if(!klass) {
+        LogA("[WHEEL H80] WeaponWheelButton class unresolved.");
+        return;
+    }
+
+    LogA("[WHEEL H80] ============================================================");
+    LogA("[WHEEL H80] COMPACT WeaponWheelButton API AUDIT");
+
+    void* mi=0;
+    const MethodInfo* m=0;
+    int matchedMethods=0;
+    while((m=g_il2cpp.class_get_methods(klass,&mi))!=0 && matchedMethods<64) {
+        const char* mn=g_il2cpp.method_get_name(m);
+        if(!H80InterestingButtonName(mn)) continue;
+        ++matchedMethods;
+
+        LogA("[WHEEL H80 METHOD]");
+        LogA(mn);
+        unsigned int pc=g_il2cpp.method_get_param_count(m);
+        LogIntA("[WHEEL H80] param count: ",(int)pc);
+        H80LogType(g_il2cpp.method_get_return_type(m),"[WHEEL H80] return:");
+        for(unsigned int pi=0; pi<pc && pi<4; ++pi)
+            H80LogType(g_il2cpp.method_get_param(m,pi),"[WHEEL H80] param:");
+    }
+
+    typedef const Il2CppType* (*FnFieldGetType)(const FieldInfo*);
+    FnFieldGetType fieldGetType=(FnFieldGetType)Proc("il2cpp_field_get_type");
+
+    void* fi=0;
+    const FieldInfo* fld=0;
+    int matchedFields=0;
+    while((fld=g_il2cpp.class_get_fields(klass,&fi))!=0 && matchedFields<64) {
+        const char* fn=g_il2cpp.field_get_name(fld);
+        if(!H80InterestingButtonName(fn)) continue;
+        ++matchedFields;
+
+        LogA("[WHEEL H80 FIELD]");
+        LogA(fn);
+        if(fieldGetType)
+            H80LogType(fieldGetType(fld),"[WHEEL H80] field type:");
+    }
+
+    LogIntA("[WHEEL H80] matched methods: ",matchedMethods);
+    LogIntA("[WHEEL H80] matched fields: ",matchedFields);
+    LogA("[WHEEL H80] ============================================================");
+}
+
 static BOOL EnsureLazyIl2CppH77(const char* reason) {
     if(g_ready) return TRUE;
     if(g_shuttingDown) return FALSE;
@@ -3948,6 +4032,7 @@ static BOOL EnsureLazyIl2CppH77(const char* reason) {
     if(ok) {
         g_h77LazyInitState=2;
         LogA("[LAZY H77] IL2CPP READY. Gameplay commands/hotkeys are now enabled.");
+        AuditWeaponWheelButtonApiH80();
         if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
         return TRUE;
     }
