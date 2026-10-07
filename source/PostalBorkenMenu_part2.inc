@@ -2179,6 +2179,46 @@ static BOOL SetWheelButtonWeaponH57(Il2CppObject* button,
                                     Il2CppObject* weapon) {
     if(!button || !buttonClass || !getWeapon || !weapon) return FALSE;
 
+    // H81: prefer the game's own one-WeaponId setter/configurator when one
+    // exists. A native setter has a chance to refresh every visual layer
+    // attached to the button, including the weapon-specific silhouette that
+    // direct _weaponId writes leave stale.
+    Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
+        g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
+
+    const MethodInfo* nativeSetter=0;
+    const char* nativeSetterName=0;
+    if(weaponIdClass) {
+        static const char* names[]={"set_WeaponId","SetWeaponId","SetWeapon"};
+        for(int i=0;i<3 && !nativeSetter;i++) {
+            nativeSetter=FindMethodExact(buttonClass,names[i],1,weaponIdClass);
+            if(nativeSetter) nativeSetterName=names[i];
+        }
+    }
+
+    if(nativeSetter) {
+        void* pars[1]; pars[0]=weapon;
+        Il2CppException* ex=0;
+        g_il2cpp.runtime_invoke(nativeSetter,button,pars,&ex);
+        if(ex) {
+            LogA("[WHEEL H81] Native WeaponWheelButton setter threw; refusing fallback mutation for this call.");
+            FormatExceptionToLog(ex);
+            return FALSE;
+        }
+
+        ex=0;
+        Il2CppObject* verify=g_il2cpp.runtime_invoke(getWeapon,button,0,&ex);
+        if(!ex && verify==weapon) {
+            LogA("[WHEEL H81] Native WeaponWheelButton assignment path used:");
+            LogA(nativeSetterName);
+            return TRUE;
+        }
+
+        LogA("[WHEEL H81] Native setter returned but WeaponId verification failed.");
+        return FALSE;
+    }
+
+    // Exact H80/H57 fallback when the game exposes no native WeaponId setter.
     const FieldInfo* field=g_il2cpp.class_get_field_from_name(buttonClass,"_weaponId");
     if(!field) return FALSE;
 
@@ -2190,7 +2230,15 @@ static BOOL SetWheelButtonWeaponH57(Il2CppObject* button,
 
     Il2CppException* ex=0;
     Il2CppObject* verify=g_il2cpp.runtime_invoke(getWeapon,button,0,&ex);
-    return !ex && verify==weapon;
+    if(!ex && verify==weapon) {
+        static BOOL loggedFallback=FALSE;
+        if(!loggedFallback) {
+            loggedFallback=TRUE;
+            LogA("[WHEEL H81] No native WeaponWheelButton setter found; direct _weaponId fallback active.");
+        }
+        return TRUE;
+    }
+    return FALSE;
 }
 
 static int FindExactBaseTargetsH57(Il2CppObject* out[5]) {
