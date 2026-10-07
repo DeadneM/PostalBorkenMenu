@@ -10,7 +10,7 @@
 
 ## Current project state
 
-**V2A42-H43** remains the current stable public release.
+**V2A42-H80** is the current stable public release.
 
 **V2A42-H80** is the current user-validated development checkpoint.
 
@@ -80,7 +80,7 @@ The remaining wheel work is strictly visual and must not rework the validated H5
 
 ### Download
 
-**Latest stable release: V2A42-H43**
+**Latest stable release: V2A42-H80**
 
 The GitHub Release contains exactly:
 
@@ -109,7 +109,7 @@ PostalBorkenMenu calls the game's native developer systems directly and does not
 
 PostalBorkenMenu is an **x64 ASI** and requires a compatible ASI loader.
 
-The current V2A42-H43 release ZIP contains exactly:
+The current V2A42-H80 release ZIP contains exactly:
 
 ```text
 dxgi.dll
@@ -234,7 +234,8 @@ Development progressed through:
 - **V2A42-H13**: validated recovery base; Base Weapon Wheel restored and No Crosshair extended across DLC crosshair controllers
 - **V2A42-H39**: validated native Unity startup-logo skip using the real `CancelSplashScreen()` path
 - **V2A42-H40**: added persistent Skip Startup Logos menu toggle
-- **V2A42-H43**: safe menu cleanup; Help, Log Time and redundant Skip Intro Videos hidden without shifting internal command indices; current stable public release
+- **V2A42-H43**: safe menu cleanup; Help, Log Time and redundant Skip Intro Videos hidden without shifting internal command indices
+- **V2A42-H80**: validated public release with H77 lazy startup and H74 wheel semantics; only the alternative-wheel icon-background visual issue remains
 - **V2A42-H57**: first validated 9/9 population in both wheel contexts using bidirectional temporary remapping
 - **V2A42-H59**: validated logical wheel pairing by native slots 1,2,3,4,8
 - **V2A42-H61**: validated cross-mode primary weapon-icon replacement
