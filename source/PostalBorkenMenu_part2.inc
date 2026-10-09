@@ -1700,6 +1700,9 @@ static BOOL g_h51BaseUsesInputEvent=FALSE;
 static void LogUnityObjectNameH55(Il2CppObject* obj,const char* label);
 static void LogImageSpriteH55(Il2CppObject* imageObj,const char* label);
 static BOOL GetWeaponNameH54(Il2CppObject* weapon,char* out,int cap);
+static void AuditSingleButtonChildImagesH84(Il2CppObject* button,
+                                            Il2CppClass* buttonClass,
+                                            const char* direction);
 
 // H57: the two native scenes expose complementary 5-weapon variants.
 // Keep the 4 common sectors untouched and temporarily mirror only the five
@@ -2600,6 +2603,11 @@ static BOOL ApplyDelayedBaseFilterH51() {
                         // so replace just the icon with the base-game sprite.
                         ApplySlotIconH61(button,buttonClass,sourceSlot,FALSE,TRUE,m);
 
+                        AuditSingleButtonChildImagesH84(
+                            button,
+                            buttonClass,
+                            "[WHEEL H84] direction: DLC scene -> BASE wheel");
+
                         enabled=TRUE;
                     }
                 }
@@ -3211,6 +3219,103 @@ static void LogImageSpriteH55(Il2CppObject* imageObj,const char* label) {
     LogUnityObjectNameH55(sprite,"[WHEEL H55] sprite name:");
 }
 
+
+static BOOL g_h84SingleButtonAuditDone=FALSE;
+
+static void LogImageColorH84(Il2CppObject* imageObj) {
+    if(!imageObj) return;
+
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+    Il2CppClass* imageClass=objectGetClass ? objectGetClass(imageObj) : 0;
+    if(!imageClass) return;
+
+    const MethodInfo* getColor=g_il2cpp.class_get_method_from_name(imageClass,"get_color",0);
+    if(!getColor) return;
+
+    Il2CppException* ex=0;
+    Il2CppObject* boxed=g_il2cpp.runtime_invoke(getColor,imageObj,0,&ex);
+    if(ex || !boxed) return;
+
+    float* rgba=(float*)g_il2cpp.object_unbox(boxed);
+    if(!rgba) return;
+
+    int r=(int)(rgba[0]*255.0f+0.5f);
+    int g=(int)(rgba[1]*255.0f+0.5f);
+    int b=(int)(rgba[2]*255.0f+0.5f);
+    int a=(int)(rgba[3]*255.0f+0.5f);
+    LogIntA("[WHEEL H84] color R: ",r);
+    LogIntA("[WHEEL H84] color G: ",g);
+    LogIntA("[WHEEL H84] color B: ",b);
+    LogIntA("[WHEEL H84] color A: ",a);
+}
+
+static void AuditSingleButtonChildImagesH84(Il2CppObject* button,
+                                            Il2CppClass* buttonClass,
+                                            const char* direction) {
+    if(g_h84SingleButtonAuditDone || !button || !buttonClass) return;
+    if(!g_componentGetGameObject || !g_gameObjectGetComponentsInChildren || !g_uiImage) return;
+
+    Il2CppClass* imageClass=g_il2cpp.class_from_name(g_uiImage,"UnityEngine.UI","Image");
+    if(!imageClass) return;
+
+    const Il2CppType* imageType=g_il2cpp.class_get_type(imageClass);
+    Il2CppObject* imageTypeObj=imageType ? g_il2cpp.type_get_object(imageType) : 0;
+    if(!imageTypeObj) return;
+
+    Il2CppException* ex=0;
+    Il2CppObject* buttonGo=g_il2cpp.runtime_invoke(g_componentGetGameObject,button,0,&ex);
+    if(ex || !buttonGo) return;
+
+    BOOL includeInactive=TRUE;
+    void* pars[2]; pars[0]=imageTypeObj; pars[1]=&includeInactive;
+    ex=0;
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(g_gameObjectGetComponentsInChildren,buttonGo,pars,&ex);
+    if(ex || !arrObj) return;
+
+    Il2CppArray* arr=(Il2CppArray*)arrObj;
+    SIZE_T n=g_il2cpp.array_length(arr);
+    if(n>24) n=24;
+
+    const FieldInfo* selectedField=g_il2cpp.class_get_field_from_name(buttonClass,"_weaponSelectedImage");
+    const FieldInfo* backgroundField=g_il2cpp.class_get_field_from_name(buttonClass,"_backgroundImage");
+    Il2CppObject* selectedImage=0;
+    Il2CppObject* backgroundImage=0;
+    if(selectedField) g_il2cpp.field_get_value(button,selectedField,&selectedImage);
+    if(backgroundField) g_il2cpp.field_get_value(button,backgroundField,&backgroundImage);
+
+    g_h84SingleButtonAuditDone=TRUE;
+    LogA("[WHEEL H84] ============================================================");
+    LogA("[WHEEL H84] SINGLE BUTTON CHILD IMAGE AUDIT");
+    if(direction) LogA(direction);
+    LogUnityObjectNameH55(buttonGo,"[WHEEL H84] button GameObject:");
+    LogIntA("[WHEEL H84] child Image count: ",(int)n);
+
+    unsigned int hdr=g_il2cpp.array_object_header_size();
+    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+
+    for(SIZE_T i=0;i<n;i++) {
+        Il2CppObject* image=elems[i];
+        if(!image) continue;
+
+        LogIntA("[WHEEL H84] Image index: ",(int)i);
+
+        ex=0;
+        Il2CppObject* imageGo=g_il2cpp.runtime_invoke(g_componentGetGameObject,image,0,&ex);
+        if(!ex && imageGo)
+            LogUnityObjectNameH55(imageGo,"[WHEEL H84] Image GameObject:");
+
+        if(image==selectedImage) LogA("[WHEEL H84] role: _weaponSelectedImage");
+        else if(image==backgroundImage) LogA("[WHEEL H84] role: _backgroundImage");
+        else LogA("[WHEEL H84] role: CHILD/OTHER");
+
+        LogImageSpriteH55(image,"[WHEEL H84] sprite:");
+        LogImageColorH84(image);
+    }
+
+    LogA("[WHEEL H84] ============================================================");
+}
+
 static BOOL IsVisualTypeNameH55(const char* ns,const char* cn) {
     if(!cn) return FALSE;
     if(StrContainsNoCaseA(cn,"Sprite")) return TRUE;
@@ -3402,6 +3507,11 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
                     // H61 visual-only: normal scene currently shows base sprites,
                     // so replace just the icon with the DLC sprite.
                     ApplySlotIconH61(button,buttonClass,sourceSlot,TRUE,FALSE,m);
+
+                    AuditSingleButtonChildImagesH84(
+                        button,
+                        buttonClass,
+                        "[WHEEL H84] direction: NORMAL scene -> DLC wheel");
 
                     BOOL enabled=TRUE;
                     void* ep[1]; ep[0]=&enabled;
