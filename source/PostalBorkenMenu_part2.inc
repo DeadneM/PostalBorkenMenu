@@ -1700,6 +1700,9 @@ static BOOL g_h51BaseUsesInputEvent=FALSE;
 static void LogUnityObjectNameH55(Il2CppObject* obj,const char* label);
 static void LogImageSpriteH55(Il2CppObject* imageObj,const char* label);
 static BOOL GetWeaponNameH54(Il2CppObject* weapon,char* out,int cap);
+static void AuditSelectedImageNeighborhoodH86(Il2CppObject* button,
+                                               Il2CppClass* buttonClass,
+                                               const char* direction);
 
 // H57: the two native scenes expose complementary 5-weapon variants.
 // Keep the 4 common sectors untouched and temporarily mirror only the five
@@ -2600,6 +2603,11 @@ static BOOL ApplyDelayedBaseFilterH51() {
                         // so replace just the icon with the base-game sprite.
                         ApplySlotIconH61(button,buttonClass,sourceSlot,FALSE,TRUE,m);
 
+                        AuditSelectedImageNeighborhoodH86(
+                            button,
+                            buttonClass,
+                            "[WHEEL H86] direction: DLC scene -> BASE wheel");
+
                         enabled=TRUE;
                     }
                 }
@@ -3211,6 +3219,178 @@ static void LogImageSpriteH55(Il2CppObject* imageObj,const char* label) {
     LogUnityObjectNameH55(sprite,"[WHEEL H55] sprite name:");
 }
 
+
+static BOOL g_h86NeighborhoodAuditDone=FALSE;
+
+static Il2CppClass* GetObjectRuntimeClassH86(Il2CppObject* obj) {
+    if(!obj) return 0;
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+    return objectGetClass ? objectGetClass(obj) : 0;
+}
+
+static Il2CppObject* GetImageTypeObjectFromRuntimeH86(Il2CppObject* imageObj) {
+    Il2CppClass* runtimeClass=GetObjectRuntimeClassH86(imageObj);
+    if(!runtimeClass) return 0;
+
+    const char* ns=g_il2cpp.class_get_namespace(runtimeClass);
+    const char* cn=g_il2cpp.class_get_name(runtimeClass);
+    LogA("[WHEEL H86] runtime image class:");
+    if(ns && ns[0]) LogA(ns);
+    if(cn) LogA(cn);
+
+    const Il2CppType* imageType=g_il2cpp.class_get_type(runtimeClass);
+    return imageType ? g_il2cpp.type_get_object(imageType) : 0;
+}
+
+static void H86DumpImagesUnderGameObject(Il2CppObject* go,
+                                         Il2CppObject* imageTypeObj,
+                                         const char* label) {
+    if(!go || !imageTypeObj || !g_gameObjectGetComponentsInChildren) return;
+
+    BOOL includeInactive=TRUE;
+    void* pars[2]; pars[0]=imageTypeObj; pars[1]=&includeInactive;
+    Il2CppException* ex=0;
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(g_gameObjectGetComponentsInChildren,go,pars,&ex);
+    if(ex) {
+        LogA("[WHEEL H86] GetComponentsInChildren(runtime Image type) threw:");
+        FormatExceptionToLog(ex);
+        return;
+    }
+    if(!arrObj) {
+        LogA("[WHEEL H86] GetComponentsInChildren(runtime Image type) returned NULL.");
+        return;
+    }
+
+    Il2CppArray* arr=(Il2CppArray*)arrObj;
+    SIZE_T n=g_il2cpp.array_length(arr);
+    if(n>32) n=32;
+
+    if(label) LogA(label);
+    LogUnityObjectNameH55(go,"[WHEEL H86] anchor GameObject:");
+    LogIntA("[WHEEL H86] Image count: ",(int)n);
+
+    unsigned int hdr=g_il2cpp.array_object_header_size();
+    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+    for(SIZE_T i=0;i<n;i++) {
+        Il2CppObject* image=elems[i];
+        if(!image) continue;
+
+        LogIntA("[WHEEL H86] Image index: ",(int)i);
+
+        if(g_componentGetGameObject) {
+            ex=0;
+            Il2CppObject* imageGo=g_il2cpp.runtime_invoke(g_componentGetGameObject,image,0,&ex);
+            if(!ex && imageGo)
+                LogUnityObjectNameH55(imageGo,"[WHEEL H86] Image GameObject:");
+        }
+
+        LogImageSpriteH55(image,"[WHEEL H86] sprite:");
+    }
+}
+
+static void AuditSelectedImageNeighborhoodH86(Il2CppObject* button,
+                                               Il2CppClass* buttonClass,
+                                               const char* direction) {
+    if(g_h86NeighborhoodAuditDone || !button || !buttonClass) return;
+    g_h86NeighborhoodAuditDone=TRUE;
+
+    LogA("[WHEEL H86] ============================================================");
+    LogA("[WHEEL H86] RUNTIME-CLASS SELECTED-IMAGE NEIGHBORHOOD AUDIT");
+    if(direction) LogA(direction);
+
+    const FieldInfo* selectedField=g_il2cpp.class_get_field_from_name(buttonClass,"_weaponSelectedImage");
+    if(!selectedField) {
+        LogA("[WHEEL H86] _weaponSelectedImage field unresolved.");
+        LogA("[WHEEL H86] ============================================================");
+        return;
+    }
+
+    Il2CppObject* selectedImage=0;
+    g_il2cpp.field_get_value(button,selectedField,&selectedImage);
+    if(!selectedImage) {
+        LogA("[WHEEL H86] _weaponSelectedImage is NULL.");
+        LogA("[WHEEL H86] ============================================================");
+        return;
+    }
+
+    LogImageSpriteH55(selectedImage,"[WHEEL H86] selected Image sprite:");
+
+    Il2CppObject* imageTypeObj=GetImageTypeObjectFromRuntimeH86(selectedImage);
+    if(!imageTypeObj) {
+        LogA("[WHEEL H86] runtime Image Type object unavailable.");
+        LogA("[WHEEL H86] ============================================================");
+        return;
+    }
+
+    if(!g_componentGetGameObject || !g_gameObjectGetComponentsInChildren) {
+        LogA("[WHEEL H86] required Unity component bridges unavailable.");
+        LogA("[WHEEL H86] ============================================================");
+        return;
+    }
+
+    Il2CppException* ex=0;
+    Il2CppObject* selectedGo=g_il2cpp.runtime_invoke(g_componentGetGameObject,selectedImage,0,&ex);
+    if(ex || !selectedGo) {
+        LogA("[WHEEL H86] selected Image GameObject unavailable.");
+        if(ex) FormatExceptionToLog(ex);
+        LogA("[WHEEL H86] ============================================================");
+        return;
+    }
+
+    H86DumpImagesUnderGameObject(selectedGo,imageTypeObj,
+                                 "[WHEEL H86] LEVEL 0 selected-image GameObject subtree");
+
+    Il2CppClass* componentClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Component") : 0;
+    Il2CppClass* transformClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Transform") : 0;
+    const MethodInfo* getTransform=componentClass ? g_il2cpp.class_get_method_from_name(componentClass,"get_transform",0) : 0;
+    const MethodInfo* getParent=transformClass ? g_il2cpp.class_get_method_from_name(transformClass,"get_parent",0) : 0;
+
+    LogIntA("[WHEEL H86] Component.get_transform resolved: ",getTransform?1:0);
+    LogIntA("[WHEEL H86] Transform.get_parent resolved: ",getParent?1:0);
+
+    if(!getTransform || !getParent) {
+        LogA("[WHEEL H86] parent traversal bridge incomplete.");
+        LogA("[WHEEL H86] ============================================================");
+        return;
+    }
+
+    ex=0;
+    Il2CppObject* transform=g_il2cpp.runtime_invoke(getTransform,selectedImage,0,&ex);
+    if(ex || !transform) {
+        LogA("[WHEEL H86] selected Image transform unavailable.");
+        if(ex) FormatExceptionToLog(ex);
+        LogA("[WHEEL H86] ============================================================");
+        return;
+    }
+
+    for(int level=1; level<=3; ++level) {
+        ex=0;
+        Il2CppObject* parent=g_il2cpp.runtime_invoke(getParent,transform,0,&ex);
+        if(ex || !parent) {
+            LogIntA("[WHEEL H86] parent traversal stopped at level: ",level);
+            if(ex) FormatExceptionToLog(ex);
+            break;
+        }
+
+        ex=0;
+        Il2CppObject* parentGo=g_il2cpp.runtime_invoke(g_componentGetGameObject,parent,0,&ex);
+        if(ex || !parentGo) {
+            LogIntA("[WHEEL H86] parent GameObject unavailable at level: ",level);
+            if(ex) FormatExceptionToLog(ex);
+            break;
+        }
+
+        if(level==1) H86DumpImagesUnderGameObject(parentGo,imageTypeObj,"[WHEEL H86] LEVEL 1 parent subtree");
+        else if(level==2) H86DumpImagesUnderGameObject(parentGo,imageTypeObj,"[WHEEL H86] LEVEL 2 parent subtree");
+        else H86DumpImagesUnderGameObject(parentGo,imageTypeObj,"[WHEEL H86] LEVEL 3 parent subtree");
+
+        transform=parent;
+    }
+
+    LogA("[WHEEL H86] ============================================================");
+}
+
 static BOOL IsVisualTypeNameH55(const char* ns,const char* cn) {
     if(!cn) return FALSE;
     if(StrContainsNoCaseA(cn,"Sprite")) return TRUE;
@@ -3402,6 +3582,11 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
                     // H61 visual-only: normal scene currently shows base sprites,
                     // so replace just the icon with the DLC sprite.
                     ApplySlotIconH61(button,buttonClass,sourceSlot,TRUE,FALSE,m);
+
+                    AuditSelectedImageNeighborhoodH86(
+                        button,
+                        buttonClass,
+                        "[WHEEL H86] direction: NORMAL scene -> DLC wheel");
 
                     BOOL enabled=TRUE;
                     void* ep[1]; ep[0]=&enabled;
