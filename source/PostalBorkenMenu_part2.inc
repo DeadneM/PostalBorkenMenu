@@ -2344,11 +2344,10 @@ static BOOL RestoreBaseSwapH57() {
 
     BOOL ok=TRUE;
     for(int i=0;i<g_h57BaseMappedCount;i++) {
-        if(g_h61BaseIconButtons[i]) {
-            if(!RestoreExtraIconLayersH62(TRUE,i)) ok=FALSE;
-            if(!RestoreButtonIconSpriteH61(g_h61BaseIconButtons[i],buttonClass,g_h61BaseOriginalSprites[i]))
-                ok=FALSE;
-        }
+        if(!RestoreExtraIconLayersH62(TRUE,i)) ok=FALSE;
+        if(g_h61BaseIconButtons[i] &&
+           !RestoreButtonIconSpriteH61(g_h61BaseIconButtons[i],buttonClass,g_h61BaseOriginalSprites[i]))
+            ok=FALSE;
 
         if(!SetWheelButtonWeaponH57(g_h57BaseMappedButtons[i],buttonClass,getWeapon,g_h57BaseOriginalWeapons[i]))
             ok=FALSE;
@@ -2713,10 +2712,9 @@ static BOOL ApplyDelayedBaseFilterH51() {
 
     if(g_h57BaseMappedCount!=5 || baseEnabled!=9) {
         for(int i=0;i<g_h57BaseMappedCount;i++) {
-            if(g_h61BaseIconButtons[i]) {
-                RestoreExtraIconLayersH62(TRUE,i);
+            RestoreExtraIconLayersH62(TRUE,i);
+            if(g_h61BaseIconButtons[i])
                 RestoreButtonIconSpriteH61(g_h61BaseIconButtons[i],buttonClass,g_h61BaseOriginalSprites[i]);
-            }
             SetWheelButtonWeaponH57(g_h57BaseMappedButtons[i],buttonClass,getWeapon,g_h57BaseOriginalWeapons[i]);
         }
         ClearBaseSwapStateH57();
@@ -3514,10 +3512,9 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
 
     if(g_h54MappedCount!=5) {
         for(int i=0;i<g_h54MappedCount;i++) {
-            if(g_h61DlcIconButtons[i]) {
-                RestoreExtraIconLayersH62(FALSE,i);
+            RestoreExtraIconLayersH62(FALSE,i);
+            if(g_h61DlcIconButtons[i])
                 RestoreButtonIconSpriteH61(g_h61DlcIconButtons[i],buttonClass,g_h61DlcOriginalSprites[i]);
-            }
             SetWheelButtonWeaponH54(g_h54MappedButtons[i],buttonClass,getWeapon,g_h54OriginalWeapons[i]);
         }
         ClearDlcSwapStateH54();
@@ -3560,11 +3557,10 @@ static BOOL RestoreDlcSwapH54() {
 
     BOOL ok=TRUE;
     for(int i=0;i<g_h54MappedCount;i++) {
-        if(g_h61DlcIconButtons[i]) {
-            if(!RestoreExtraIconLayersH62(FALSE,i)) ok=FALSE;
-            if(!RestoreButtonIconSpriteH61(g_h61DlcIconButtons[i],buttonClass,g_h61DlcOriginalSprites[i]))
-                ok=FALSE;
-        }
+        if(!RestoreExtraIconLayersH62(FALSE,i)) ok=FALSE;
+        if(g_h61DlcIconButtons[i] &&
+           !RestoreButtonIconSpriteH61(g_h61DlcIconButtons[i],buttonClass,g_h61DlcOriginalSprites[i]))
+            ok=FALSE;
 
         if(!SetWheelButtonWeaponH54(g_h54MappedButtons[i],buttonClass,getWeapon,g_h54OriginalWeapons[i]))
             ok=FALSE;
