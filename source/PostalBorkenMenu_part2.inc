@@ -1952,17 +1952,111 @@ static BOOL SetButtonIconSpriteH61(Il2CppObject* button,
     return TRUE;
 }
 
+static BOOL HideWeaponImageUnderlayH87(Il2CppObject* button,
+                                          Il2CppClass* buttonClass,
+                                          BOOL baseState,
+                                          int index) {
+    if(!button || !buttonClass || index<0 || index>=5) return FALSE;
+    if(!g_componentGetGameObject || !g_gameObjectGetComponentsInChildren || !g_coreImage) return FALSE;
+
+    const FieldInfo* selectedField=g_il2cpp.class_get_field_from_name(buttonClass,"_weaponSelectedImage");
+    if(!selectedField) return FALSE;
+
+    Il2CppObject* selectedImage=0;
+    g_il2cpp.field_get_value(button,selectedField,&selectedImage);
+    if(!selectedImage) return FALSE;
+
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass objectGetClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+    Il2CppClass* runtimeImageClass=objectGetClass ? objectGetClass(selectedImage) : 0;
+    if(!runtimeImageClass) return FALSE;
+
+    const Il2CppType* imageType=g_il2cpp.class_get_type(runtimeImageClass);
+    Il2CppObject* imageTypeObj=imageType ? g_il2cpp.type_get_object(imageType) : 0;
+    if(!imageTypeObj) return FALSE;
+
+    Il2CppClass* componentClass=g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Component");
+    Il2CppClass* transformClass=g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Transform");
+    const MethodInfo* getTransform=componentClass ? g_il2cpp.class_get_method_from_name(componentClass,"get_transform",0) : 0;
+    const MethodInfo* getParent=transformClass ? g_il2cpp.class_get_method_from_name(transformClass,"get_parent",0) : 0;
+    if(!getTransform || !getParent) return FALSE;
+
+    Il2CppException* ex=0;
+    Il2CppObject* selectedTransform=g_il2cpp.runtime_invoke(getTransform,selectedImage,0,&ex);
+    if(ex || !selectedTransform) return FALSE;
+
+    ex=0;
+    Il2CppObject* parentTransform=g_il2cpp.runtime_invoke(getParent,selectedTransform,0,&ex);
+    if(ex || !parentTransform) return FALSE;
+
+    ex=0;
+    Il2CppObject* parentGo=g_il2cpp.runtime_invoke(g_componentGetGameObject,parentTransform,0,&ex);
+    if(ex || !parentGo) return FALSE;
+
+    BOOL includeInactive=TRUE;
+    void* pars[2]; pars[0]=imageTypeObj; pars[1]=&includeInactive;
+    ex=0;
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(g_gameObjectGetComponentsInChildren,parentGo,pars,&ex);
+    if(ex || !arrObj) return FALSE;
+
+    Il2CppArray* arr=(Il2CppArray*)arrObj;
+    SIZE_T n=g_il2cpp.array_length(arr);
+    if(n>16) n=16;
+    unsigned int hdr=g_il2cpp.array_object_header_size();
+    Il2CppObject** elems=(Il2CppObject**)(((BYTE*)arr)+hdr);
+
+    for(SIZE_T i=0;i<n;i++) {
+        Il2CppObject* image=elems[i];
+        if(!image || image==selectedImage) continue;
+
+        ex=0;
+        Il2CppObject* imageGo=g_il2cpp.runtime_invoke(g_componentGetGameObject,image,0,&ex);
+        if(ex || !imageGo) continue;
+
+        // H86 proved the stale silhouette is the Image attached directly to the
+        // immediate parent GameObject "WeaponImage". Compare GameObject identity
+        // instead of relying on fragile object/sprite names.
+        if(imageGo!=parentGo) continue;
+
+        Il2CppObject* original=0;
+        if(!SetImageSpriteObjectH62(image,0,&original)) return FALSE;
+
+        ClearExtraLayersH62(baseState,index);
+        if(baseState) {
+            g_h62BaseExtraImages[index][0]=image;
+            g_h62BaseExtraOriginalSprites[index][0]=original;
+            g_h62BaseExtraCount[index]=1;
+        } else {
+            g_h62DlcExtraImages[index][0]=image;
+            g_h62DlcExtraOriginalSprites[index][0]=original;
+            g_h62DlcExtraCount[index]=1;
+        }
+
+        LogA("[WHEEL H87] stale WeaponImage underlay hidden for remapped sector.");
+        return TRUE;
+    }
+
+    LogA("[WHEEL H87] WeaponImage underlay not found for remapped sector.");
+    return FALSE;
+}
+
 static BOOL ReplaceMatchingLocalIconLayersH62(Il2CppObject* button,
                                                Il2CppObject* originalSprite,
                                                Il2CppObject* targetSprite,
                                                BOOL baseState,
                                                int index) {
-    // H65 clean baseline: preserve H61 visual behavior exactly.
-    // H62 cache stays enabled for performance, but no secondary/background
-    // Image is modified here.
-    (void)button; (void)originalSprite; (void)targetSprite;
-    ClearExtraLayersH62(baseState,index);
-    return TRUE;
+    // H87 no longer tries to guess matching sprites. H86 identified the stale
+    // visual precisely: the Image attached directly to the immediate
+    // WeaponImage parent of _weaponSelectedImage. Its sprite is hidden only
+    // while the cross-mode sector is remapped and is restored on wheel close.
+    (void)originalSprite; (void)targetSprite;
+    return HideWeaponImageUnderlayH87(button,
+                                      g_assemblyCSharp ? g_il2cpp.class_from_name(
+                                          g_assemblyCSharp,
+                                          "Hyperstrange.PBD.PlayerComponents.WeaponWheel",
+                                          "WeaponWheelButton") : 0,
+                                      baseState,
+                                      index);
 }
 
 static BOOL RestoreExtraIconLayersH62(BOOL baseState,int index) {
@@ -2598,7 +2692,9 @@ static BOOL ApplyDelayedBaseFilterH51() {
 
                         // H61 visual-only: DLC scene currently shows DLC sprites,
                         // so replace just the icon with the base-game sprite.
-                        ApplySlotIconH61(button,buttonClass,sourceSlot,FALSE,TRUE,m);
+                        BOOL h87IconApplied=ApplySlotIconH61(button,buttonClass,sourceSlot,FALSE,TRUE,m);
+                        if(!h87IconApplied)
+                            HideWeaponImageUnderlayH87(button,buttonClass,TRUE,m);
 
                         enabled=TRUE;
                     }
@@ -3401,7 +3497,9 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
 
                     // H61 visual-only: normal scene currently shows base sprites,
                     // so replace just the icon with the DLC sprite.
-                    ApplySlotIconH61(button,buttonClass,sourceSlot,TRUE,FALSE,m);
+                    BOOL h87IconApplied=ApplySlotIconH61(button,buttonClass,sourceSlot,TRUE,FALSE,m);
+                    if(!h87IconApplied)
+                        HideWeaponImageUnderlayH87(button,buttonClass,FALSE,m);
 
                     BOOL enabled=TRUE;
                     void* ep[1]; ep[0]=&enabled;
