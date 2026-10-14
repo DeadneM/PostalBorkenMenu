@@ -257,3 +257,24 @@ The next planned branch is the **DLC Weapon Wheel**: making owned *These Sunny D
 This is an unofficial fan project and is not affiliated with Running With Scissors, Hyperstrange, CreativeForge Games, or the game's publishers.
 
 The project is intended for legitimate modding of a user's own game installation.
+
+
+### H87 screenshot correction / H88 experimental guard (14 October 2026)
+
+H87 is visually **REJECTED**. Clearing the sprite on the Image directly attached
+to the parent `WeaponImage` generated white rectangles. A NULL Image sprite
+does **not** mean a hidden UI image. This operation must not return.
+
+H88 is branched from the user-validated H80, **not H87**. It preserves H59
+slot pairing, H61 icons, H62 caching, H63 initialization, H74 tap/hold and H77
+lazy IL2CPP. Only the secondary parent Image is a candidate, and only if
+its existing sprite is identical to the original selected weapon sprite or
+matches one of ten known game/DLC weapon icon sprite names. Generic sector
+sprites are explicitly left unchanged. The existing wheel-close restoration
+backs up and restores both replaced sprites.
+
+This is an **experimental safeguard**, not yet evidence that the rose/violet
+weapon-shaped silhouette has been correctly matched. If the parent Image is
+not weapon-specific, H88 leaves it alone and records the original sprite
+name in the log. The ultimate target remains the **weapon-specific pink/violet
+silhouette behind each icon**, never the wheel sectors themselves.
