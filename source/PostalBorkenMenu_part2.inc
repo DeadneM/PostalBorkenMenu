@@ -1952,17 +1952,147 @@ static BOOL SetButtonIconSpriteH61(Il2CppObject* button,
     return TRUE;
 }
 
+// H88: inspect ONLY the immediate weapon-image parent of the verified H61
+// selected icon. Never mutate generic wheel art and NEVER set a sprite NULL:
+// Unity UI.Image may render a white rectangle when sprite is NULL.
+static BOOL H88GetSpriteName(Il2CppObject* sprite,char* out,int capacity) {
+    if(!out || capacity<2) return FALSE;
+    out[0]=0;
+    if(!sprite || !g_coreImage) return FALSE;
+    Il2CppClass* unityObject=g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Object");
+    const MethodInfo* getName=unityObject ?
+        g_il2cpp.class_get_method_from_name(unityObject,"get_name",0) : 0;
+    if(!getName) return FALSE;
+    Il2CppException* ex=0;
+    Il2CppObject* name=g_il2cpp.runtime_invoke(getName,sprite,0,&ex);
+    if(ex || !name) return FALSE;
+    CatalogManagedStringToAscii((Il2CppString*)name,out,capacity);
+    return out[0]!=0;
+}
+
+static BOOL H88IsKnownWeaponSprite(Il2CppObject* sprite,
+                                   Il2CppObject* originalSelectedSprite) {
+    if(!sprite) return FALSE;
+    if(originalSelectedSprite && sprite==originalSelectedSprite) return TRUE;
+    char name[192];
+    if(!H88GetSpriteName(sprite,name,192)) return FALSE;
+    for(int k=0;k<5;k++) {
+        if(StrEqA(name,g_h61BaseIconNames[k]) ||
+           StrEqA(name,g_h61DlcIconNames[k]))
+            return TRUE;
+    }
+    return FALSE;
+}
+
 static BOOL ReplaceMatchingLocalIconLayersH62(Il2CppObject* button,
                                                Il2CppObject* originalSprite,
                                                Il2CppObject* targetSprite,
                                                BOOL baseState,
                                                int index) {
-    // H65 clean baseline: preserve H61 visual behavior exactly.
-    // H62 cache stays enabled for performance, but no secondary/background
-    // Image is modified here.
-    (void)button; (void)originalSprite; (void)targetSprite;
     ClearExtraLayersH62(baseState,index);
-    return TRUE;
+    if(!button || !targetSprite || index<0 || index>=5 ||
+       !g_coreImage || !g_componentGetGameObject ||
+       !g_gameObjectGetComponentsInChildren)
+        return FALSE;
+
+    Il2CppClass* buttonClass=g_assemblyCSharp ?
+        g_il2cpp.class_from_name(g_assemblyCSharp,
+            "Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
+    const FieldInfo* selectedField=buttonClass ?
+        g_il2cpp.class_get_field_from_name(buttonClass,"_weaponSelectedImage") : 0;
+    if(!selectedField) return FALSE;
+
+    Il2CppObject* selectedImage=0;
+    g_il2cpp.field_get_value(button,selectedField,&selectedImage);
+    if(!selectedImage) return FALSE;
+
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass getRuntimeClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+    Il2CppClass* imageClass=getRuntimeClass ? getRuntimeClass(selectedImage) : 0;
+    const Il2CppType* imageType=imageClass ?
+        g_il2cpp.class_get_type(imageClass) : 0;
+    Il2CppObject* imageTypeObj=imageType ?
+        g_il2cpp.type_get_object(imageType) : 0;
+    if(!imageTypeObj) return FALSE;
+
+    Il2CppClass* componentClass=g_il2cpp.class_from_name(
+        g_coreImage,"UnityEngine","Component");
+    Il2CppClass* transformClass=g_il2cpp.class_from_name(
+        g_coreImage,"UnityEngine","Transform");
+    const MethodInfo* getTransform=componentClass ?
+        g_il2cpp.class_get_method_from_name(componentClass,"get_transform",0) : 0;
+    const MethodInfo* getParent=transformClass ?
+        g_il2cpp.class_get_method_from_name(transformClass,"get_parent",0) : 0;
+    if(!getTransform || !getParent) return FALSE;
+
+    Il2CppException* ex=0;
+    Il2CppObject* tr=g_il2cpp.runtime_invoke(getTransform,selectedImage,0,&ex);
+    if(ex || !tr) return FALSE;
+    ex=0;
+    Il2CppObject* parent=g_il2cpp.runtime_invoke(getParent,tr,0,&ex);
+    if(ex || !parent) return FALSE;
+    ex=0;
+    Il2CppObject* parentGo=g_il2cpp.runtime_invoke(
+        g_componentGetGameObject,parent,0,&ex);
+    if(ex || !parentGo) return FALSE;
+
+    BOOL includeInactive=TRUE;
+    void* pars[2]; pars[0]=imageTypeObj; pars[1]=&includeInactive;
+    ex=0;
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(
+        g_gameObjectGetComponentsInChildren,parentGo,pars,&ex);
+    if(ex || !arrObj) return FALSE;
+
+    Il2CppArray* arr=(Il2CppArray*)arrObj;
+    SIZE_T n=g_il2cpp.array_length(arr);
+    if(n>16) n=16;
+    unsigned int header=g_il2cpp.array_object_header_size();
+    Il2CppObject** images=(Il2CppObject**)(((BYTE*)arr)+header);
+    for(SIZE_T j=0;j<n;j++) {
+        Il2CppObject* image=images[j];
+        if(!image || image==selectedImage) continue;
+
+        ex=0;
+        Il2CppObject* go=g_il2cpp.runtime_invoke(
+            g_componentGetGameObject,image,0,&ex);
+        if(ex || go!=parentGo) continue;
+
+        // H87 mistake: the parent Image was unconditionally set_sprite(NULL).
+        // H88 changes it only when it already holds a KNOWN weapon sprite,
+        // never when it is a panel/sector/background sprite.
+        Il2CppClass* candidateClass=getRuntimeClass ?
+            getRuntimeClass(image) : 0;
+        const MethodInfo* getSprite=candidateClass ?
+            g_il2cpp.class_get_method_from_name(candidateClass,"get_sprite",0) : 0;
+        if(!getSprite) continue;
+        ex=0;
+        Il2CppObject* parentSprite=g_il2cpp.runtime_invoke(getSprite,image,0,&ex);
+        if(ex || !parentSprite) continue;
+        if(!H88IsKnownWeaponSprite(parentSprite,originalSprite)) {
+            char name[192];
+            if(H88GetSpriteName(parentSprite,name,192)) {
+                LogA("[WHEEL H88] parent Image preserved; not a known weapon sprite:");
+                LogA(name);
+            }
+            continue;
+        }
+
+        Il2CppObject* backedUp=0;
+        if(!SetImageSpriteObjectH62(image,targetSprite,&backedUp)) return FALSE;
+        if(baseState) {
+            g_h62BaseExtraImages[index][0]=image;
+            g_h62BaseExtraOriginalSprites[index][0]=backedUp;
+            g_h62BaseExtraCount[index]=1;
+        } else {
+            g_h62DlcExtraImages[index][0]=image;
+            g_h62DlcExtraOriginalSprites[index][0]=backedUp;
+            g_h62DlcExtraCount[index]=1;
+        }
+        LogA("[WHEEL H88] native weapon-specific underlay sprite swapped; restoration armed.");
+        return TRUE;
+    }
+    LogA("[WHEEL H88] no verified weapon-specific parent image; wheel artwork untouched.");
+    return FALSE;
 }
 
 static BOOL RestoreExtraIconLayersH62(BOOL baseState,int index) {
