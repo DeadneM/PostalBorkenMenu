@@ -73,3 +73,22 @@ The remaining cross-mode issue is visual only: identify the exact icon-backgroun
 
 V2A42-H43 remains the stable public release.
 V2A42-H80 is the current validated development checkpoint.
+
+## H87 visual regression / H88 hypothesis, 14 October 2026
+
+- H87 clears the immediate parent `WeaponImage` UI.Image sprite while the
+  Image remains enabled. User screenshot shows 5 large white rectangles on
+  the alternative wheel. H87 is rejected.
+- The white rectangles are consistent with Unity UI.Image fallback rendering
+  when its sprite is set to NULL.
+- H88 starts strictly from H80. It never clears or disables wheel-sector
+  imagery. A secondary Image is modified only if the source sprite is an
+  exact known weapon icon or the same object as the foreground's original
+  sprite, then it is swapped to the target weapon sprite and restored.
+- If the parent sprite is generic, the guard leaves it untouched. A lack of
+  visual change will indicate that the pink/violet silhouette is generated
+  elsewhere (another image, a mesh effect such as Outline, or integrated
+  into the weapon sprite). Do not misreport that as success.
+- Acceptance: 9/9 wheel sectors intact, no white rectangles, correct
+  secondary pink/violet icon silhouettes, original tap/hold and equip intact,
+  close/reopen and scene transitions clean.
