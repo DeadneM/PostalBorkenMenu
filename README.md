@@ -313,3 +313,14 @@ H89 is **EXPERIMENTAL** until tested in both scenes. Preserve H80 as the
 latest validated build; H87 is rejected. If normal-campaign DLC icon
 lookup still fails, the next phase needs a scene-independent DLC sprite
 source via exact asset-path audit, not another unbounded Resources scan.
+
+
+### H90 performance checkpoint (14 October 2026, experimental)
+
+H89 user validation: in These Sunny Daze **both wheels now look and behave correctly**, with a small opening hitch on the cross-mode BASE wheel. In the normal campaign the native BASE wheel still works but the cross-mode DLC wheel still lacks all five DLC art sprites and also hitches slightly.
+
+H89 log: exact DLC `*_Empty` silhouettes disabled/restored 5/5 in DLC, no H87 white rectangles; in normal mode the sprite scan found 5/10 and `Resources.Load(string,Type)` returned **0/5 DLC `*_Rose` sprites**. The missing icon art is not fixed by H89, and H90 does not pretend otherwise.
+
+H90 attempts to reduce repeated opening cost: cache the five canonical `WeaponId` targets by category, scoped to the current native `PlayerWeaponWheelComponent` pointer; invalidate on wheel instance change; perform the expensive WeaponId Resources enumeration only on cache misses. H90 also logs cross-mode remap elapsed milliseconds and suppresses repeated **identical** crosshair debug lines without changing CanvasRenderer updates or hotkeys. These are experimental performance changes; measure in both scenes and after level changes.
+
+**Separate unresolved task:** source/inject the five DLC icon assets independently of the loaded scene, potentially through their actual game asset bundle. Exact asset paths and files are not yet known; neither the mod code nor the H89 log provides them. Preserve validated H80 and the user-confirmed DLC wheel visuals from H89 during investigation.
