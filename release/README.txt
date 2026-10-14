@@ -1,3 +1,11 @@
+H99 EXPERIMENTAL - menu rebind / supplied defaults / Unity cursor / updater
+GodMode ID conflict addressed; Hotkeys tab rebinds menu key (F1 default).
+Supplied INI is the new package and compiled default configuration.
+Menu requests unlocked visible cursor without auto-pause, restores on close.
+Updates: stable/beta check, confirm install after exit, backup and rollback.
+INI preserved by updater; result file beside game. Runtime validation pending.
+Rollback: exit and reinstall H98B or H97, preserve personal INI.
+
 H98B EXPERIMENTAL - integrated ImGui DX11 menu from H97 stable
 F1 open/close, movable/resizable window, five tabs, arguments, key table.
 No runtime validation yet; test input, alt-tab/resize, native wheels and exit.

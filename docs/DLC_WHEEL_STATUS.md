@@ -137,3 +137,10 @@ H95 rejected remains historical; H94/H96 retained features now cumulative H97.
 ## H98 ImGui experiment
 User selects actual integrated ImGui, matching Darksiders dark/blue style.
 H97 remains stable. See docs/H98_TEST.md for controls, acceptance and rollback.
+
+## H99 menu/input/updater experiment - 2026-10-14
+H98B overlay retained; GodMode ID collision and locked cursor reported.
+H99 scopes row IDs, adds menu-key setting, imports supplied defaults, requests
+Unity cursor unlock/restore and introduces explicit post-exit updater/rollback.
+See H99_TEST.md in docs. Gameplay part2 remains unchanged from H97.
+

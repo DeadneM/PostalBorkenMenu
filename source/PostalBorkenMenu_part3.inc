@@ -2,6 +2,10 @@
 // ---------------- configuration and overlay UI ----------------
 #include "OverlayBridge.h"
 #define WM_APP_IMGUI (WM_APP + 0x3A)
+#define WM_APP_CURSOR (WM_APP + 0x3B)
+static int g_menuVk=112;
+static int g_updaterBeta=0;
+static void QueueOverlayCursor(){if(g_gameHwnd && g_ready && !g_shuttingDown)PostMessageW(g_gameHwnd,WM_APP_CURSOR,0,0);}
 
 static void VkName(int vk, WCHAR* out, int cap) {
     if (!out || cap<2) return;
@@ -48,7 +52,10 @@ static void LoadConfig() {
         WCHAR def[128]; CopyW(def,128,g_cmds[i].args);
         GetPrivateProfileStringW(L"Args",g_cmds[i].iniName,def,g_cmds[i].args,128,g_iniPath);
     }
-    g_noCrosshair=(LONG)GetPrivateProfileIntW(L"Settings",L"NoCrosshair",0,g_iniPath);
+    g_menuVk=(int)GetPrivateProfileIntW(L"Settings",L"MenuKey",112,g_iniPath);
+    if(g_menuVk<8 || g_menuVk>255 || g_menuVk==VK_ESCAPE || g_menuVk==VK_BACK)g_menuVk=112;
+    g_updaterBeta=(int)GetPrivateProfileIntW(L"Settings",L"UpdaterBeta",0,g_iniPath);
+    g_noCrosshair=(LONG)GetPrivateProfileIntW(L"Settings",L"NoCrosshair",1,g_iniPath);
     g_skipIntroVideos=0; // game already owns its own Skip Intro Videos option; mod leaves it alone
     g_skipStartupLogos=(LONG)GetPrivateProfileIntW(L"Settings",L"SkipStartupLogos",1,g_iniPath);
 }
@@ -275,11 +282,13 @@ static void ToggleOverlay() {
         if(g_menuHwnd) ShowWindow(g_menuHwnd,SW_HIDE);
         g_menuVisible=g_menuVisible?0:1;
         if(!g_menuVisible)g_bindIndex=-1;
+        QueueOverlayCursor();
         return;
     }
     if(!g_menuHwnd) return;
     if(g_menuVisible){ ShowWindow(g_menuHwnd,SW_HIDE); g_menuVisible=0; g_bindIndex=-1; }
     else { ClampScrollRow(); UpdateOverlayPosition(); ShowWindow(g_menuHwnd,SW_SHOWNOACTIVATE); g_menuVisible=1; InvalidateRect(g_menuHwnd,0,TRUE); }
+    QueueOverlayCursor();
 }
 
 static void CycleTimeScaleArg(int i) {
@@ -375,6 +384,9 @@ extern "C" int PBUI_Count(){return CMD_COUNT;}
 extern "C" int PBUI_Visible(){return g_menuVisible!=0;}
 extern "C" int PBUI_Ready(){return g_ready!=0;}
 extern "C" int PBUI_Stopping(){return g_shuttingDown!=0;}
+extern "C" int PBUI_MenuKey(WCHAR* key,int capacity){VkName(g_menuVk,key,capacity);return g_menuVk;}
+extern "C" int PBUI_MenuCapturing(){return g_bindIndex==-2;}
+extern "C" int PBUI_Beta(){return g_updaterBeta!=0;}
 extern "C" void* PBUI_Window(){return g_gameHwnd;}
 extern "C" void* PBUI_LegacyWindow(){return g_menuHwnd;}
 extern "C" void PBUI_Log(const char* text){LogA(text);}
@@ -398,7 +410,10 @@ extern "C" int PBUI_Get(int i,PBUiCommand* row){
 
 static void HandleImGuiAction(int i,int action,int value){
     if(g_shuttingDown)return;
-    if(action==5){g_menuVisible=0;g_bindIndex=-1;if(g_menuHwnd)ShowWindow(g_menuHwnd,SW_HIDE);return;}
+    if(action==5){g_menuVisible=0;g_bindIndex=-1;if(g_menuHwnd)ShowWindow(g_menuHwnd,SW_HIDE);QueueOverlayCursor();return;}
+    if(action==8){g_bindIndex=-2;return;}
+    if(action==9){g_menuVk=112;WritePrivateProfileStringW(L"Settings",L"MenuKey",L"112",g_iniPath);FlushConfig();g_bindIndex=-1;return;}
+    if(action==10){g_updaterBeta=value?1:0;WritePrivateProfileStringW(L"Settings",L"UpdaterBeta",g_updaterBeta?L"1":L"0",g_iniPath);FlushConfig();return;}
     if(i<0 || i>=CMD_COUNT)return;
     if(action==1){g_bindIndex=i;return;}
     if(action==3){g_cmds[i].vk=g_cmds[i].defaultVk;SaveBinding(i);g_bindIndex=-1;return;}
@@ -412,6 +427,43 @@ static void HandleImGuiAction(int i,int action,int value){
         const WCHAR* modes[4]={L"OFF",L"BASE",L"DLC",L"ALT"};
         if(value>=0 && value<4){CopyW(g_cmds[i].args,128,modes[value]);for(int s=0;s<10;s++)g_altSlotFlip[s]=0;SaveArgs(i);}
     }
+}
+
+static BOOL g_cursorOwned=FALSE;
+static int g_cursorOriginalLock=0;
+static BOOL g_cursorOriginalVisible=TRUE;
+static void ApplyOverlayCursorH99(){
+    if(!g_ready || g_shuttingDown)return;
+    BOOL attached=FALSE;void* thread=0;
+    if(!EnsureIl2CppThread(&attached,&thread))return;
+    Il2CppClass* cursor=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Cursor") : 0;
+    const MethodInfo* getLock=cursor ? g_il2cpp.class_get_method_from_name(cursor,"get_lockState",0) : 0;
+    const MethodInfo* setLock=cursor ? g_il2cpp.class_get_method_from_name(cursor,"set_lockState",1) : 0;
+    const MethodInfo* getVisible=cursor ? g_il2cpp.class_get_method_from_name(cursor,"get_visible",0) : 0;
+    const MethodInfo* setVisible=cursor ? g_il2cpp.class_get_method_from_name(cursor,"set_visible",1) : 0;
+    if(getLock && setLock && getVisible && setVisible){
+        if(g_menuVisible && !g_cursorOwned){
+            Il2CppException* ex=0;
+            Il2CppObject* box=g_il2cpp.runtime_invoke(getLock,0,0,&ex);
+            void* raw=(!ex && box)?g_il2cpp.object_unbox(box):0;
+            if(raw){
+                g_cursorOriginalLock=*(int*)raw;
+                ex=0;box=g_il2cpp.runtime_invoke(getVisible,0,0,&ex);
+                raw=(!ex && box)?g_il2cpp.object_unbox(box):0;
+                if(raw){g_cursorOriginalVisible=(*(BYTE*)raw)!=0;g_cursorOwned=TRUE;LogA("[UI H99] Unity cursor state captured.");}
+            }
+        }
+        if(g_cursorOwned){
+            int lockState=g_menuVisible?0:g_cursorOriginalLock;
+            BOOL visible=g_menuVisible?TRUE:g_cursorOriginalVisible;
+            void* args[1];args[0]=&lockState;Il2CppException* ex=0;
+            g_il2cpp.runtime_invoke(setLock,0,args,&ex);
+            args[0]=&visible;if(!ex)g_il2cpp.runtime_invoke(setVisible,0,args,&ex);
+            if(ex){LogA("[UI H99] Unity cursor update failed.");FormatExceptionToLog(ex);}
+            if(!g_menuVisible){g_cursorOwned=FALSE;LogA("[UI H99] Unity cursor state restored.");}
+        }
+    }
+    ReleaseIl2CppThread(attached,thread);
 }
 
 static WNDPROC BeginEarlyShutdown(HWND hwnd, const char* reason) {
@@ -463,6 +515,7 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
     }
 
     if(msg==WM_APP_IMGUI){HandleImGuiAction((int)wp,(int)((lp>>16)&0xFFFF),(int)(lp&0xFFFF));return 0;}
+    if(msg==WM_APP_CURSOR){ApplyOverlayCursorH99();return 0;}
     if(PBUI_Message(hwnd,msg,wp,lp))return 0;
     if (msg==WM_MOUSEWHEEL && g_menuVisible) {
         short delta=(short)((wp>>16)&0xFFFF);
@@ -526,6 +579,9 @@ static void PollHotkeys() {
 
     HWND fg=GetForegroundWindow();
     BOOL active=(fg && fg==g_gameHwnd);
+    static int cursorDivider=0;
+    if(active && g_ready && g_menuVisible){if(++cursorDivider>=10){cursorDivider=0;QueueOverlayCursor();}}
+    else cursorDivider=0;
 
     if (!active && g_baseWheelActive && g_gameHwnd) {
         PostMessageW(g_gameHwnd,WM_APP_BASEWHEEL,0,0);
@@ -569,19 +625,22 @@ static void PollHotkeys() {
 
         if (!active || (!pressed && !released)) continue;
 
-        if (g_bindIndex>=0) {
+        if (g_bindIndex>=0 || g_bindIndex==-2) {
             if (!pressed) continue;
             if (vk==VK_ESCAPE) {
                 g_bindIndex=-1;
                 if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
                 return;
             }
-            if (vk==VK_F1) {
-                g_bindIndex=-1;
-                if(g_menuHwnd) InvalidateRect(g_menuHwnd,0,TRUE);
-                ToggleOverlay();
-                return;
+            if(g_bindIndex==-2){
+                if(vk==VK_BACK)continue;
+                BOOL used=FALSE;for(int ci=0;ci<CMD_COUNT;ci++)if(g_cmds[ci].vk==vk)used=TRUE;
+                if(used){LogA("[UI H99] menu key already assigned to command; choose another key.");continue;}
+                g_menuVk=vk;WCHAR value[16];UIntToW((unsigned int)vk,value,16);
+                WritePrivateProfileStringW(L"Settings",L"MenuKey",value,g_iniPath);FlushConfig();
+                g_bindIndex=-1;LogA("[UI H99] menu key saved.");return;
             }
+            if(vk==g_menuVk){LogA("[UI H99] menu key reserved; choose another command key.");continue;}
             if (vk==VK_BACK) g_cmds[g_bindIndex].vk=0;
             else g_cmds[g_bindIndex].vk=vk;
             SaveBinding(g_bindIndex);
@@ -593,7 +652,7 @@ static void PollHotkeys() {
         // H77: a bound mod hotkey is an explicit safe-time signal from the user.
         // Initialize here on the worker thread, never during process startup and
         // never from the game's WndProc.
-        if(pressed && !g_ready && !g_shuttingDown && vk!=VK_F1) {
+        if(pressed && !g_ready && !g_shuttingDown && vk!=g_menuVk) {
             BOOL boundModKey=FALSE;
             for(int h77i=0; h77i<CMD_COUNT; ++h77i) {
                 if(g_cmds[h77i].vk && g_cmds[h77i].vk==vk) {
@@ -657,7 +716,7 @@ static void PollHotkeys() {
 
         if (!pressed) continue;
 
-        if (vk==VK_F1) {
+        if (vk==g_menuVk) {
             if(g_baseWheelActive) PostMessageW(g_gameHwnd,WM_APP_BASEWHEEL,0,0);
             if(g_dlcWheelActive) PostMessageW(g_gameHwnd,WM_APP_DLCWHEEL,0,0);
             g_baseWheelVk=0;
@@ -667,7 +726,7 @@ static void PollHotkeys() {
             // F1 is the preferred explicit initialization point. This runs on
             // ModThread, so the game WndProc is never blocked by InitIl2Cpp().
             if(g_menuVisible && !g_ready && !g_shuttingDown)
-                EnsureLazyIl2CppH77("[LAZY H77] Trigger: F1 overlay opened by user.");
+                { EnsureLazyIl2CppH77("[LAZY H77] Trigger: overlay opened by user."); QueueOverlayCursor(); }
             return;
         }
 
@@ -791,7 +850,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H97 COLD DLC PREFAB RESOURCE TEST");
+    LogA("PostalBorkenMenu V2A42-H99 INPUT DEFAULTS AND UPDATER TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");

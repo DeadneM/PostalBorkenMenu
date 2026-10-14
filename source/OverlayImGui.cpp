@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cfloat>
 #include "OverlayBridge.h"
+#include "UpdateFeature.h"
 #include "imgui.h"
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx11.h"
@@ -57,8 +58,9 @@ void DrawMenu(){
     ImGui::SetNextWindowSizeConstraints(ImVec2(650,360),ImVec2(FLT_MAX,FLT_MAX));
     bool open=true;
     if(ImGui::Begin("PostalBorkenMenu",&open,ImGuiWindowFlags_NoCollapse)){
-        ImGui::TextUnformatted("POSTAL: BRAIN-DAMAGED  |  ASI Overlay H98B TEST");
-        ImGui::SameLine();ImGui::TextDisabled("| F1 to close");ImGui::Separator();
+        ImGui::TextUnformatted("POSTAL: BRAIN-DAMAGED  |  ASI Overlay H99 TEST");
+        wchar_t menuKeyWide[48];PBUI_MenuKey(menuKeyWide,48);char menuKey[160];Utf8(menuKeyWide,menuKey,sizeof(menuKey));
+        ImGui::SameLine();ImGui::TextDisabled("| %s to close",menuKey);ImGui::Separator();
         ImGui::TextDisabled(PBUI_Ready()?"Gameplay commands ready":"Initializing gameplay commands...");
         static const char* tabs[]={"Gameplay","Weapons","Arsenal","Special","Visual"};
         if(ImGui::BeginTabBar("MainTabs")){
@@ -72,6 +74,9 @@ void DrawMenu(){
                     ImGui::TableSetupColumn("Change",ImGuiTableColumnFlags_WidthFixed,95);
                     ImGui::TableSetupColumn("Reset",ImGuiTableColumnFlags_WidthFixed,65);
                     ImGui::TableSetupScrollFreeze(0,1);ImGui::TableHeadersRow();
+                    // Header column 4 and GodMode command index 4 formerly shared
+                    // PushID(4)+"Change". Give body rows their own ID namespace.
+                    ImGui::PushID("CommandRows");
                     for(int i=0;i<PBUI_Count();i++){
                         PBUiCommand row{};if(!PBUI_Get(i,&row)||row.tab!=tab)continue;
                         char label[512],arg[384],key[160];Utf8(row.label,label,sizeof(label));Utf8(row.argument,arg,sizeof(arg));Utf8(row.key,key,sizeof(key));
@@ -106,9 +111,43 @@ void DrawMenu(){
                         ImGui::TableSetColumnIndex(5);if(ImGui::Button("Default",ImVec2(-1,0)))PBUI_Request(i,3,0);
                         ImGui::EndDisabled();ImGui::PopID();
                     }
-                    ImGui::EndTable();
+                    ImGui::PopID();ImGui::EndTable();
                 }
                 ImGui::TextDisabled("Drag the title bar to move | Resize from the corner | Keyboard navigation enabled");
+                ImGui::EndTabItem();
+            }
+            if(ImGui::BeginTabItem("Hotkeys")){
+                ImGui::TextUnformatted("Open / close mod menu");ImGui::SameLine();ImGui::TextUnformatted(menuKey);
+                if(ImGui::Button(PBUI_MenuCapturing()?"Press key...##MenuBinding":"Change##MenuBinding"))PBUI_Request(-1,8,0);
+                ImGui::SameLine();if(ImGui::Button("Default (F1)##MenuBinding"))PBUI_Request(-1,9,0);
+                ImGui::TextWrapped("Escape cancels. The menu key must differ from command keys. Command bindings are editable in each tab.");
+                ImGui::EndTabItem();
+            }
+            if(ImGui::BeginTabItem("Updates")){
+                auto update=postal::update::GetStatus();bool beta=PBUI_Beta()!=0;
+                ImGui::TextUnformatted("Current build: V2A42-H99-TEST");
+                ImGui::BeginDisabled(update.busy||update.queued);
+                if(ImGui::Checkbox("Beta updates (experimental)",&beta))PBUI_Request(-1,10,beta?1:0);
+                if(ImGui::Button("Check for Updates"))postal::update::Check(beta);
+                ImGui::EndDisabled();ImGui::TextWrapped("%s",update.message.c_str());
+                ImGui::BeginDisabled(update.busy||update.queued||!update.available||update.beta!=beta);
+                if(ImGui::Button("Install after Exit"))ImGui::OpenPopup("Confirm update");
+                ImGui::EndDisabled();
+                if(ImGui::BeginPopupModal("Confirm update",nullptr,ImGuiWindowFlags_AlwaysAutoResize)){
+                    ImGui::Text("Install %s after closing the game?",update.tag.c_str());
+                    ImGui::TextWrapped("This may replace an experimental build with an older stable version. Current mod files are backed up; your INI is preserved.");
+                    if(ImGui::Button("Confirm install")){postal::update::InstallAfterExit();ImGui::CloseCurrentPopup();}
+                    ImGui::SameLine();if(ImGui::Button("Cancel##Update"))ImGui::CloseCurrentPopup();ImGui::EndPopup();
+                }
+                ImGui::BeginDisabled(update.busy||update.queued);
+                if(ImGui::Button("Restore previous version after Exit"))ImGui::OpenPopup("Confirm rollback");
+                ImGui::EndDisabled();
+                if(ImGui::BeginPopupModal("Confirm rollback",nullptr,ImGuiWindowFlags_AlwaysAutoResize)){
+                    ImGui::TextWrapped("Restore the previous mod binaries after exiting? Personal INI remains unchanged.");
+                    if(ImGui::Button("Confirm restore")){postal::update::RestoreAfterExit();ImGui::CloseCurrentPopup();}
+                    ImGui::SameLine();if(ImGui::Button("Cancel##Rollback"))ImGui::CloseCurrentPopup();ImGui::EndPopup();
+                }
+                ImGui::TextWrapped("Updates run only after game exit. SHA256, ZIP root and x64 binaries are verified before replacement. Details: PostalBorkenMenu-update-result.txt beside the game.");
                 ImGui::EndTabItem();
             }
             ImGui::EndTabBar();
@@ -123,6 +162,7 @@ HRESULT STDMETHODCALLTYPE Present(IDXGISwapChain* sc,UINT sync,UINT flags){
     if(!chain)Init(sc);
     if(sc==chain && ready && PBUI_Visible()){
         ImGui::SetCurrentContext(gui);
+        ClipCursor(nullptr);
         if(!target)CreateTarget(sc);
         if(target){
             ImGui::GetIO().MouseDrawCursor=true;

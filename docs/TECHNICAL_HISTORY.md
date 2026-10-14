@@ -1306,3 +1306,10 @@ part2 gameplay, INI and loader are unchanged relative to H97 stable.
 Startup log still identifies preserved H97 core; UI H98 logs and H98B menu title
 identify experimental renderer. Earlier H98 prerelease superseded by H98B.
 Next: user visual/input/resize/exit verdict and regression check of H97 wheels.
+
+## H99 menu/input/updater experiment - 2026-10-14
+H98B overlay retained; GodMode ID collision and locked cursor reported.
+H99 scopes row IDs, adds menu-key setting, imports supplied defaults, requests
+Unity cursor unlock/restore and introduces explicit post-exit updater/rollback.
+See H99_TEST.md in docs. Gameplay part2 remains unchanged from H97.
+
