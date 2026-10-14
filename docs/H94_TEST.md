@@ -48,3 +48,25 @@ Status: EXPERIMENTAL; build/package integrity is established only by successful 
 and ZIP checks. User validation remains pending. H90 is still the validated base.
 Rollback: exit the game and reinstall the H90 four-file package; keep personal INI.
 Next: use the runtime result before altering any underlay or cold-loading path.
+
+## H94 delivery verification - 2026-10-14
+
+CONSTRUIT / CONTROLE / EXPERIMENTAL. In-game validation pending.
+Source/release commit: bccf71cce8be8e83342a62877f9412ea458f3bbe.
+Build: https://github.com/DeadneM/PostalBorkenMenu/actions/runs/38592335981
+CI completed successfully, ASI and DXGI build/package/publication passed.
+Release: https://github.com/DeadneM/PostalBorkenMenu/releases/tag/V2A42-H94-TEST
+Downloaded published ZIP: 57795 bytes, exactly four root entries:
+dxgi.dll (9216), PostalBorkenMenu.asi (131072), PostalBorkenMenu.ini (2296), README.txt (1991).
+Both binaries checked for MZ/PE signature and AMD64 machine 0x8664.
+ZIP SHA256: 4c83737d2e1c92d0c0b4b6ccdb870f32231bc7639153bd2e97729f775ba3774d
+Matches GitHub asset digest and CI log. Main stayed at 7d660eb.
+INI, loader and IL2CPP interface part1 unchanged relative to H90 promoted source.
+
+Unity documents DontUnloadUnusedAsset as preventing Resources.UnloadUnusedAssets:
+https://docs.unity3d.com/es/2020.1/ScriptReference/HideFlags.DontUnloadUnusedAsset.html
+This is narrower than protection from explicit destruction/bundle unload.
+
+TODO: obtain same-process DLC -> normal result and log before next build.
+No current session game logs or IL2CPP dump were available locally; analysis used
+repository source, historical audit records, user verdicts and Unity documentation.

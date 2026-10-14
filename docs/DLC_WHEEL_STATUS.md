@@ -105,4 +105,3 @@ H90 remains the validated base; H91-H93 remain rejected. H94 retains five exact
 native DLC sprites and their textures with strong IL2CPP handles and Unity
 DontUnloadUnusedAsset, then checks native lifetime before reuse. No new masking,
 no cold loading. Runtime validation pending. See [H94 test protocol](H94_TEST.md).
-

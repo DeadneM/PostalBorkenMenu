@@ -287,4 +287,3 @@ A source-backed fix requires locating the five `Weapon Icon_*_Rose` sprite asset
 H90 remains validated. H94 captures and retains sprites from a native DLC wheel
 for reuse during the same process after returning to normal campaign. No new
 background masking or cold loading. See [protocol and TODO](docs/H94_TEST.md).
-
