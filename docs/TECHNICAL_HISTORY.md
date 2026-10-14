@@ -1208,3 +1208,18 @@ Base: H89 test, with H80 as the original user-validated baseline. User test of H
 H90 is a perf-only experiment, not an icon fix. It caches canonical ScriptableObject WeaponIds for 5 slots per category, scoped to the current PlayerWeaponWheelComponent instance, and invalidates both caches whenever the wheel object changes. The cache is populated only after all five are found. No GC handles, no mutation of inventory/selection logic. One-time first-open discovery remains. Elapsed milliseconds logged for delayed BASE/DLC cross-mode remapping. Repeated identical crosshair state log rows are removed, without altering alpha updates. Watch for regression after scene transitions and new games; cache lifetime correctness must be confirmed in runtime.
 
 Asset follow-up: locate/extract DLC sprites from original game's Unity serialized assets/bundles, then supply via an ASI memory-only loading path if supported. H89 conclusively found no direct Resources path for the five names; do not repeat guesses or claim that assets are loadable until verified.
+
+
+### V2A42-H91 reverse weapon underlay test (after H90 user approval)
+
+User validates H90 operation in both modes and improvement to initial wheel
+freeze. The sole observed visual issue is NORMAL scene -> alternative DLC
+wheel, where old base-weapon silhouette remains behind otherwise correct DLC
+icon. H90 is preserved as the user-approved code/release checkpoint.
+
+H91 keeps H90 source and introduces only the inverse of H89's known-good
+Image.enabled fix: strict base original Icon and DLC target Icon checks,
+the current `WeaponImage` direct parent GameObject, non-generic secondary
+sprite, old Image.enabled backup/restore. No sprite=NULL operation, no
+global Image changes. Logs underlay source sprite when matched for further
+verification. Test new game and alternating wheel modes before promoting.
