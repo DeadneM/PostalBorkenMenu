@@ -1155,3 +1155,19 @@ User validation:
 Next target:
 - DLC Weapon Wheel.
 - rejected H9-H12 wheel branches remain noncanonical and must not be reused as a base.
+
+
+### V2A42-H87 REJECTED / V2A42-H88 GUARDED ICON UNDERLAY TEST
+
+Date: 2026-10-14. H87 screenshot reveals five white rectangular UI.Image
+fallbacks after `SetImageSpriteObjectH62(image, NULL, ...)` on the direct
+`WeaponImage` parent. Removing a Sprite does not turn off a Unity UI.Image.
+H87 is not a valid visual base, even though GitHub Actions compiled it.
+
+H88 branches from V2A42-H80. Retains validated H59/H61/H62/H63, H74
+tap/hold and H77 lazy init. Attempts only a guarded second weapon-icon
+sprite substitution, with no NULL sprite writes and no generic sector art
+changes. Uses the H62 original-sprite restoration arrays. If the candidate
+parent Image contains generic wheel art, no change is made and its sprite
+name is logged. This remains an unvalidated experiment: identify the
+weapon-shaped pink/violet backing rather than panel geometry.
