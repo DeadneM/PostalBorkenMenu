@@ -1169,3 +1169,10 @@ H90 sources promoted to main without replacing the later universal modding
 charter or ChatGPT project instructions introduced after H80. Previous
 release V2A42-H80 remains stable. H90 test prerelease and full sources remain
 available; H91 is a separate unvalidated symmetry fix.
+
+
+### 2026-10-14 H93 rejected / stop speculative wheel masking
+
+User's only H93 test message: "non pas de bonne icone". This demonstrates failure to restore the correct DLC icons in normal campaign, but supplies no H93 log or cold/warm start details. Do not infer exact cache counts for this run.
+
+H90 remains user-approved source checkpoint; H80 remains public stable. H91 removed correct DLC sprites by hiding parent Image; H92 failed; H93 sprite caching approach failed in user test. Existing H89 normal-scene log documented 5/10 sprites and Resources.Load zero DLC Rose images. The game's native DLC wheel and H93 capture are not a substitute for loading DLC artwork into a cold normal scene. Pending: inspect Unity serialized files/bundles holding five `Weapon Icon_*_Rose` assets and their atlas dependencies; implement deterministic loader from game-owned assets or verified exported sprites. No more arbitrary Sprite cache attempts or broad UI masking builds without asset identity confirmation.
