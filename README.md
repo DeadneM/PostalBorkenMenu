@@ -309,3 +309,8 @@ GameObject 2369; its WeaponSelectedImage descendants reference all five Rose spr
 H97 loads only this prefab asset without Instantiate, captures exact sprites into
 H94 retained cache, preserves H96 rendering. Runtime cold loading pending.
 See H97_TEST.md in docs for evidence, limits, test and rollback.
+
+## H98 ImGui experiment
+User selects actual integrated ImGui, matching Darksiders dark/blue style.
+H97 remains stable. See docs/H98_TEST.md for controls, acceptance and rollback.
+

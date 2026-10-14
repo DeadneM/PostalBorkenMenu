@@ -20,3 +20,6 @@ PostalBorkenMenu.ini
 # Keep examples and documentation
 !config/*.ini
 !docs/*.log
+
+out-cmake/
+

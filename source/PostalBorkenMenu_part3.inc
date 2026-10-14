@@ -1,5 +1,7 @@
 
 // ---------------- configuration and overlay UI ----------------
+#include "OverlayBridge.h"
+#define WM_APP_IMGUI (WM_APP + 0x3A)
 
 static void VkName(int vk, WCHAR* out, int cap) {
     if (!out || cap<2) return;
@@ -269,6 +271,12 @@ static BOOL CreateOverlayWindow() {
 }
 
 static void ToggleOverlay() {
+    if(PBUI_RendererReady()) {
+        if(g_menuHwnd) ShowWindow(g_menuHwnd,SW_HIDE);
+        g_menuVisible=g_menuVisible?0:1;
+        if(!g_menuVisible)g_bindIndex=-1;
+        return;
+    }
     if(!g_menuHwnd) return;
     if(g_menuVisible){ ShowWindow(g_menuHwnd,SW_HIDE); g_menuVisible=0; g_bindIndex=-1; }
     else { ClampScrollRow(); UpdateOverlayPosition(); ShowWindow(g_menuHwnd,SW_SHOWNOACTIVATE); g_menuVisible=1; InvalidateRect(g_menuHwnd,0,TRUE); }
@@ -363,6 +371,49 @@ static BOOL HandleOverlayClick(int x,int y) {
     return TRUE;
 }
 
+extern "C" int PBUI_Count(){return CMD_COUNT;}
+extern "C" int PBUI_Visible(){return g_menuVisible!=0;}
+extern "C" int PBUI_Ready(){return g_ready!=0;}
+extern "C" int PBUI_Stopping(){return g_shuttingDown!=0;}
+extern "C" void* PBUI_Window(){return g_gameHwnd;}
+extern "C" void* PBUI_LegacyWindow(){return g_menuHwnd;}
+extern "C" void PBUI_Log(const char* text){LogA(text);}
+extern "C" void PBUI_Request(int index,int action,int value){
+    if(g_gameHwnd && !g_shuttingDown)
+        PostMessageW(g_gameHwnd,WM_APP_IMGUI,(WPARAM)index,(LPARAM)((action<<16)|(value&0xFFFF)));
+}
+extern "C" int PBUI_Get(int i,PBUiCommand* row){
+    if(!row || i<0 || i>=CMD_COUNT || g_shuttingDown)return 0;
+    row->tab=CommandMenuTab(i);row->kind=0;row->enabled=0;row->capturing=g_bindIndex==i;
+    CopyW(row->label,160,g_cmds[i].displayName);CopyW(row->argument,128,g_cmds[i].args);
+    if(row->capturing)CopyW(row->key,48,L"PRESS KEY");else VkName(g_cmds[i].vk,row->key,48);
+    const char* name=g_cmds[i].className;int category=0,slot=0;
+    if(StrEqA(name,"TimeScale"))row->kind=1;
+    else if(StrEqA(name,"__WeaponKeysMode"))row->kind=2;
+    else if(DecodeWeaponListCommand(i,&category,&slot))row->kind=3;
+    else if(StrEqA(name,"__SkipStartupLogos")){row->kind=4;row->enabled=g_skipStartupLogos!=0;}
+    else if(StrEqA(name,"__NoCrosshair")){row->kind=5;row->enabled=g_noCrosshair!=0;}
+    return 1;
+}
+
+static void HandleImGuiAction(int i,int action,int value){
+    if(g_shuttingDown)return;
+    if(action==5){g_menuVisible=0;g_bindIndex=-1;if(g_menuHwnd)ShowWindow(g_menuHwnd,SW_HIDE);return;}
+    if(i<0 || i>=CMD_COUNT)return;
+    if(action==1){g_bindIndex=i;return;}
+    if(action==3){g_cmds[i].vk=g_cmds[i].defaultVk;SaveBinding(i);g_bindIndex=-1;return;}
+    if(!g_ready)return;
+    if(action==0)ExecuteCommandIndex(i);
+    else if(action==4)CycleWeaponSlotArg(i);
+    else if(action==6 && StrEqA(g_cmds[i].className,"TimeScale")){
+        const WCHAR* speeds[3]={L"0.5",L"1",L"2"};
+        if(value>=0 && value<3){CopyW(g_cmds[i].args,128,speeds[value]);SaveArgs(i);}
+    }else if(action==7 && StrEqA(g_cmds[i].className,"__WeaponKeysMode")){
+        const WCHAR* modes[4]={L"OFF",L"BASE",L"DLC",L"ALT"};
+        if(value>=0 && value<4){CopyW(g_cmds[i].args,128,modes[value]);for(int s=0;s<10;s++)g_altSlotFlip[s]=0;SaveArgs(i);}
+    }
+}
+
 static WNDPROC BeginEarlyShutdown(HWND hwnd, const char* reason) {
     WNDPROC old=g_oldGameWndProc;
     if (!g_shuttingDown) {
@@ -411,6 +462,8 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
         return g_oldGameWndProc ? CallWindowProcW(g_oldGameWndProc,hwnd,msg,wp,lp) : DefWindowProcW(hwnd,msg,wp,lp);
     }
 
+    if(msg==WM_APP_IMGUI){HandleImGuiAction((int)wp,(int)((lp>>16)&0xFFFF),(int)(lp&0xFFFF));return 0;}
+    if(PBUI_Message(hwnd,msg,wp,lp))return 0;
     if (msg==WM_MOUSEWHEEL && g_menuVisible) {
         short delta=(short)((wp>>16)&0xFFFF);
         if(delta>0) ScrollOverlayRows(-3);
@@ -761,6 +814,7 @@ static DWORD __stdcall ModThread(void*) {
 
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
+    PBUI_StartRenderer();
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
     LogA("[READY] H90: H89 DLC underlay success preserved; scene-wheel target cache, millisecond timing and lighter crosshair logs; DLC assets still unavailable in normal scene.");
 
@@ -789,7 +843,10 @@ static DWORD __stdcall ModThread(void*) {
 extern "C" BOOL __stdcall DllMain(HMODULE module, DWORD reason, void*) {
     if (reason==DLL_PROCESS_ATTACH) {
         g_self=module;
+        // H98 uses a static CRT; preserve its thread attach/detach notifications.
+#ifndef PB_IMGUI
         DisableThreadLibraryCalls(module);
+#endif
         HANDLE t=CreateThread(0,0,ModThread,0,0,0);
         if (t) CloseHandle(t);
     }

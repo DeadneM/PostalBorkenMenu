@@ -133,3 +133,8 @@ User validates cold normal-campaign DLC sprites and requests stable release.
 H97 source unchanged; main promoted. See H97_RELEASE.md in docs.
 H95 rejected remains historical; H94/H96 retained features now cumulative H97.
 
+
+## H98 ImGui experiment
+User selects actual integrated ImGui, matching Darksiders dark/blue style.
+H97 remains stable. See docs/H98_TEST.md for controls, acceptance and rollback.
+

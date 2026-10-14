@@ -1287,3 +1287,8 @@ README 1115 bytes. Both PE AMD64 checked; digest matches GitHub asset:
 9dd1e65fb585a70d5486a4834e20be8e2690ec407e8f07014efcd69fc70d3b2d
 Remote main/tag verified, prerelease=false, releases/latest=V2A42-H97.
 Next: preserve H97 as validated base; no pending functional fix in user-tested scenario.
+
+## H98 ImGui experiment
+User selects actual integrated ImGui, matching Darksiders dark/blue style.
+H97 remains stable. See docs/H98_TEST.md for controls, acceptance and rollback.
+

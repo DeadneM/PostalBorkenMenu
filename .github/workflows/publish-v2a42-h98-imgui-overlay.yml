@@ -1,0 +1,50 @@
+name: Publish H98 ImGui Overlay Test
+on:
+  push:
+    branches: [dev/v2a42-h98-imgui-overlay]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: h98-build
+  cancel-in-progress: true
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Build ImGui ASI
+        shell: cmd
+        run: |
+          cmake -S . -B out-cmake -A x64
+          cmake --build out-cmake --config Release --parallel
+      - name: Build unchanged DXGI loader
+        shell: cmd
+        run: |
+          mkdir build 2>nul
+          cl /nologo /c /O2 /Oi- /GS- /GR- /EHs-c- /Zl /Fo:build\dxgi_asi_loader.obj proxy\dxgi_asi_loader.cpp
+          ml64 /nologo /c /Fo build\dxgi_thunks.obj proxy\dxgi_thunks.asm
+          link /nologo /DLL /MACHINE:X64 /NODEFAULTLIB /ENTRY:DllMain /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /DEF:proxy\dxgi_proxy.def /OUT:build\dxgi.dll build\dxgi_asi_loader.obj build\dxgi_thunks.obj kernel32.lib
+      - name: Package
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force package | Out-Null
+          Copy-Item out-cmake\Release\PostalBorkenMenu.asi package\PostalBorkenMenu.asi
+          Copy-Item build\dxgi.dll package\dxgi.dll
+          Copy-Item config\PostalBorkenMenu.ini package\PostalBorkenMenu.ini
+          Copy-Item release\README.txt package\README.txt
+          if((Get-ChildItem package -File).Count -ne 4){throw 'Expected four files'}
+          Compress-Archive package\* POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H98_IMGUI_OVERLAY_TEST.zip -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: H98-installable-ZIP
+          path: POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H98_IMGUI_OVERLAY_TEST.zip
+      - name: Publish test
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create V2A42-H98-TEST POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H98_IMGUI_OVERLAY_TEST.zip --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "H98 TEST - Integrated ImGui Overlay" --notes-file docs/H98_TEST.md --prerelease

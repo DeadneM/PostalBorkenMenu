@@ -4,7 +4,9 @@
 // No EXE/GameAssembly patching. No CRT dependency.
 
 extern "C" {
+#ifndef PB_IMGUI
 int _fltused = 0;
+#endif
 
 typedef void* PVOID;
 typedef void* HANDLE;
