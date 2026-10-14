@@ -128,3 +128,25 @@ User confirms H89 DLC scene: cross-mode BASE and native DLC wheels are both visu
 H89 normal scene: native BASE wheel fine; cross-mode DLC wheel still displays no correct DLC icons. Source of missing art proved: cache 5/10; `Resources.Load(string,Type)` 0 DLC sprites. Minor freeze persists.
 
 H90 isolates performance by caching canonical `WeaponId` targets scoped to native wheel instance (invalidate on instance change) and measuring remap milliseconds for both directions. Crosshair runtime alpha handling is unchanged, only duplicate log rows are coalesced. No change to DLC icon source. Runtime cache lifespan at level/reload still requires user confirmation, since the source reference to the current wheel is an unmanaged pointer and cannot substitute for in-game testing.
+
+
+## H90 user approval and H91 opposite underlay correction
+
+User: "il n'y a que mode normal roue DLC où le fond des armes normales est
+présent ; le reste est parfait et le freeze réduit." In H90, DLC scenes
+show correct normal+DLC wheels; normal scenes show native wheel correct; the
+remaining observed visual flaw is a *base gun silhouette behind DLC icons* on
+the cross-mode DLC wheel.
+
+H91: mirror H89's successful exact-image enabled-state approach for normal
+level -> DLC wheel only. Require original base icon sprite, target known DLC
+icon, and immediate parent GameObject `WeaponImage`. Disable its own
+secondary Image only, retain Sprite and restore original Image.enabled on
+wheel close. Log actual parent sprite when suppressed and log mismatches
+without modifying panel art. Do not assume a full game restart loads five
+DLC textures in the base level: source investigation remains separate.
+
+Acceptance: identical H90 wheel behavior/perf, zero white rectangles, zero
+old base gun silhouettes in NORMAL -> DLC; DLC -> BASE still clean, both
+native wheels and nine slots remain intact, no stale state after close
+or level transitions.
