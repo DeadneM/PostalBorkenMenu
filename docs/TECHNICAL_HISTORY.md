@@ -1169,3 +1169,20 @@ H90 sources promoted to main without replacing the later universal modding
 charter or ChatGPT project instructions introduced after H80. Previous
 release V2A42-H80 remains stable. H90 test prerelease and full sources remain
 available; H91 is a separate unvalidated symmetry fix.
+
+
+### H91 rejected after game test, H92 cross-mode independent-base test
+
+H90: user-validated functionality, correct DLC icons and DLC backgrounds
+also in normal-campaign alternative DLC wheel, but normal silhouettes
+still superimposed. H91 removed correct DLC icons: disabling the immediate
+parent `WeaponImage` Image was too broad and is rejected.
+
+H92 starts from main with validated H90, never H91. Strictly protects
+`_weaponSelectedImage` and the exact immediate `WeaponImage` parent
+Image, and excludes all DLC sprites from disable operations. Only another
+independent Image in the same button whose Sprite name exactly equals
+the paired normal weapon icon may be temporarily disabled. Save and
+restore every modified Image.enabled on close. If no such Image exists,
+preserve the complete H90 visual and log a diagnostic miss rather than
+repeat H91. Pending user verification; H90 remains checkpoint.
