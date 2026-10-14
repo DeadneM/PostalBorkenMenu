@@ -1766,6 +1766,14 @@ static volatile LONG g_h89DlcDirectLoadAttempted=0;
 // gun icons. Save only the single Image.enabled value actually changed.
 static Il2CppObject* g_h89BaseHiddenDlcEmptyImage[5]={0,0,0,0,0};
 static BOOL g_h89BaseHiddenDlcEmptyWasEnabled[5]={FALSE,FALSE,FALSE,FALSE,FALSE};
+
+// H92: only separate, *verified* stale NORMAL weapon graphics may be hidden
+// in the alternative DLC wheel. Never disable the WeaponImage parent Image,
+// because H91 proved it is also needed for the legitimate DLC presentation.
+static Il2CppObject* g_h92DlcHiddenBaseImages[5][8]={{0}};
+static BOOL g_h92DlcHiddenBaseWasEnabled[5][8]={{FALSE}};
+static int g_h92DlcHiddenBaseCount[5]={0,0,0,0,0};
+
 static const char* g_h89DlcEmptySprites[5]={
     "Weapon Icon_NyanBrella_Empty",
     "Weapon Icon_Piss Gun_Empty",
@@ -1796,6 +1804,11 @@ static void ClearExtraLayersH62(BOOL baseState,int index) {
             g_h62BaseExtraOriginalSprites[index][j]=0;
         }
     } else {
+        g_h92DlcHiddenBaseCount[index]=0;
+        for(int j=0;j<8;j++) {
+            g_h92DlcHiddenBaseImages[index][j]=0;
+            g_h92DlcHiddenBaseWasEnabled[index][j]=FALSE;
+        }
         g_h62DlcExtraCount[index]=0;
         for(int j=0;j<8;j++) {
             g_h62DlcExtraImages[index][j]=0;
@@ -2204,6 +2217,115 @@ static BOOL ReplaceMatchingLocalIconLayersH62(Il2CppObject* button,
     return FALSE;
 }
 
+// H92 NORMAL->DLC: scan images belonging to this one wheel button, NOT
+// the whole UI. H91 disabled the direct WeaponImage parent Image and removed
+// DLC graphics. That component is explicitly excluded here. The selected
+// DLC icon is also excluded, even if Unity shares its Sprite reference.
+//
+// Only suppress images whose existing sprite exactly equals this sector's
+// canonical NORMAL icon name. Unrelated (including DLC) images remain enabled.
+// If the duplicate normal silhouette is not an independent Image, fail-open:
+// the H90 presentation is preserved and the log identifies the constraint.
+static BOOL H92HideIndependentNormalUnderlays(Il2CppObject* button,
+                                              Il2CppObject* selectedImage,
+                                              Il2CppObject* originalSprite,
+                                              Il2CppObject* targetSprite,
+                                              int slot,
+                                              int index) {
+    if(!button || !selectedImage || !originalSprite || !targetSprite ||
+       index<0 || index>=5 || !g_componentGetGameObject ||
+       !g_gameObjectGetComponentsInChildren || !g_coreImage) return FALSE;
+    int k=SlotIndexH59(slot);
+    if(k<0) return FALSE;
+
+    char originalName[192],targetName[192];
+    if(!H88GetSpriteName(originalSprite,originalName,192) ||
+       !H88GetSpriteName(targetSprite,targetName,192)) return FALSE;
+    // No guessing based on category or unknown Unity components.
+    if(!StrEqA(originalName,g_h61BaseIconNames[k]) ||
+       !StrEqA(targetName,g_h61DlcIconNames[k])) return FALSE;
+
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass getClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+    Il2CppClass* imageClass=getClass ? getClass(selectedImage) : 0;
+    const Il2CppType* imageType=imageClass ?
+        g_il2cpp.class_get_type(imageClass) : 0;
+    Il2CppObject* typeObject=imageType ?
+        g_il2cpp.type_get_object(imageType) : 0;
+    if(!typeObject) return FALSE;
+
+    Il2CppException* ex=0;
+    Il2CppObject* buttonGo=g_il2cpp.runtime_invoke(
+        g_componentGetGameObject,button,0,&ex);
+    if(ex || !buttonGo) return FALSE;
+    BOOL includeInactive=TRUE;
+    void* pars[2]; pars[0]=typeObject; pars[1]=&includeInactive;
+    ex=0;
+    Il2CppObject* arrObj=g_il2cpp.runtime_invoke(
+        g_gameObjectGetComponentsInChildren,buttonGo,pars,&ex);
+    if(ex || !arrObj) return FALSE;
+
+    // Determine the direct parent of the selected DLC sprite: this is the
+    // component H91 accidentally hid, and must never be disabled.
+    Il2CppClass* componentClass=g_il2cpp.class_from_name(
+        g_coreImage,"UnityEngine","Component");
+    Il2CppClass* transformClass=g_il2cpp.class_from_name(
+        g_coreImage,"UnityEngine","Transform");
+    const MethodInfo* getTransform=componentClass ?
+        g_il2cpp.class_get_method_from_name(componentClass,"get_transform",0) : 0;
+    const MethodInfo* getParent=transformClass ?
+        g_il2cpp.class_get_method_from_name(transformClass,"get_parent",0) : 0;
+    if(!getTransform || !getParent) return FALSE;
+    ex=0;
+    Il2CppObject* tr=g_il2cpp.runtime_invoke(getTransform,selectedImage,0,&ex);
+    if(ex || !tr) return FALSE;
+    ex=0;
+    Il2CppObject* parentTr=g_il2cpp.runtime_invoke(getParent,tr,0,&ex);
+    if(ex || !parentTr) return FALSE;
+    ex=0;
+    Il2CppObject* protectedParentGo=g_il2cpp.runtime_invoke(
+        g_componentGetGameObject,parentTr,0,&ex);
+    if(ex || !protectedParentGo) return FALSE;
+
+    Il2CppArray* arr=(Il2CppArray*)arrObj;
+    SIZE_T count=g_il2cpp.array_length(arr);
+    if(count>96) count=96;
+    unsigned int hdr=g_il2cpp.array_object_header_size();
+    Il2CppObject** candidates=(Il2CppObject**)(((BYTE*)arr)+hdr);
+    int hidden=0;
+    for(SIZE_T j=0;j<count && hidden<8;j++) {
+        Il2CppObject* image=candidates[j];
+        if(!image || image==selectedImage) continue;
+        ex=0;
+        Il2CppObject* imageGo=g_il2cpp.runtime_invoke(
+            g_componentGetGameObject,image,0,&ex);
+        if(ex || !imageGo || imageGo==protectedParentGo) continue;
+        Il2CppClass* ic=getClass ? getClass(image) : 0;
+        const MethodInfo* getSprite=ic ?
+            g_il2cpp.class_get_method_from_name(ic,"get_sprite",0) : 0;
+        if(!getSprite) continue;
+        ex=0;
+        Il2CppObject* spr=g_il2cpp.runtime_invoke(getSprite,image,0,&ex);
+        if(ex || !spr || spr==targetSprite) continue;
+        char candidateName[192];
+        if(!H88GetSpriteName(spr,candidateName,192)) continue;
+        // Only a 100% known normal weapon drawing may be hidden.
+        if(!StrEqA(candidateName,g_h61BaseIconNames[k])) continue;
+
+        BOOL wasEnabled=FALSE;
+        if(!H89SetImageEnabled(image,FALSE,&wasEnabled)) continue;
+        g_h92DlcHiddenBaseImages[index][hidden]=image;
+        g_h92DlcHiddenBaseWasEnabled[index][hidden]=wasEnabled;
+        ++hidden;
+        LogA("[WHEEL H92] independent normal-weapon Image hidden:");
+        LogA(candidateName);
+    }
+    g_h92DlcHiddenBaseCount[index]=hidden;
+    if(!hidden) LogIntA(
+        "[WHEEL H92] No independent matching base icon; preserving H90 visual for slot: ",slot);
+    return hidden>0;
+}
+
 static BOOL RestoreExtraIconLayersH62(BOOL baseState,int index) {
     if(index<0 || index>=5) return TRUE;
 
@@ -2227,6 +2349,19 @@ static BOOL RestoreExtraIconLayersH62(BOOL baseState,int index) {
             ok=FALSE;
         else
             LogA("[WHEEL H89] DLC Empty silhouette Image.enabled restored.");
+    }
+    if(!baseState) {
+        for(int k=0;k<g_h92DlcHiddenBaseCount[index];k++) {
+            Il2CppObject* img=g_h92DlcHiddenBaseImages[index][k];
+            if(!img) continue;
+            BOOL ignored=FALSE;
+            if(!H89SetImageEnabled(img,
+                    g_h92DlcHiddenBaseWasEnabled[index][k],&ignored))
+                ok=FALSE;
+        }
+        if(g_h92DlcHiddenBaseCount[index]>0)
+            LogIntA("[WHEEL H92] independent normal Images restored: ",
+                    g_h92DlcHiddenBaseCount[index]);
     }
     ClearExtraLayersH62(baseState,index);
     return ok;
@@ -2271,8 +2406,19 @@ static BOOL ApplySlotIconH61(Il2CppObject* button,
         return FALSE;
     }
 
-    // H62: replace any second/underlay Image still drawing the old icon.
+    // H62: preserve the user-approved H90 secondary-icon behavior.
     ReplaceMatchingLocalIconLayersH62(button,original,sprite,baseVisualState,visualIndex);
+
+    // H92 searches for ANOTHER base image. It never disables the H90 parent
+    // underlay or the selected DLC icon. Only normal->DLC cross-mode.
+    if(wantDlc && !baseVisualState) {
+        const FieldInfo* sf=g_il2cpp.class_get_field_from_name(
+            buttonClass,"_weaponSelectedImage");
+        Il2CppObject* selected=0;
+        if(sf) g_il2cpp.field_get_value(button,sf,&selected);
+        H92HideIndependentNormalUnderlays(
+            button,selected,original,sprite,slot,visualIndex);
+    }
 
     if(baseVisualState) {
         g_h61BaseIconButtons[visualIndex]=button;
