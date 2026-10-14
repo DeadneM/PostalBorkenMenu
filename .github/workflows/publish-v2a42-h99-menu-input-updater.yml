@@ -37,14 +37,14 @@ jobs:
           Copy-Item config\PostalBorkenMenu.ini package\PostalBorkenMenu.ini
           Copy-Item release\README.txt package\README.txt
           if((Get-ChildItem package -File).Count -ne 4){throw 'Expected four files'}
-          Compress-Archive package\* POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H99C_MENU_INPUT_UPDATER_TEST.zip -Force
+          Compress-Archive package\* POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H99D_MENU_INPUT_UPDATER_TEST.zip -Force
       - uses: actions/upload-artifact@v4
         with:
           name: H99-installable-ZIP
-          path: POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H99C_MENU_INPUT_UPDATER_TEST.zip
+          path: POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H99D_MENU_INPUT_UPDATER_TEST.zip
       - name: Publish test
         shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create V2A42-H99C-TEST POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H99C_MENU_INPUT_UPDATER_TEST.zip --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "H99C TEST - Integrated ImGui Overlay" --notes-file docs/H99_TEST.md --prerelease
+          gh release create V2A42-H99D-TEST POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H99D_MENU_INPUT_UPDATER_TEST.zip --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "H99D TEST - Integrated ImGui Overlay" --notes-file docs/H99_TEST.md --prerelease

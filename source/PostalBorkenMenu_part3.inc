@@ -412,11 +412,17 @@ static void HandleImGuiAction(int i,int action,int value){
     if(g_shuttingDown)return;
     if(action==5){g_menuVisible=0;g_bindIndex=-1;if(g_menuHwnd)ShowWindow(g_menuHwnd,SW_HIDE);QueueOverlayCursor();return;}
     if(action==8){g_bindIndex=-2;return;}
-    if(action==9){g_menuVk=112;WritePrivateProfileStringW(L"Settings",L"MenuKey",L"112",g_iniPath);FlushConfig();g_bindIndex=-1;return;}
+    if(action==9){
+        for(int ci=0;ci<CMD_COUNT;ci++)if(g_cmds[ci].vk==112){LogA("[UI H99] F1 currently assigned to a command; rebind it before menu Default.");return;}
+        g_menuVk=112;WritePrivateProfileStringW(L"Settings",L"MenuKey",L"112",g_iniPath);FlushConfig();g_bindIndex=-1;return;
+    }
     if(action==10){g_updaterBeta=value?1:0;WritePrivateProfileStringW(L"Settings",L"UpdaterBeta",g_updaterBeta?L"1":L"0",g_iniPath);FlushConfig();return;}
     if(i<0 || i>=CMD_COUNT)return;
     if(action==1){g_bindIndex=i;return;}
-    if(action==3){g_cmds[i].vk=g_cmds[i].defaultVk;SaveBinding(i);g_bindIndex=-1;return;}
+    if(action==3){
+        if(g_cmds[i].defaultVk==g_menuVk){LogA("[UI H99] command default conflicts with menu key; choose another key.");return;}
+        g_cmds[i].vk=g_cmds[i].defaultVk;SaveBinding(i);g_bindIndex=-1;return;
+    }
     if(!g_ready)return;
     if(action==0)ExecuteCommandIndex(i);
     else if(action==4)CycleWeaponSlotArg(i);
@@ -850,7 +856,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H99C INPUT DEFAULTS AND UPDATER TEST");
+    LogA("PostalBorkenMenu V2A42-H99D INPUT DEFAULTS AND UPDATER TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");

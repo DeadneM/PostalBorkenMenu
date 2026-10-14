@@ -62,3 +62,10 @@ Offline helper tests: genuine four-file AMD64 package accepted; wrong SHA256,
 traversal entry, duplicate entry and malformed PE rejected for their expected
 reasons. These checks do not establish online download/install or in-game behavior.
 
+
+Final H99D also keeps dynamic binding-button IDs stable (### identifiers),
+protects Default operations from colliding with menu key, and releases native
+cursor confinement only while this game is foreground. Isolated online helper
+installation and rollback passed with exact original hashes and personal INI
+sentinel preserved; actual game exit waiting and user gameplay remain untested.
+

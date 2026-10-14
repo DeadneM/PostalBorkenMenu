@@ -58,7 +58,7 @@ void DrawMenu(){
     ImGui::SetNextWindowSizeConstraints(ImVec2(650,360),ImVec2(FLT_MAX,FLT_MAX));
     bool open=true;
     if(ImGui::Begin("PostalBorkenMenu",&open,ImGuiWindowFlags_NoCollapse)){
-        ImGui::TextUnformatted("POSTAL: BRAIN-DAMAGED  |  ASI Overlay H99C TEST");
+        ImGui::TextUnformatted("POSTAL: BRAIN-DAMAGED  |  ASI Overlay H99D TEST");
         wchar_t menuKeyWide[48];PBUI_MenuKey(menuKeyWide,48);char menuKey[160];Utf8(menuKeyWide,menuKey,sizeof(menuKey));
         ImGui::SameLine();ImGui::TextDisabled("| %s to close",menuKey);ImGui::Separator();
         ImGui::TextDisabled(PBUI_Ready()?"Gameplay commands ready":"Initializing gameplay commands...");
@@ -106,7 +106,7 @@ void DrawMenu(){
                         ImGui::TableSetColumnIndex(3);
                         if(row.kind==4)ImGui::TextDisabled("Next launch");else ImGui::TextWrapped("%s",key);
                         ImGui::TableSetColumnIndex(4);ImGui::BeginDisabled(row.kind==4);
-                        if(ImGui::Button(row.capturing?"Press key...":"Change",ImVec2(-1,0)))PBUI_Request(i,1,0);
+                        if(ImGui::Button(row.capturing?"Press key...###ChangeKey":"Change###ChangeKey",ImVec2(-1,0)))PBUI_Request(i,1,0);
                         if(ImGui::IsItemHovered())ImGui::SetTooltip("Press a key. Escape cancels; Backspace clears.");
                         ImGui::TableSetColumnIndex(5);if(ImGui::Button("Default",ImVec2(-1,0)))PBUI_Request(i,3,0);
                         ImGui::EndDisabled();ImGui::PopID();
@@ -118,14 +118,14 @@ void DrawMenu(){
             }
             if(ImGui::BeginTabItem("Hotkeys")){
                 ImGui::TextUnformatted("Open / close mod menu");ImGui::SameLine();ImGui::TextUnformatted(menuKey);
-                if(ImGui::Button(PBUI_MenuCapturing()?"Press key...##MenuBinding":"Change##MenuBinding"))PBUI_Request(-1,8,0);
+                if(ImGui::Button(PBUI_MenuCapturing()?"Press key...###MenuBinding":"Change###MenuBinding"))PBUI_Request(-1,8,0);
                 ImGui::SameLine();if(ImGui::Button("Default (F1)##MenuBinding"))PBUI_Request(-1,9,0);
                 ImGui::TextWrapped("Escape cancels. The menu key must differ from command keys. Command bindings are editable in each tab.");
                 ImGui::EndTabItem();
             }
             if(ImGui::BeginTabItem("Updates")){
                 auto update=postal::update::GetStatus();bool beta=PBUI_Beta()!=0;
-                ImGui::TextUnformatted("Current build: V2A42-H99C-TEST");
+                ImGui::TextUnformatted("Current build: V2A42-H99D-TEST");
                 ImGui::BeginDisabled(update.busy||update.queued);
                 if(ImGui::Checkbox("Beta updates (experimental)",&beta))PBUI_Request(-1,10,beta?1:0);
                 if(ImGui::Button("Check for Updates"))postal::update::Check(beta);
@@ -162,7 +162,7 @@ HRESULT STDMETHODCALLTYPE Present(IDXGISwapChain* sc,UINT sync,UINT flags){
     if(!chain)Init(sc);
     if(sc==chain && ready && PBUI_Visible()){
         ImGui::SetCurrentContext(gui);
-        ClipCursor(nullptr);
+        if(GetForegroundWindow()==(HWND)PBUI_Window())ClipCursor(nullptr);
         if(!target)CreateTarget(sc);
         if(target){
             ImGui::GetIO().MouseDrawCursor=true;
