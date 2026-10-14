@@ -119,3 +119,12 @@ H89 test, still based on H80 validated behavior:
 Pass criteria: no stale DLC backgrounds on BASE wheel in DLC scene; native
 DLC wheel unchanged; normal wheel unchanged in normal scene; no added
 latency; DLC icons if Resources.Load can access them.
+
+
+## H89 in-game result and H90 performance test
+
+User confirms H89 DLC scene: cross-mode BASE and native DLC wheels are both visually correct and functional. Minor BASE wheel freeze remains. H89 log proves all five `Weapon Icon_*_Empty` Image components disabled/restored correctly each opening.
+
+H89 normal scene: native BASE wheel fine; cross-mode DLC wheel still displays no correct DLC icons. Source of missing art proved: cache 5/10; `Resources.Load(string,Type)` 0 DLC sprites. Minor freeze persists.
+
+H90 isolates performance by caching canonical `WeaponId` targets scoped to native wheel instance (invalidate on instance change) and measuring remap milliseconds for both directions. Crosshair runtime alpha handling is unchanged, only duplicate log rows are coalesced. No change to DLC icon source. Runtime cache lifespan at level/reload still requires user confirmation, since the source reference to the current wheel is an unmanaged pointer and cannot substitute for in-game testing.
