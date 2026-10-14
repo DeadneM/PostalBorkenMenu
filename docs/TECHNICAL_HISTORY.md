@@ -1169,3 +1169,24 @@ H90 sources promoted to main without replacing the later universal modding
 charter or ChatGPT project instructions introduced after H80. Previous
 release V2A42-H80 remains stable. H90 test prerelease and full sources remain
 available; H91 is a separate unvalidated symmetry fix.
+
+
+### H93 normal-scene DLC artwork lifecycle diagnosis
+
+H90 remains user-validated. H91 failed because it disabled a component
+required by the DLC icons. H92 remained wrong (normal icons visible);
+both attempts are rejected. Investigation revisits the older
+cache-availability fact: H89 runtime measured 5/10 loaded sprites and
+Resources.Load returned 0/5 DLC Rose sprites on first normal scene.
+H90 has an intentionally global g_h62SpriteScanAttempts maximum of 1,
+which was never reset when the loaded Unity scene changed. As a result,
+the cache may remain partial even after the DLC visuals become available.
+
+H93 uses H90 main as its only base. Re-arms one sprite scan when the
+live wheel changes, and performs cheap, exact native DLC Image.Sprite
+capture in the DLC scene (known category/slot/sprite names). Keeps
+all H89 validated DLC->BASE image hiding and H90 wheel/target caching.
+Adds a cache count log when opening alternative DLC wheel in a normal
+scene. NO additional image masking. Unresolved from a cold normal start:
+DLC scene-only Sprite objects might never be loaded; separate asset
+source audit still required. H93 is diagnostic/candidate, not validated.
