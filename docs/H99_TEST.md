@@ -56,3 +56,9 @@ Delivery revision H99B: adds checked helper error reporting, path rechecks and
 release-tag/URL agreement. Initial H99 superseded. All forty recognized command
 keys match supplied INI; helper syntax parsed. No runtime installation performed.
 
+
+Final delivery H99C includes full nlohmann license alongside existing licenses.
+Offline helper tests: genuine four-file AMD64 package accepted; wrong SHA256,
+traversal entry, duplicate entry and malformed PE rejected for their expected
+reasons. These checks do not establish online download/install or in-game behavior.
+
