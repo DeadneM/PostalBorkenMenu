@@ -69,3 +69,30 @@ cursor confinement only while this game is foreground. Isolated online helper
 installation and rollback passed with exact original hashes and personal INI
 sentinel preserved; actual game exit waiting and user gameplay remain untested.
 
+
+## H99D delivery verification - 2026-10-14
+CONSTRUIT / CONTROLE / EXPERIMENTAL; user gameplay verdict pending.
+Source/release 9d151d6dc88b0ffc9443f499fe77dca59348e9cf.
+CI SUCCESS https://github.com/DeadneM/PostalBorkenMenu/actions/runs/38640890075
+Release https://github.com/DeadneM/PostalBorkenMenu/releases/tag/V2A42-H99D-TEST
+Published ZIP downloaded: exactly four root files (DXGI 9216, ASI 990208,
+INI 2342, README 8640 bytes), two AMD64 PEs verified. GitHub digest matches:
+fd347b4082b2fcdfa259b6acb7157e9917a0c63e35317aac6919d3cea89714b0
+Packaged INI equals config defaults; forty recognized compiled keys match supplied
+INI. Embedded updater resource 101 (5900 bytes) equals verified script source,
+normalizing line endings. No VCRUNTIME/MSVCP redistributable DLL imports.
+
+Helper tests: genuine package accepted; SHA mismatch, traversal, duplicate root
+entry and bad PE rejected with expected reason. Isolated real GitHub download,
+install backup and rollback succeeded using an already-exited parent simulation;
+all original mod-file hashes and personal INI sentinel preserved. An unrelated
+live parent executable was rejected. Real game shutdown waiting was not tested.
+No live game files were changed by assistant. C++ menu-network check and Unity
+cursor behavior remain runtime tests; helper network/install tests are distinct.
+
+Main remains H97 c1e4630; part2 gameplay and loader unchanged. Earlier H99/H99B
+packages superseded by H99D; H99C run cancelled. Current updater recognizes
+V2A42-H numbered release/test tags; beta selects experimental releases, stable
+currently H97 (explicit older-version install confirmation). No auto-install.
+Next: GodMode rebind, menu-key persistence, free mouse without pause, close/focus
+restore, updater stable/beta reporting, and native wheel regression test.
