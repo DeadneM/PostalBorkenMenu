@@ -73,3 +73,21 @@ The remaining cross-mode issue is visual only: identify the exact icon-backgroun
 
 V2A42-H43 remains the stable public release.
 V2A42-H80 is the current validated development checkpoint.
+
+## H90 validated source checkpoint, 2026-10-14
+
+User reports H90: These Sunny Daze DLC and alternative normal wheels work and
+display the right icons and weapon-specific backgrounds. Native normal-game
+wheel remains correct. Opening freezes are reduced. The ONLY reported visual
+issue is normal campaign -> alternative DLC wheel: base-weapon silhouettes
+are still visible behind the otherwise correct DLC icons.
+
+H90 is now the source checkpoint on main. H80 stays the last public stable
+release until the final cosmetic defect is resolved. H90 prerelease tag and
+test ZIP: V2A42-H90-TEST.
+
+H91 experiment is developed and tested separately on
+`dev/v2a42-h91-symmetric-base-underlay-hide`; it turns off only the
+`WeaponImage` parent secondary Image in the normal -> DLC direction,
+strictly preserving H89's reverse fix, H90 performance caches and H74/H77
+input/init.
