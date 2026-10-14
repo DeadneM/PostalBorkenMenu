@@ -272,3 +272,12 @@ No change to H74 tap/hold, H77 lazy initialization or main UI geometry.
 
 **H90 source checkpoint prerelease:** [V2A42-H90-TEST](https://github.com/DeadneM/PostalBorkenMenu/releases/tag/V2A42-H90-TEST).
 **Public stable release:** V2A42-H80 remains available pending full visual closure.
+
+
+### H91–H93 rejected tests: exact DLC icon resources required (14 October 2026)
+
+Latest user test of H93: normal-campaign alternative DLC wheel **still does not display the correct DLC icons**. H93 is NOT a fix. H91 and H92 were also rejected for visual regressions. Preserve **V2A42-H90** as user-approved source checkpoint, and **V2A42-H80** as publicly stable release.
+
+Root-cause evidence from H89's available runtime log: only five of ten desired wheel sprites were loaded in normal scene, and the direct `UnityEngine.Resources.Load(string, Type)` lookup found zero DLC icon sprites. H93's later native-wheel capture cannot fabricate assets missing from a cold normal-scene startup. Whether the latest failed H93 attempt had 0/5 loaded sprites needs its runtime log; do not report this as confirmed for that attempt.
+
+A source-backed fix requires locating the five `Weapon Icon_*_Rose` sprite assets in the owned game's Unity assets/bundles, including backing texture/atlas dependencies, then implementing a deliberate load/injection path independent of active scene, keeping H90 wheel semantics. Required source materials: relevant `sharedassets*.assets` / `resources.assets` / asset bundles plus any `.resS` or `.resource` sidecars. Alternatively, user can provide a Unity asset inventory/dump of just the five sprites. Do not create H94 by repeating blind sprite-cache scans, disabling generic UI.Image components or replacing DLC icons with base icons.
