@@ -7,6 +7,7 @@ $root=[IO.Path]::GetFullPath($GameDir).TrimEnd('\')
 $allowed=@('PostalBorkenMenu.asi','dxgi.dll','PostalBorkenMenu.ini','README.txt')
 $replace=@('PostalBorkenMenu.asi','dxgi.dll','README.txt')
 $backup=Join-Path $root '.PostalBorkenMenu-backup'
+$rootSafe=$false
 function NoLink([string]$path){if((Test-Path -LiteralPath $path) -and ((Get-Item -LiteralPath $path).Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'Refusing reparse-point target'}}
 function ValidateZip([string]$zipPath,[string]$unpack){
     if($Digest -notmatch '^[a-fA-F0-9]{64}$' -or (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash -ne $Digest){throw 'SHA256 mismatch'}
@@ -35,18 +36,22 @@ $stage=Join-Path ([IO.Path]::GetTempPath()) ('PostalUpdate-'+[guid]::NewGuid().T
 try{
     NoLink $root;NoLink $backup
     foreach($name in $allowed){NoLink (Join-Path $root $name);NoLink (Join-Path $backup $name)}
+    $rootSafe=$true
     if($Mode -eq 'Verify'){ValidateZip $LocalZip $stage;'PACKAGE VERIFIED';exit 0}
     if(!(Test-Path -LiteralPath (Join-Path $root 'POSTAL Brain Damaged.exe'))){throw 'Game EXE not found'}
     if($ParentPid -le 0){throw 'Parent process required'}
     $parent=Get-Process -Id $ParentPid -ErrorAction SilentlyContinue
     if($parent){if([IO.Path]::GetFullPath($parent.Path) -ne (Join-Path $root 'POSTAL Brain Damaged.exe')){throw 'Unexpected parent executable'};$parent.WaitForExit()}
     if(Get-Process -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq (Join-Path $root 'POSTAL Brain Damaged.exe')}){throw 'Game running again; update aborted'}
+    NoLink $root;NoLink $backup
+    foreach($name in $allowed){NoLink (Join-Path $root $name);NoLink (Join-Path $backup $name)}
     if($Mode -eq 'Restore'){
         foreach($name in $replace){if(!(Test-Path -LiteralPath (Join-Path $backup $name))){throw 'Complete rollback backup unavailable'}}
         foreach($name in $replace){Copy-Item -LiteralPath (Join-Path $backup $name) -Destination (Join-Path $root $name) -Force}
         'Rollback completed; personal INI preserved.'|Set-Content -LiteralPath (Join-Path $root 'PostalBorkenMenu-update-result.txt');exit 0
     }
     if($Tag -notmatch '^V2A42-H[0-9]+[A-Z]?(-TEST)?$' -or $Url -notmatch '^https://github\.com/DeadneM/PostalBorkenMenu/releases/download/[^/]+/POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H[A-Za-z0-9_.-]+\.zip$' -or $ExpectedSize -lt 1000 -or $ExpectedSize -gt 32MB){throw 'Invalid release metadata'}
+    if(!$Url.StartsWith('https://github.com/DeadneM/PostalBorkenMenu/releases/download/'+$Tag+'/')){throw 'Release tag/URL mismatch'}
     [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
     $zipPath=Join-Path $stage 'package.zip';Invoke-WebRequest -UseBasicParsing -Uri $Url -OutFile $zipPath
     ValidateZip $zipPath $stage
@@ -59,7 +64,7 @@ try{
     if(!(Test-Path -LiteralPath (Join-Path $root 'PostalBorkenMenu.ini'))){Copy-Item -LiteralPath (Join-Path $stage 'PostalBorkenMenu.ini') -Destination (Join-Path $root 'PostalBorkenMenu.ini')}
     "Installed $Tag; personal INI preserved."|Set-Content -LiteralPath (Join-Path $root 'PostalBorkenMenu-update-result.txt')
 }catch{
-    if(Test-Path -LiteralPath $root){"Updater failed: $($_.Exception.Message)"|Set-Content -LiteralPath (Join-Path $root 'PostalBorkenMenu-update-result.txt')}
+    if($Mode -ne 'Verify' -and $rootSafe -and (Test-Path -LiteralPath $root)){"Updater failed: $($_.Exception.Message)"|Set-Content -LiteralPath (Join-Path $root 'PostalBorkenMenu-update-result.txt')}
     throw
 }finally{
     $tempRoot=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\')+'\'

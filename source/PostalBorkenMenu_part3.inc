@@ -460,7 +460,7 @@ static void ApplyOverlayCursorH99(){
             g_il2cpp.runtime_invoke(setLock,0,args,&ex);
             args[0]=&visible;if(!ex)g_il2cpp.runtime_invoke(setVisible,0,args,&ex);
             if(ex){LogA("[UI H99] Unity cursor update failed.");FormatExceptionToLog(ex);}
-            if(!g_menuVisible){g_cursorOwned=FALSE;LogA("[UI H99] Unity cursor state restored.");}
+            if(!ex && !g_menuVisible){g_cursorOwned=FALSE;LogA("[UI H99] Unity cursor state restored.");}
         }
     }
     ReleaseIl2CppThread(attached,thread);
