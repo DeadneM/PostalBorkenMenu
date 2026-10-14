@@ -44,3 +44,9 @@ are independent of runtime result. Stable/main remains H97; future UI fixes here
 
 Upstream backend reference:
 https://github.com/ocornut/imgui/blob/v1.91.9b/examples/example_win32_directx11/main.cpp
+
+Delivery revision H98B: preserves all eight native render-target slots and depth
+buffer, not only slot 0. Initial H98 prerelease was created by an earlier run
+which was cancelled during publication; it is superseded, do not use that ZIP.
+H98B is the intended test package. No user runtime result exists yet.
+

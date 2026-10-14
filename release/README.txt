@@ -1,4 +1,4 @@
-H98 EXPERIMENTAL - integrated ImGui DX11 menu from H97 stable
+H98B EXPERIMENTAL - integrated ImGui DX11 menu from H97 stable
 F1 open/close, movable/resizable window, five tabs, arguments, key table.
 No runtime validation yet; test input, alt-tab/resize, native wheels and exit.
 Rollback: exit and reinstall H97 stable, preserve personal INI.

@@ -57,7 +57,7 @@ void DrawMenu(){
     ImGui::SetNextWindowSizeConstraints(ImVec2(650,360),ImVec2(FLT_MAX,FLT_MAX));
     bool open=true;
     if(ImGui::Begin("PostalBorkenMenu",&open,ImGuiWindowFlags_NoCollapse)){
-        ImGui::TextUnformatted("POSTAL: BRAIN-DAMAGED  |  ASI Overlay H98 TEST");
+        ImGui::TextUnformatted("POSTAL: BRAIN-DAMAGED  |  ASI Overlay H98B TEST");
         ImGui::SameLine();ImGui::TextDisabled("| F1 to close");ImGui::Separator();
         ImGui::TextDisabled(PBUI_Ready()?"Gameplay commands ready":"Initializing gameplay commands...");
         static const char* tabs[]={"Gameplay","Weapons","Arsenal","Special","Visual"};
