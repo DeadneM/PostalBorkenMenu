@@ -64,3 +64,9 @@ ZIP SHA256 0a49e10e8ecd35a2fba14948f0265f011933c6d600c898cb55b654e70a5ff19c
 matches GitHub asset digest. Remote tag and branch verified; main still 7d660eb.
 INI/loader/H96 rendering and H94 retention functions unchanged.
 Next: fresh normal process, cold capture 5/5, visual result, initial load timing.
+
+## H97 stable promotion - 2026-10-14
+User validates cold normal-campaign DLC sprites and requests stable release.
+H97 source unchanged; main promoted. See H97_RELEASE.md in docs.
+H95 rejected remains historical; H94/H96 retained features now cumulative H97.
+

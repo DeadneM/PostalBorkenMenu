@@ -12,7 +12,7 @@
 
 **V2A42-H80** is the current stable public release.
 
-**V2A42-H96** is the user-approved source checkpoint: correct DLC icons/backings and removal of normal underlays after DLC warmup. Cold normal loading remains unresolved; H97 is experimental.
+**V2A42-H97** is the user-approved source checkpoint: DLC icons/backings load directly in normal campaign, persist across scenes, and normal underlays are removed.
 
 It preserves the validated H74 weapon-wheel behavior and the H77 lazy IL2CPP startup architecture. H80 is user-validated in normal use; the only remaining known issue is visual: the icon background on the alternative cross-mode weapon wheel is still incorrect.
 
@@ -80,7 +80,7 @@ The remaining wheel work is strictly visual and must not rework the validated H5
 
 ### Download
 
-**Latest stable release: V2A42-H80**
+**Latest stable release: V2A42-H97**
 
 The GitHub Release contains exactly:
 

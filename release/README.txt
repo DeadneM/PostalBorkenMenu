@@ -1,72 +1,23 @@
-H97 EXPERIMENTAL - based on user-validated H96
-Fresh restart -> normal campaign directly -> DLC wheel, no DLC level visit.
-Loads verified postalplayer_dlc Resources asset once; never Instantiate.
-Expect cold retained DLC sprites: 5, correct DLC art and no normal silhouettes.
-Initial loading may hitch; cold runtime result unproven. H96 fallback preserved.
-Rollback: exit and reinstall H96, preserve personal INI.
+POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H97
+STATUS: VALIDATED BY USER - 2026-10-14
+Stable release rebuilt from unchanged user-tested H97 source.
 
-H96 EXPERIMENTAL - H94 retention + corrected weapon-slot matching
-H95 visually rejected. H96 corrects which five normal silhouettes are targeted.
-Test DLC wheel in DLC -> normal DLC wheel without exiting; expect five alpha=0
-and five restores. DLC icons/backings must stay, normal underlays disappear.
-Rollback: exit and reinstall H94, keep personal INI. Cold loading unresolved.
-
-H95 EXPERIMENTAL - H90 + retained H94 cache
-Test: DLC native wheel first -> normal DLC wheel in same process.
-Only exact normal silhouette Image color alpha is zeroed and restored on close.
-DLC graphics, parents and native wheel logic preserved in source; test in game.
-Rollback: exit and reinstall H94, preserve personal INI.
-
-H94 EXPERIMENTAL - base H90 validated
-Open native DLC wheel first, then return to normal campaign without exiting.
-Five DLC sprite+texture pairs are retained. No new masking or cold loading.
-Acceptance: five correct DLC icons survive transitions; H90 controls preserved.
-Not validated in game. Restart + reinstall H90 to roll back (preserve your INI).
-
-POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H80
-
-STATUS
-------
-V2A42-H80 is the current user-validated release checkpoint.
-
-VALIDATED
----------
-- Stable lazy IL2CPP initialization introduced in H77.
-- Native tap/hold weapon-wheel behavior from H74.
-- Base and DLC weapon-wheel shortcuts work in both directions.
-- Short press swaps to the previous weapon.
-- Hold opens the selected weapon wheel.
-- Cross-mode weapon selection is correct.
-- Cross-mode foreground weapon icons are correct.
-- F1 overlay and normal gameplay functions are working.
-- Skip Startup Logos remains active through the native H39 path.
-- V2A8 shutdown/lifetime protections remain preserved.
-
-KNOWN VISUAL LIMITATION
------------------------
-The only remaining known wheel issue is visual:
-the background/silhouette behind icons on the alternative cross-mode weapon wheel can still show the scene-native weapon graphic.
-
-The generic WeaponWheelButton._backgroundImage is not the weapon-specific silhouette.
-Do not treat this as a weapon-selection or input bug.
+Cumulative validated menu/gameplay, Base/DLC wheels, native tap/hold,
+lazy startup, target cache, startup-logo skip and cross-mode selection preserved.
+DLC icons/backings directly in normal campaign, no DLC level visit required.
+Stale normal silhouettes removed; original colors restored on close.
+Native sprite/texture retention across scene transitions.
 
 INSTALLATION
-------------
-Copy all four files next to POSTAL Brain Damaged.exe.
-
-Remove -debug from the game's launch options before using PostalBorkenMenu.
+Exit game. Copy four files beside POSTAL Brain Damaged.exe.
+Preserve your personal PostalBorkenMenu.ini. Remove -debug from launch options.
+No original game assets or saves modified.
 
 PACKAGE
--------
-Exactly:
-- dxgi.dll
-- PostalBorkenMenu.asi
-- PostalBorkenMenu.ini
-- README.txt
+Exactly dxgi.dll, PostalBorkenMenu.asi, PostalBorkenMenu.ini, README.txt at root.
 
 NOTES
------
-- F1 opens/closes PostalBorkenMenu.
-- IL2CPP initialization is lazy and begins after the first explicit F1 or bound gameplay hotkey action.
-- The mod does not patch POSTAL Brain Damaged.exe, GameAssembly.dll, UnityPlayer.dll, or Unity asset files on disk.
-- "Borken" is intentional.
+First cold prefab resource load may hitch; no player is instantiated.
+Other game builds not independently validated. Failed load keeps DLC-visit fallback.
+H97 TEST log banner identifies unchanged validated code.
+Rollback: exit and reinstall an earlier preserved package; keep personal INI.
