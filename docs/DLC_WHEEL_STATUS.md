@@ -91,3 +91,22 @@ H91 experiment is developed and tested separately on
 `WeaponImage` parent secondary Image in the normal -> DLC direction,
 strictly preserving H89's reverse fix, H90 performance caches and H74/H77
 input/init.
+
+
+## H91/H92 rejected; H93 sprite availability diagnosis
+
+User reports both H91 and H92 display native base weapon images instead
+of correct DLC icons in normal scene. Restore H90 visuals exactly. H90
+only had the normal-weapon underlay problem when the DLC icon was visible.
+Do not conflate the independent obsolete underlay with DLC foreground
+sprite cache misses.
+
+Original H89 log already proves normal scene cache has just 5/10
+sprites and Resources.Load returned zero DLC Sprite objects. H90's cache
+per-process one-shot scan cannot refresh when loading a new scene.
+H93 fixes that specific lifecycle mistake with a wheel-instance scoped
+rescan when cache is partial, and captures icon Sprite objects directly
+from native DLC weapon-wheel buttons in DLC scene, with exact sprite
+names/slot verification. All cosmetic masking of H91/H92 is excluded.
+H93 does not guarantee cold normal game access to DLC artwork; its
+`[WHEEL H93]` lines disambiguate loaded/unloaded assets at runtime.
