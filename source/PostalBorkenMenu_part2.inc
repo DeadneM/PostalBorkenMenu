@@ -2342,8 +2342,58 @@ static BOOL IsAkimboLikeWeaponNameH59(Il2CppObject* weapon) {
            StrContainsNoCaseA(name,"double");
 }
 
+// H90: ScriptableObject WeaponIds are already held alive by the game's asset/
+// inventory collections. Cache only for the lifetime of ONE live wheel instance.
+// Any different wheel (scene reload/level transition) invalidates both modes.
+// No heap allocations, no GC handles, and no change to native wheel behavior.
+static Il2CppObject* g_h90WeaponCacheWheel=0;
+static Il2CppObject* g_h90CachedWeaponIds[2][5]={{0}};
+static BOOL g_h90WeaponCacheValid[2]={FALSE,FALSE};
+
+static void H90ResetTargetCache() {
+    g_h90WeaponCacheValid[0]=FALSE;
+    g_h90WeaponCacheValid[1]=FALSE;
+    for(int i=0;i<5;i++) {
+        g_h90CachedWeaponIds[0][i]=0;
+        g_h90CachedWeaponIds[1][i]=0;
+    }
+}
+
+static ULONGLONG H90Millis() {
+    typedef ULONGLONG (__stdcall *FnTick)();
+    static FnTick tick=0;
+    static BOOL checked=FALSE;
+    if(!checked) {
+        checked=TRUE;
+        HMODULE kernel=GetModuleHandleW(L"kernel32.dll");
+        tick=kernel ? (FnTick)GetProcAddress(kernel,"GetTickCount64") : 0;
+    }
+    return tick ? tick() : 0;
+}
+
 static int CollectCanonicalWeaponsBySlotsH59(int wantedCategory,Il2CppObject* out[5]) {
     for(int i=0;i<5;i++) out[i]=0;
+
+    // Lookup remains scene-specific: pointers from the previous scene must
+    // never be reused when a newly created native wheel is detected.
+    Il2CppClass* wheelClass=g_assemblyCSharp ?
+        g_il2cpp.class_from_name(g_assemblyCSharp,
+            "Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent") : 0;
+    Il2CppObject* currentWheel=wheelClass ? FindLiveObject(wheelClass) : 0;
+    if(currentWheel!=g_h90WeaponCacheWheel) {
+        H90ResetTargetCache();
+        g_h90WeaponCacheWheel=currentWheel;
+        LogA("[WHEEL H90] live wheel changed; target cache invalidated.");
+    }
+
+    if(currentWheel && (wantedCategory==0 || wantedCategory==1) &&
+       g_h90WeaponCacheValid[wantedCategory]) {
+        for(int k=0;k<5;k++) out[k]=g_h90CachedWeaponIds[wantedCategory][k];
+        LogA(wantedCategory==0
+          ? "[WHEEL H90] BASE targets: same-scene cache hit (5)."
+          : "[WHEEL H90] DLC targets: same-scene cache hit (5).");
+        return 5;
+    }
 
     Il2CppClass* weaponIdClass=g_assemblyCSharp ? g_il2cpp.class_from_name(
         g_assemblyCSharp,"Hyperstrange.PBD","WeaponId") : 0;
@@ -2407,6 +2457,14 @@ static int CollectCanonicalWeaponsBySlotsH59(int wantedCategory,Il2CppObject* ou
             LogIntA(wantedCategory==0 ? "[WHEEL H59] BASE target slot: " : "[WHEEL H59] DLC target slot: ",g_h59VariableSlots[i]);
             LogA(name);
         }
+    }
+    if(found==5 && currentWheel &&
+       (wantedCategory==0 || wantedCategory==1)) {
+        for(int k=0;k<5;k++) g_h90CachedWeaponIds[wantedCategory][k]=out[k];
+        g_h90WeaponCacheValid[wantedCategory]=TRUE;
+        LogA(wantedCategory==0
+          ? "[WHEEL H90] BASE targets cached for this wheel."
+          : "[WHEEL H90] DLC targets cached for this wheel.");
     }
     return found;
 }
@@ -2758,6 +2816,7 @@ static BOOL ShowNativeBaseWeaponWheel() {
 static BOOL ApplyDelayedBaseFilterH51() {
     if(!g_baseWheelActive || !g_h51BaseUsesInputEvent || !g_h51BaseFilterPending) return TRUE;
     if(ReadPlayerWheelEnabledH49()!=1) return FALSE;
+    ULONGLONG h90Start=H90Millis();
 
     Il2CppClass* wheelClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerWeaponWheelComponent") : 0;
     Il2CppClass* buttonClass=g_assemblyCSharp ? g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents.WeaponWheel","WeaponWheelButton") : 0;
@@ -2879,6 +2938,8 @@ static BOOL ApplyDelayedBaseFilterH51() {
     g_h57BaseSwapApplied=TRUE;
     g_h51BaseFilterPending=0;
     LogA("[WHEEL H65] H59 logic + H61 icon behavior preserved; H62 cache only.");
+    if(h90Start) LogIntA("[WHEEL H90] BASE cross-mode remap elapsed ms: ",
+       (int)(H90Millis()-h90Start));
     return TRUE;
 }
 
@@ -3566,6 +3627,7 @@ static void LogMappedButtonVisualsH55(Il2CppClass* buttonClass,const MethodInfo*
 static BOOL ApplyDlcSwapAfterOpenH54() {
     if(!g_h54DlcSwapPending || !g_dlcWheelActive) return TRUE;
     if(ReadPlayerWheelEnabledH49()!=1) return FALSE;
+    ULONGLONG h90Start=H90Millis();
 
     Il2CppObject* targets[5]={0,0,0,0,0};
     int found=FindExactDlcTargetsH54(targets);
@@ -3682,6 +3744,8 @@ static BOOL ApplyDlcSwapAfterOpenH54() {
     g_h54DlcSwapApplied=TRUE;
     g_h54DlcSwapPending=0;
     LogA("[WHEEL H65] H59 logic + H61 icon behavior preserved; H62 cache only.");
+    if(h90Start) LogIntA("[WHEEL H90] DLC cross-mode remap elapsed ms: ",
+       (int)(H90Millis()-h90Start));
     return TRUE;
 }
 
