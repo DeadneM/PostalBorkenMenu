@@ -1766,6 +1766,10 @@ static volatile LONG g_h89DlcDirectLoadAttempted=0;
 // gun icons. Save only the single Image.enabled value actually changed.
 static Il2CppObject* g_h89BaseHiddenDlcEmptyImage[5]={0,0,0,0,0};
 static BOOL g_h89BaseHiddenDlcEmptyWasEnabled[5]={FALSE,FALSE,FALSE,FALSE,FALSE};
+// H91 opposite direction: suppress only the normal weapon-specific backing
+// during NORMAL -> DLC remap. Keep the original enabled state per wheel button.
+static Il2CppObject* g_h91DlcHiddenBaseImage[5]={0,0,0,0,0};
+static BOOL g_h91DlcHiddenBaseWasEnabled[5]={FALSE,FALSE,FALSE,FALSE,FALSE};
 static const char* g_h89DlcEmptySprites[5]={
     "Weapon Icon_NyanBrella_Empty",
     "Weapon Icon_Piss Gun_Empty",
@@ -1796,6 +1800,8 @@ static void ClearExtraLayersH62(BOOL baseState,int index) {
             g_h62BaseExtraOriginalSprites[index][j]=0;
         }
     } else {
+        g_h91DlcHiddenBaseImage[index]=0;
+        g_h91DlcHiddenBaseWasEnabled[index]=FALSE;
         g_h62DlcExtraCount[index]=0;
         for(int j=0;j<8;j++) {
             g_h62DlcExtraImages[index][j]=0;
@@ -2157,7 +2163,65 @@ static BOOL ReplaceMatchingLocalIconLayersH62(Il2CppObject* button,
         Il2CppObject* parentSprite=g_il2cpp.runtime_invoke(getSprite,image,0,&ex);
         if(ex || !parentSprite) continue;
         char sourceName[192];
-        if(baseState && H88GetSpriteName(parentSprite,sourceName,192)) {
+        sourceName[0]=0;
+        H88GetSpriteName(parentSprite,sourceName,192);
+
+        // H91: inverse of the user-validated H89 path. The normal wheel
+        // prefab can retain a base-weapon silhouette on the parent
+        // 'WeaponImage' Image after replacing _weaponSelectedImage with DLC
+        // art. Suppress only this local parent Graphic for the duration of
+        // the cross-mode DLC wheel. Do not use set_sprite(NULL): H87 showed
+        // that this creates white rectangles. Never touch BackgroundImage.
+        if(!baseState && sourceName[0]) {
+            char originalName[192],targetName[192],parentName[192];
+            originalName[0]=0; targetName[0]=0; parentName[0]=0;
+            H88GetSpriteName(originalSprite,originalName,192);
+            H88GetSpriteName(targetSprite,targetName,192);
+
+            BOOL validBaseSource=FALSE, validDlcTarget=FALSE;
+            for(int k=0;k<5;k++) {
+                if(StrEqA(originalName,g_h61BaseIconNames[k]))
+                    validBaseSource=TRUE;
+                if(StrEqA(targetName,g_h61DlcIconNames[k]))
+                    validDlcTarget=TRUE;
+            }
+
+            Il2CppClass* unityObject=g_il2cpp.class_from_name(
+                g_coreImage,"UnityEngine","Object");
+            const MethodInfo* getName=unityObject ?
+                g_il2cpp.class_get_method_from_name(unityObject,"get_name",0) : 0;
+            if(getName) {
+                ex=0;
+                Il2CppObject* nameObj=g_il2cpp.runtime_invoke(
+                    getName,parentGo,0,&ex);
+                if(!ex && nameObj)
+                    CatalogManagedStringToAscii(
+                        (Il2CppString*)nameObj,parentName,192);
+            }
+
+            BOOL isWeaponImage=StrEqA(parentName,"WeaponImage");
+            BOOL isWheelDecoration=StrEqA(sourceName,"weapon_wheel_part_light") ||
+                StrEqA(sourceName,"weapon_wheel_part_dark") ||
+                StrContainsNoCaseA(sourceName,"SpiralImage");
+            if(validBaseSource && validDlcTarget &&
+               isWeaponImage && !isWheelDecoration &&
+               parentSprite!=targetSprite) {
+                BOOL previous=FALSE;
+                if(H89SetImageEnabled(image,FALSE,&previous)) {
+                    g_h91DlcHiddenBaseImage[index]=image;
+                    g_h91DlcHiddenBaseWasEnabled[index]=previous;
+                    LogA("[WHEEL H91] normal weapon silhouette Image disabled:");
+                    LogA(sourceName);
+                    return TRUE;
+                }
+                LogA("[WHEEL H91] verified base underlay but Image.enabled update failed.");
+                return FALSE;
+            }
+            LogA("[WHEEL H91] parent Image not eligible; preserved.");
+            LogA(parentName);
+            LogA(sourceName);
+        }
+        if(baseState && sourceName[0]) {
             BOOL exactDlcEmpty=FALSE;
             for(int k=0;k<5;k++) {
                 if(StrEqA(sourceName,g_h89DlcEmptySprites[k])) {
@@ -2227,6 +2291,14 @@ static BOOL RestoreExtraIconLayersH62(BOOL baseState,int index) {
             ok=FALSE;
         else
             LogA("[WHEEL H89] DLC Empty silhouette Image.enabled restored.");
+    }
+    if(!baseState && g_h91DlcHiddenBaseImage[index]) {
+        BOOL ignored=FALSE;
+        if(!H89SetImageEnabled(g_h91DlcHiddenBaseImage[index],
+                              g_h91DlcHiddenBaseWasEnabled[index],&ignored))
+            ok=FALSE;
+        else
+            LogA("[WHEEL H91] normal weapon silhouette Image.enabled restored.");
     }
     ClearExtraLayersH62(baseState,index);
     return ok;
