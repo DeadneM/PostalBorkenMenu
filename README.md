@@ -324,3 +324,28 @@ H89 log: exact DLC `*_Empty` silhouettes disabled/restored 5/5 in DLC, no H87 wh
 H90 attempts to reduce repeated opening cost: cache the five canonical `WeaponId` targets by category, scoped to the current native `PlayerWeaponWheelComponent` pointer; invalidate on wheel instance change; perform the expensive WeaponId Resources enumeration only on cache misses. H90 also logs cross-mode remap elapsed milliseconds and suppresses repeated **identical** crosshair debug lines without changing CanvasRenderer updates or hotkeys. These are experimental performance changes; measure in both scenes and after level changes.
 
 **Separate unresolved task:** source/inject the five DLC icon assets independently of the loaded scene, potentially through their actual game asset bundle. Exact asset paths and files are not yet known; neither the mod code nor the H89 log provides them. Preserve validated H80 and the user-confirmed DLC wheel visuals from H89 during investigation.
+
+
+### H90 user-approved checkpoint / H91 experimental reverse underlay (14 October 2026)
+
+User test with the H90 ZIP confirms both wheels work in These Sunny Daze;
+the normal level's native base wheel also works. The reported opening hitch is
+reduced. In NORMAL levels with the alternative DLC wheel, the DLC foreground
+icons appear but the normal weapon silhouettes remain underneath. H90 is the
+known good performance and functional checkpoint; never regress its wheel
+mapping, H74 tap/hold, H77 lazy startup or H89's successful DLC->BASE art fix.
+
+H91 candidate is based exactly on H90. It mirrors H89's **UI.Image.enabled**
+suppression in the opposite direction. For NORMAL->DLC icon remaps only, the
+source must be a verified base icon and the target a verified DLC icon; the
+secondary image must be attached to the immediate parent GameObject named
+`WeaponImage`. It disables only that secondary parent image and backs up its
+old `enabled` value, restoring it at wheel close. It NEVER clears sprite
+to NULL (H87 regression), modifies `_backgroundImage` or touches the nine
+wheel sectors.
+
+H91 has not been user-tested. Native DLC art still may be unavailable when
+the process has not yet loaded the DLC scene; H90/H91 do not provide an asset
+extraction/injection pipeline. Screenshot indicates correct cross-mode DLC
+icons in at least the user's latest H90 scenario. Verify a cold normal-mode
+start separately.
