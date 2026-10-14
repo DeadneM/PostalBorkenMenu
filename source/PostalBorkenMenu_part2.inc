@@ -1760,6 +1760,19 @@ static Il2CppObject* g_h61DlcOriginalSprites[5]={0,0,0,0,0};
 static Il2CppObject* g_h62BaseSpriteCache[5]={0,0,0,0,0};
 static Il2CppObject* g_h62DlcSpriteCache[5]={0,0,0,0,0};
 static volatile LONG g_h62SpriteScanAttempts=0;
+static volatile LONG g_h89DlcDirectLoadAttempted=0;
+
+// H89: the game has five DLC-specific Empty silhouettes behind the selected
+// gun icons. Save only the single Image.enabled value actually changed.
+static Il2CppObject* g_h89BaseHiddenDlcEmptyImage[5]={0,0,0,0,0};
+static BOOL g_h89BaseHiddenDlcEmptyWasEnabled[5]={FALSE,FALSE,FALSE,FALSE,FALSE};
+static const char* g_h89DlcEmptySprites[5]={
+    "Weapon Icon_NyanBrella_Empty",
+    "Weapon Icon_Piss Gun_Empty",
+    "Weapon Icon_Wiener-Grinder_Empty",
+    "Weapon Icon_Bubble Gun_Empty",
+    "Weapon Icon_UrAnusium_Empty"
+};
 static volatile LONG g_h62SpriteCacheComplete=0;
 
 // H62: some WeaponWheelButton prefabs render the weapon through more than one
@@ -1775,6 +1788,8 @@ static int g_h62DlcExtraCount[5]={0,0,0,0,0};
 static void ClearExtraLayersH62(BOOL baseState,int index) {
     if(index<0 || index>=5) return;
     if(baseState) {
+        g_h89BaseHiddenDlcEmptyImage[index]=0;
+        g_h89BaseHiddenDlcEmptyWasEnabled[index]=FALSE;
         g_h62BaseExtraCount[index]=0;
         for(int j=0;j<8;j++) {
             g_h62BaseExtraImages[index][j]=0;
@@ -1814,6 +1829,47 @@ static int CountCachedWheelSpritesH62() {
     return n;
 }
 
+// H89: one bounded attempt to load missing DLC sprites directly from Unity
+// Resources, by their confirmed native names. If assets are scene-only and
+// cannot be addressed through Resources.Load, this fails without mutation.
+// Never force-load an entire AssetBundle or enumerate all assets.
+static int H89TryDirectDlcResourceLoad() {
+    if(g_h89DlcDirectLoadAttempted) return 0;
+    g_h89DlcDirectLoadAttempted=1;
+    if(!g_coreImage || !g_stringClass || !g_systemTypeClass) return 0;
+    Il2CppClass* resources=g_il2cpp.class_from_name(
+        g_coreImage,"UnityEngine","Resources");
+    Il2CppClass* spriteClass=g_il2cpp.class_from_name(
+        g_coreImage,"UnityEngine","Sprite");
+    const MethodInfo* load=(resources && spriteClass) ?
+        FindMethodExact(resources,"Load",2,g_stringClass,g_systemTypeClass) : 0;
+    const Il2CppType* spriteType=spriteClass ?
+        g_il2cpp.class_get_type(spriteClass) : 0;
+    Il2CppObject* typeObj=spriteType ?
+        g_il2cpp.type_get_object(spriteType) : 0;
+    if(!load || !typeObj) {
+        LogA("[WHEEL H89] Resources.Load(string,Type) unavailable; no direct DLC icon load.");
+        return 0;
+    }
+    int found=0;
+    for(int k=0;k<5;k++) {
+        if(g_h62DlcSpriteCache[k]) { ++found; continue; }
+        Il2CppString* name=g_il2cpp.string_new(g_h61DlcIconNames[k]);
+        if(!name) continue;
+        void* pars[2]; pars[0]=name; pars[1]=typeObj;
+        Il2CppException* ex=0;
+        Il2CppObject* obj=g_il2cpp.runtime_invoke(load,0,pars,&ex);
+        if(ex) {
+            LogA("[WHEEL H89] direct resource lookup threw; skipping icon.");
+            FormatExceptionToLog(ex);
+            continue;
+        }
+        if(obj) { g_h62DlcSpriteCache[k]=obj; ++found; }
+    }
+    LogIntA("[WHEEL H89] directly accessible DLC icon sprites: ",found);
+    return found;
+}
+
 static BOOL BuildWheelSpriteCacheH62(BOOL forceRetry) {
     int cached=CountCachedWheelSpritesH62();
     if(cached==10) {
@@ -1822,7 +1878,7 @@ static BOOL BuildWheelSpriteCacheH62(BOOL forceRetry) {
     }
 
     LONG attempts=g_h62SpriteScanAttempts;
-    if(!forceRetry && attempts>=2) return FALSE;
+    if(attempts>=1) return FALSE; // H89: at most one costly global scan per process
     g_h62SpriteScanAttempts=attempts+1;
 
     Il2CppClass* spriteClass=g_coreImage ? g_il2cpp.class_from_name(
@@ -1878,6 +1934,12 @@ static BOOL BuildWheelSpriteCacheH62(BOOL forceRetry) {
     }
 
     cached=CountCachedWheelSpritesH62();
+    if(cached<10) {
+        // Unlike FindObjectsOfTypeAll, Resources.Load may be able to resolve
+        // DLC art not yet referenced by the current scene.
+        H89TryDirectDlcResourceLoad();
+        cached=CountCachedWheelSpritesH62();
+    }
     LogIntA("[WHEEL H62] cached wheel sprites: ",cached);
     if(cached==10) {
         g_h62SpriteCacheComplete=1;
@@ -1885,7 +1947,7 @@ static BOOL BuildWheelSpriteCacheH62(BOOL forceRetry) {
         return TRUE;
     }
 
-    LogA("[WHEEL H62] Sprite cache partial; one later retry is allowed.");
+    LogA("[WHEEL H89] Sprite cache partial; skipping repeated expensive scans in this session.");
     return FALSE;
 }
 
@@ -1984,6 +2046,32 @@ static BOOL H88IsKnownWeaponSprite(Il2CppObject* sprite,
     return FALSE;
 }
 
+// H89: hide a known DLC-specific silhouette without erasing its sprite.
+// Disabling Graphic/Image rendering is not the same as setting sprite=NULL;
+// the latter caused H87's white rectangles.
+static BOOL H89SetImageEnabled(Il2CppObject* image,BOOL enabled,BOOL* oldEnabled) {
+    if(!image || !g_coreImage) return FALSE;
+    Il2CppClass* behaviour=g_il2cpp.class_from_name(
+        g_coreImage,"UnityEngine","Behaviour");
+    const MethodInfo* getEnabled=behaviour ?
+        g_il2cpp.class_get_method_from_name(behaviour,"get_enabled",0) : 0;
+    const MethodInfo* setEnabled=behaviour ?
+        g_il2cpp.class_get_method_from_name(behaviour,"set_enabled",1) : 0;
+    if(!setEnabled || !getEnabled) return FALSE;
+    Il2CppException* ex=0;
+    Il2CppObject* box=g_il2cpp.runtime_invoke(getEnabled,image,0,&ex);
+    if(ex || !box) return FALSE;
+    void* raw=g_il2cpp.object_unbox(box);
+    if(!raw) return FALSE;
+    BOOL previous=(*(unsigned char*)raw)!=0;
+    void* args[1]; args[0]=&enabled;
+    ex=0;
+    g_il2cpp.runtime_invoke(setEnabled,image,args,&ex);
+    if(ex) return FALSE;
+    if(oldEnabled) *oldEnabled=previous;
+    return TRUE;
+}
+
 static BOOL ReplaceMatchingLocalIconLayersH62(Il2CppObject* button,
                                                Il2CppObject* originalSprite,
                                                Il2CppObject* targetSprite,
@@ -2068,6 +2156,27 @@ static BOOL ReplaceMatchingLocalIconLayersH62(Il2CppObject* button,
         ex=0;
         Il2CppObject* parentSprite=g_il2cpp.runtime_invoke(getSprite,image,0,&ex);
         if(ex || !parentSprite) continue;
+        char sourceName[192];
+        if(baseState && H88GetSpriteName(parentSprite,sourceName,192)) {
+            BOOL exactDlcEmpty=FALSE;
+            for(int k=0;k<5;k++) {
+                if(StrEqA(sourceName,g_h89DlcEmptySprites[k])) {
+                    exactDlcEmpty=TRUE;
+                    break;
+                }
+            }
+            if(exactDlcEmpty) {
+                BOOL beforeEnabled=FALSE;
+                if(H89SetImageEnabled(image,FALSE,&beforeEnabled)) {
+                    g_h89BaseHiddenDlcEmptyImage[index]=image;
+                    g_h89BaseHiddenDlcEmptyWasEnabled[index]=beforeEnabled;
+                    LogA("[WHEEL H89] exact DLC Empty silhouette Image disabled (sprite retained).");
+                    return TRUE;
+                }
+                LogA("[WHEEL H89] exact Empty found but Behaviour.set_enabled unavailable; untouched.");
+                return FALSE;
+            }
+        }
         if(!H88IsKnownWeaponSprite(parentSprite,originalSprite)) {
             char name[192];
             if(H88GetSpriteName(parentSprite,name,192)) {
@@ -2111,6 +2220,14 @@ static BOOL RestoreExtraIconLayersH62(BOOL baseState,int index) {
             ok=FALSE;
     }
 
+    if(baseState && g_h89BaseHiddenDlcEmptyImage[index]) {
+        BOOL ignored=FALSE;
+        if(!H89SetImageEnabled(g_h89BaseHiddenDlcEmptyImage[index],
+                              g_h89BaseHiddenDlcEmptyWasEnabled[index],&ignored))
+            ok=FALSE;
+        else
+            LogA("[WHEEL H89] DLC Empty silhouette Image.enabled restored.");
+    }
     ClearExtraLayersH62(baseState,index);
     return ok;
 }
