@@ -56,6 +56,13 @@ jobs:
           Get-FileHash build\dxgi.dll -Algorithm SHA256 | Format-List
           Get-FileHash POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H95_NORMAL_SILHOUETTE_ALPHA_TEST.zip -Algorithm SHA256 | Format-List
 
+      - name: Preserve verified test ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: H95-installable-ZIP
+          path: POSTAL_Brain_Damaged_PostalBorkenMenu_V2A42_H95_NORMAL_SILHOUETTE_ALPHA_TEST.zip
+          if-no-files-found: error
+
       - name: Publish prerelease
         shell: powershell
         env:
