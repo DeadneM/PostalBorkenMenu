@@ -9,6 +9,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: h95-publication
+  cancel-in-progress: true
+
 jobs:
   publish:
     runs-on: windows-latest

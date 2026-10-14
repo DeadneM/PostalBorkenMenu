@@ -2168,6 +2168,15 @@ static BOOL H95SetSilhouetteColor(Il2CppObject* image,H95Color* original,BOOL re
     FnObjectGetClass getRuntimeClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
     Il2CppClass* graphic=(image && getRuntimeClass) ? getRuntimeClass(image) : 0;
     Il2CppClass* color=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Color") : 0;
+    // Graphic setters are inherited by Image; FindMethodExact enumerates only
+    // methods declared on a class. Walk the bounded base hierarchy explicitly.
+    typedef Il2CppClass* (*FnClassGetParent)(Il2CppClass*);
+    FnClassGetParent getParent=(FnClassGetParent)Proc("il2cpp_class_get_parent");
+    for(int depth=0;graphic && depth<8;depth++) {
+        if(StrEqA(g_il2cpp.class_get_name(graphic),"Graphic")) break;
+        graphic=getParent ? getParent(graphic) : 0;
+    }
+    if(graphic && !StrEqA(g_il2cpp.class_get_name(graphic),"Graphic")) return FALSE;
     const MethodInfo* get=graphic ? g_il2cpp.class_get_method_from_name(graphic,"get_color",0) : 0;
     const MethodInfo* set=(graphic && color) ? FindMethodExact(graphic,"set_color",1,color) : 0;
     if(!image || !original || !get || !set) return FALSE;
