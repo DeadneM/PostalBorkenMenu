@@ -1214,3 +1214,17 @@ H95 tests exact normal silhouette Image.color alpha=0 and restoration on close.
 No parent disabling, sprite clearing, INI or selection changes. Cold normal
 loading unresolved. See docs/H95_TEST.md (or H95_TEST.md from docs).
 
+
+## H95 delivery check - 2026-10-14
+CONSTRUIT / CONTROLE / EXPERIMENTAL; user visual validation pending.
+Release/source commit 07195ba9ffdd6e9ec9a13e57679ff4161e1913f3.
+Successful CI https://github.com/DeadneM/PostalBorkenMenu/actions/runs/38594659274
+Release https://github.com/DeadneM/PostalBorkenMenu/releases/tag/V2A42-H95-TEST
+Downloaded ZIP exactly four root files. ASI 133120 bytes, DXGI 9216 bytes,
+INI 2296 bytes, README 2325 bytes. Both binaries MZ/PE AMD64 checked.
+SHA256 1ad6b5eda47b1a4fe44335c2eb823861af675d4d94304b4736acdbb9f0910c08
+matches GitHub asset digest. Main remains 7d660eb. INI/loader/H94 rooting unchanged.
+Initial publish run encountered HTTP 403; corrected source run published successfully.
+A subsequent workflow-only commit adds ZIP artifact preservation; it does not
+change the released source and its release-create step may report existing tag.
+Next: user confirms removal of normal underlays without loss of DLC graphics.

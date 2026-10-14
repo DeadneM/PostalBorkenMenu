@@ -112,4 +112,3 @@ User confirms H94 DLC sprites/backings survive DLC -> normal. Retain H94 cache.
 H95 tests exact normal silhouette Image.color alpha=0 and restoration on close.
 No parent disabling, sprite clearing, INI or selection changes. Cold normal
 loading unresolved. See docs/H95_TEST.md (or H95_TEST.md from docs).
-
