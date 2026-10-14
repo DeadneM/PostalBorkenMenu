@@ -12,7 +12,7 @@
 
 **V2A42-H80** is the current stable public release.
 
-**V2A42-H80** is the current user-validated development checkpoint.
+**V2A42-H90** is the current user-approved source checkpoint (reduced wheel-opening hitch; one remaining NORMAL → DLC underlay defect).
 
 It preserves the validated H74 weapon-wheel behavior and the H77 lazy IL2CPP startup architecture. H80 is user-validated in normal use; the only remaining known issue is visual: the icon background on the alternative cross-mode weapon wheel is still incorrect.
 
@@ -258,3 +258,17 @@ The next planned branch is the **DLC Weapon Wheel**: making owned *These Sunny D
 This is an unofficial fan project and is not affiliated with Running With Scissors, Hyperstrange, CreativeForge Games, or the game's publishers.
 
 The project is intended for legitimate modding of a user's own game installation.
+
+
+### H90 developer checkpoint (14 October 2026)
+
+The 14 October 2026 user test confirms that H90 keeps both wheels fully
+functional in These Sunny Daze and the normal game's native wheel functional,
+with notably reduced wheel-opening hitch. The sole reported visual issue
+is the BASE silhouette still visible beneath DLC weapon icons when displaying
+the cross-mode DLC wheel in the normal campaign. H91, built separately from
+H90, tests an isolated reversible Image.enabled correction of that silhouette.
+No change to H74 tap/hold, H77 lazy initialization or main UI geometry.
+
+**H90 source checkpoint prerelease:** [V2A42-H90-TEST](https://github.com/DeadneM/PostalBorkenMenu/releases/tag/V2A42-H90-TEST).
+**Public stable release:** V2A42-H80 remains available pending full visual closure.
