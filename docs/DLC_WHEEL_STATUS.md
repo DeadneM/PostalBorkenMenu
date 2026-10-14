@@ -92,3 +92,30 @@ V2A42-H80 is the current validated development checkpoint.
 - Acceptance: 9/9 wheel sectors intact, no white rectangles, correct
   secondary pink/violet icon silhouettes, original tap/hold and equip intact,
   close/reopen and scene transitions clean.
+
+
+## H88 actual game result and H89 test design (14 October 2026)
+
+Normal mode: base wheel works; DLC wheel remaps all five WeaponIds but
+none of its five DLC `_Rose` icons are currently loaded. Initial Sprite
+cache is 5/10. User observes mild wheel-opening freeze.
+
+DLC mode: native DLC wheel perfect. Cross-mode BASE wheel icons are
+correct, but five stale `_Empty` icon silhouettes remain. Exact names
+confirmed by H88 runtime log:
+NyanBrella, Piss Gun, Wiener-Grinder, UrAnusium and Bubble Gun
+(`Weapon Icon_..._Empty`).
+
+H89 test, still based on H80 validated behavior:
+- suppress only these exact `_Empty` UI.Image components via
+  `UnityEngine.Behaviour.set_enabled(false)` while BASE wheel is open
+  in the DLC scene
+- restore the original Image.enabled state on native wheel close
+- keep the foreground Base sprite and all nine native sectors intact
+- replace the two costly global Sprite scans with a single bounded scan
+  and a one-time direct `Resources.Load(string,Type)` for five DLC icons
+- do not claim the direct lookup solves scene-only unloaded assets
+
+Pass criteria: no stale DLC backgrounds on BASE wheel in DLC scene; native
+DLC wheel unchanged; normal wheel unchanged in normal scene; no added
+latency; DLC icons if Resources.Load can access them.
