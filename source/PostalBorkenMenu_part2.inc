@@ -1759,6 +1759,86 @@ static Il2CppObject* g_h61DlcOriginalSprites[5]={0,0,0,0,0};
 // five-scans-per-open path.
 static Il2CppObject* g_h62BaseSpriteCache[5]={0,0,0,0,0};
 static Il2CppObject* g_h62DlcSpriteCache[5]={0,0,0,0,0};
+// H94: bounded process-lifetime ownership: five sprites and their textures.
+// GC handles protect managed wrappers; flag 32 protects native assets from
+// UnloadUnusedAssets. No scene object, wheel, Image or GameObject is retained.
+static unsigned int g_h94SpriteRoots[5]={0};
+static unsigned int g_h94TextureRoots[5]={0};
+
+static BOOL H94AssetAlive(Il2CppObject* obj) {
+    Il2CppClass* uc=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Object") : 0;
+    const MethodInfo* m=uc ? FindMethodExact(uc,"op_Implicit",1,uc) : 0;
+    if(!obj || !m) return FALSE;
+    void* args[1]; args[0]=obj;
+    Il2CppException* ex=0;
+    Il2CppObject* box=g_il2cpp.runtime_invoke(m,0,args,&ex);
+    void* raw=(!ex && box) ? g_il2cpp.object_unbox(box) : 0;
+    return raw && *(BYTE*)raw;
+}
+
+static BOOL H94SetRetention(Il2CppObject* obj,int* original,BOOL restore) {
+    Il2CppClass* uc=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Object") : 0;
+    const MethodInfo* get=uc ? g_il2cpp.class_get_method_from_name(uc,"get_hideFlags",0) : 0;
+    const MethodInfo* set=uc ? g_il2cpp.class_get_method_from_name(uc,"set_hideFlags",1) : 0;
+    if(!obj || !original || !get || !set) return FALSE;
+    Il2CppException* ex=0;
+    if(!restore) {
+        Il2CppObject* box=g_il2cpp.runtime_invoke(get,obj,0,&ex);
+        void* raw=(!ex && box) ? g_il2cpp.object_unbox(box) : 0;
+        if(!raw) return FALSE;
+        *original=*(int*)raw;
+    }
+    int flags=restore ? *original : (*original | 32);
+    void* args[1]; args[0]=&flags;
+    ex=0; g_il2cpp.runtime_invoke(set,obj,args,&ex);
+    return !ex;
+}
+
+static Il2CppObject* H94GetRetainedSprite(int k) {
+    if(k<0 || k>=5 || !g_h94SpriteRoots[k]) return 0;
+    Il2CppObject* sprite=g_il2cpp.gchandle_get_target(g_h94SpriteRoots[k]);
+    Il2CppObject* texture=g_il2cpp.gchandle_get_target(g_h94TextureRoots[k]);
+    if(!H94AssetAlive(sprite) || !H94AssetAlive(texture)) {
+        // Explicit Destroy/AssetBundle.Unload(true) is not prevented by flags.
+        // Keep bounded roots until exit; never hand a destroyed object to Image.
+        g_h62DlcSpriteCache[k]=0;
+        return 0;
+    }
+    return sprite;
+}
+
+static BOOL H94RetainNativeSprite(int k,Il2CppObject* sprite) {
+    if(k<0 || k>=5 || !g_il2cpp.gchandle_new ||
+       !g_il2cpp.gchandle_get_target || !g_il2cpp.gchandle_free) return FALSE;
+    if(g_h94SpriteRoots[k]) {
+        Il2CppObject* existing=H94GetRetainedSprite(k);
+        if(existing) g_h62DlcSpriteCache[k]=existing;
+        return existing!=0; // bounded; no repeated pinning of atlases
+    }
+    if(!H94AssetAlive(sprite)) return FALSE;
+    Il2CppClass* sc=g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Sprite");
+    const MethodInfo* getTexture=sc ? g_il2cpp.class_get_method_from_name(sc,"get_texture",0) : 0;
+    if(!getTexture) return FALSE;
+    Il2CppException* ex=0;
+    Il2CppObject* texture=g_il2cpp.runtime_invoke(getTexture,sprite,0,&ex);
+    if(ex || !H94AssetAlive(texture)) return FALSE;
+    unsigned int sr=g_il2cpp.gchandle_new(sprite,FALSE);
+    unsigned int tr=g_il2cpp.gchandle_new(texture,FALSE);
+    int sf=0,tf=0;
+    BOOL saved=FALSE;
+    if(sr && tr) saved=H94SetRetention(sprite,&sf,FALSE);
+    if(!saved || !H94SetRetention(texture,&tf,FALSE)) {
+        if(saved) H94SetRetention(sprite,&sf,TRUE);
+        if(sr) g_il2cpp.gchandle_free(sr);
+        if(tr) g_il2cpp.gchandle_free(tr);
+        LogA("[WHEEL H94] retention unavailable; keeping H90 visual path.");
+        return FALSE;
+    }
+    g_h94SpriteRoots[k]=sr; g_h94TextureRoots[k]=tr;
+    g_h62DlcSpriteCache[k]=sprite;
+    LogIntA("[WHEEL H94] native DLC sprite + texture retained, pair index: ",k);
+    return TRUE;
+}
 static volatile LONG g_h62SpriteScanAttempts=0;
 static volatile LONG g_h89DlcDirectLoadAttempted=0;
 
@@ -1960,6 +2040,7 @@ static Il2CppObject* FindLoadedSpriteByExactNameH61(const char* wantedName) {
             return g_h62BaseSpriteCache[k];
         }
         if(StrEqA(wantedName,g_h61DlcIconNames[k])) {
+            if(g_h94SpriteRoots[k]) return H94GetRetainedSprite(k);
             if(!g_h62DlcSpriteCache[k]) BuildWheelSpriteCacheH62(FALSE);
             return g_h62DlcSpriteCache[k];
         }
@@ -3788,6 +3869,84 @@ static BOOL RestoreDlcSwapH54() {
     return ok;
 }
 
+// H94: the DLC wheel itself contains authoritative Sprite objects when a
+// DLC scene is loaded. Remember them directly instead of scanning every
+// Unity Sprite, and keep the H90 behavior if none exist in normal campaign.
+// This DOES NOT make scene-only sprites load at a cold normal start.
+static int H94CaptureNativeDlcIcons(Il2CppObject* wheel,
+                                   Il2CppClass* wheelClass,
+                                   Il2CppClass* buttonClass,
+                                   Il2CppClass* weaponIdClass) {
+    if(!wheel || !wheelClass || !buttonClass || !weaponIdClass) return 0;
+    const FieldInfo* buttonsField=g_il2cpp.class_get_field_from_name(
+        wheelClass,"_weaponWheelButtons");
+    const FieldInfo* selectedField=g_il2cpp.class_get_field_from_name(
+        buttonClass,"_weaponSelectedImage");
+    const MethodInfo* getWeapon=g_il2cpp.class_get_method_from_name(
+        buttonClass,"get_WeaponId",0);
+    const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(
+        weaponIdClass,"get_Category",0);
+    if(!buttonsField || !selectedField || !getWeapon || !getCategory) return 0;
+    Il2CppObject* collection=0;
+    g_il2cpp.field_get_value(wheel,buttonsField,&collection);
+    if(!collection) return 0;
+
+    Il2CppClass* collectionClass=0;
+    int count=0;
+    BOOL isArray=FALSE;
+    if(!GetBaseWheelButtonsCollection(
+            collection,&collectionClass,&count,&isArray)) return 0;
+    if(count>32) count=32;
+
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass getRuntimeClass=
+        (FnObjectGetClass)Proc("il2cpp_object_get_class");
+
+    int found=0;
+    for(int i=0;i<count;i++) {
+        Il2CppObject* button=GetBaseWheelButtonFromCollection(
+            collection,collectionClass,isArray,i);
+        if(!button) continue;
+        Il2CppException* ex=0;
+        Il2CppObject* weapon=g_il2cpp.runtime_invoke(getWeapon,button,0,&ex);
+        if(ex || !weapon) continue;
+        ex=0;
+        Il2CppObject* box=g_il2cpp.runtime_invoke(getCategory,weapon,0,&ex);
+        void* raw=(!ex && box) ? g_il2cpp.object_unbox(box) : 0;
+        if(!raw || *(int*)raw!=1) continue;
+
+        int slot=-1;
+        if(!GetWeaponSlotH59(weapon,&slot)) continue;
+        int k=SlotIndexH59(slot);
+        if(k<0) continue;
+        Il2CppObject* image=0;
+        g_il2cpp.field_get_value(button,selectedField,&image);
+        if(!image) continue;
+        Il2CppClass* ic=getRuntimeClass ? getRuntimeClass(image) : 0;
+        const MethodInfo* getSprite=ic ?
+            g_il2cpp.class_get_method_from_name(ic,"get_sprite",0) : 0;
+        if(!getSprite) continue;
+        ex=0;
+        Il2CppObject* sprite=g_il2cpp.runtime_invoke(
+            getSprite,image,0,&ex);
+        if(ex || !sprite) continue;
+        char name[192];
+        if(!H88GetSpriteName(sprite,name,192)) continue;
+        if(!StrEqA(name,g_h61DlcIconNames[k])) continue;
+
+        if(!H94RetainNativeSprite(k,sprite)) continue;
+        ++found;
+    }
+    if(found) {
+        LogIntA("[WHEEL H94] native DLC icon sprites captured: ",found);
+        LogIntA("[WHEEL H94] total cached BASE+DLC sprites: ",
+                CountCachedWheelSpritesH62());
+        if(CountCachedWheelSpritesH62()==10)
+            g_h62SpriteCacheComplete=1;
+    }
+    return found;
+}
+
 static BOOL ShowNativeDlcWeaponWheel() {
     if(!IsTheseSunnyDazeOwned()) {
         LogA("[WHEEL H54] DLC wheel blocked: These Sunny Daze ownership not confirmed.");
@@ -3815,6 +3974,9 @@ static BOOL ShowNativeDlcWeaponWheel() {
         baseCount,dlcCount);
 
     if(!InvokeInputManagerWheelEventFastH51(TRUE)) return FALSE;
+    // Capture only after successful native open, before cross-mode mutation.
+    if(dlcCount==5) H94CaptureNativeDlcIcons(wheel,wheelClass,wheelButtonClass,weaponIdClass);
+
 
     g_h54DlcSwapPending=(dlcCount==0) ? 1 : 0;
     g_h54DlcSwapApplied=FALSE;

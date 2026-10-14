@@ -98,3 +98,11 @@ input/init.
 User tested H93 and reported DLC wheel still has no correct DLC icons. Thus H91, H92 and H93 are all rejected for resolving the normal-campaign DLC-wheel visuals. Previous H90 user's screenshot showed correctly rendered DLC foreground icons and rose backings with stale normal silhouettes; later tests of H91–H93 did not reproduce this. That discrepancy suggests scene / asset availability differences but is NOT proved without the newest H93 log.
 
 The current H89 observed cold/normal sprite cache was 5/10; direct Resources.Load yielded 0/5 DLC sprites. H93 can only cache objects already created by Unity. Correct solution requires direct identification of serialized DLC Sprite / atlas / texture data and reliable scene-independent loading from user-owned game assets; or an export supplied by the user. Never hide parent `WeaponImage` in normal->DLC: H91 demonstrated that this removed legitimate DLC graphics. Do not touch the verified DLC->BASE H89 logic or H90 performance cache.
+
+## H94 experiment (2026-10-14)
+
+H90 remains the validated base; H91-H93 remain rejected. H94 retains five exact
+native DLC sprites and their textures with strong IL2CPP handles and Unity
+DontUnloadUnusedAsset, then checks native lifetime before reuse. No new masking,
+no cold loading. Runtime validation pending. See [H94 test protocol](H94_TEST.md).
+

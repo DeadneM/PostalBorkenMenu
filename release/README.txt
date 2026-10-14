@@ -1,3 +1,9 @@
+H94 EXPERIMENTAL - base H90 validated
+Open native DLC wheel first, then return to normal campaign without exiting.
+Five DLC sprite+texture pairs are retained. No new masking or cold loading.
+Acceptance: five correct DLC icons survive transitions; H90 controls preserved.
+Not validated in game. Restart + reinstall H90 to roll back (preserve your INI).
+
 POSTAL: Brain-Damaged - PostalBorkenMenu V2A42-H80
 
 STATUS
