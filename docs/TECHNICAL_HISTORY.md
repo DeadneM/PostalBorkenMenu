@@ -1155,3 +1155,17 @@ User validation:
 Next target:
 - DLC Weapon Wheel.
 - rejected H9-H12 wheel branches remain noncanonical and must not be reused as a base.
+
+
+### H90 source promotion: 2026-10-14
+
+H90 user test validates all native/cross-mode weapon-wheel functional paths
+and reduced opening hitch. In DLC scenes the H89 weapon icon Empty-background
+hiding is confirmed correct. The remaining observed defect is normal
+campaign's DLC alternative wheel retaining the original normal silhouettes
+behind DLC weapon foreground icons.
+
+H90 sources promoted to main without replacing the later universal modding
+charter or ChatGPT project instructions introduced after H80. Previous
+release V2A42-H80 remains stable. H90 test prerelease and full sources remain
+available; H91 is a separate unvalidated symmetry fix.
