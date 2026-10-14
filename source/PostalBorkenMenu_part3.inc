@@ -738,7 +738,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H88 GUARDED ICON UNDERLAY TEST");
+    LogA("PostalBorkenMenu V2A42-H89 EXACT EMPTY UNDERLAY AND DLC RESOURCE LOOKUP TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
@@ -762,7 +762,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] H88 built from validated H80; only verified weapon-specific icon underlays may be swapped. No wheel-sector sprites are cleared.");
+    LogA("[READY] H89: hide only exact DLC Empty silhouettes on cross-mode BASE wheel; one DLC Resources lookup; preserve H80 wheel semantics.");
 
     if(g_noCrosshair)
         LogA("[LAZY H77] No Crosshair will become available after lazy IL2CPP initialization.");
