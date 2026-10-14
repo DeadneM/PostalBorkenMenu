@@ -12,7 +12,7 @@
 
 **V2A42-H80** is the current stable public release.
 
-**V2A42-H90** is the current user-approved source checkpoint (reduced wheel-opening hitch; one remaining NORMAL → DLC underlay defect).
+**V2A42-H96** is the user-approved source checkpoint: correct DLC icons/backings and removal of normal underlays after DLC warmup. Cold normal loading remains unresolved; H97 is experimental.
 
 It preserves the validated H74 weapon-wheel behavior and the H77 lazy IL2CPP startup architecture. H80 is user-validated in normal use; the only remaining known issue is visual: the icon background on the alternative cross-mode weapon wheel is still incorrect.
 
@@ -309,4 +309,3 @@ GameObject 2369; its WeaponSelectedImage descendants reference all five Rose spr
 H97 loads only this prefab asset without Instantiate, captures exact sprites into
 H94 retained cache, preserves H96 rendering. Runtime cold loading pending.
 See H97_TEST.md in docs for evidence, limits, test and rollback.
-

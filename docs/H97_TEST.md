@@ -52,3 +52,15 @@ timing and repeated transitions. H96 remains validated until user approves H97.
 
 Unity Resources.Load requires the Resources-relative path and type:
 https://docs.unity3d.com/ja/2021.2/ScriptReference/Resources.Load.html
+
+## H97 delivery verification - 2026-10-14
+CONSTRUIT / CONTROLE / EXPERIMENTAL; cold gameplay result not yet tested.
+Source/release commit c92c73ef3bb212daf95c587b0ef38db37c208bb8.
+CI success: https://github.com/DeadneM/PostalBorkenMenu/actions/runs/38606798582
+Release: https://github.com/DeadneM/PostalBorkenMenu/releases/tag/V2A42-H97-TEST
+Published ZIP downloaded: four root files, dxgi.dll 9216, ASI 135680,
+INI 2296, README 3134 bytes. Both binaries MZ/PE AMD64 verified.
+ZIP SHA256 0a49e10e8ecd35a2fba14948f0265f011933c6d600c898cb55b654e70a5ff19c
+matches GitHub asset digest. Remote tag and branch verified; main still 7d660eb.
+INI/loader/H96 rendering and H94 retention functions unchanged.
+Next: fresh normal process, cold capture 5/5, visual result, initial load timing.
