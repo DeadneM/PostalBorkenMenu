@@ -4035,12 +4035,25 @@ static BOOL SetCrosshairVisualAlpha(float alpha) {
         }
     }
 
-    LogIntA("[CROSSHAIR H13] PlayerCrosshairController objects seen: ",controllerCount);
-    LogIntA("[CROSSHAIR H13] Controllers with current Crosshair: ",controllersWithCrosshair);
-    LogIntA("[CROSSHAIR H13] CanvasRenderers alpha-updated: ",changed);
+    // H90 changes only the log verbosity, never alpha-setting behavior.
+    // Hundreds of repeated crosshair snapshots appeared in H89's log.
+    static int h90LastControllerCount=-1;
+    static int h90LastWithCrosshair=-1;
+    static int h90LastUpdated=-1;
+    BOOL snapshotChanged=(h90LastControllerCount!=controllerCount ||
+                          h90LastWithCrosshair!=controllersWithCrosshair ||
+                          h90LastUpdated!=changed);
+    if(snapshotChanged) {
+        LogIntA("[CROSSHAIR H13] PlayerCrosshairController objects seen: ",controllerCount);
+        LogIntA("[CROSSHAIR H13] Controllers with current Crosshair: ",controllersWithCrosshair);
+        LogIntA("[CROSSHAIR H13] CanvasRenderers alpha-updated: ",changed);
+    }
+    h90LastControllerCount=controllerCount;
+    h90LastWithCrosshair=controllersWithCrosshair;
+    h90LastUpdated=changed;
 
     if (!changed) {
-        LogA("[WARN] No CanvasRenderer found under any current Crosshair");
+        if(snapshotChanged) LogA("[WARN] No CanvasRenderer found under any current Crosshair");
         return FALSE;
     }
     return TRUE;
