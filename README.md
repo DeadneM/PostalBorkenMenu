@@ -272,3 +272,30 @@ No change to H74 tap/hold, H77 lazy initialization or main UI geometry.
 
 **H90 source checkpoint prerelease:** [V2A42-H90-TEST](https://github.com/DeadneM/PostalBorkenMenu/releases/tag/V2A42-H90-TEST).
 **Public stable release:** V2A42-H80 remains available pending full visual closure.
+
+
+### H91 rejected, H92 safely targeted underlay (14 October 2026)
+
+H91 **REJECTED** by user: in normal-campaign DLC wheel H91 removed
+the good DLC icons instead of removing the base weapon backgrounds.
+The cause is the H91 approach disabled an Image on the *immediate
+WeaponImage parent GameObject*, an Image needed for native/DLC visuals.
+Never repeat this component-level parent masking.
+
+**H90 remains the approved functional/performance base** and is integrated
+into main. H92 was branched from main/H90, not H91. It leaves the entire
+H90 parent Image and selected DLC Image enabled and untouched, and scans
+only the Image components owned by the current weapon button. It may
+temporarily hide a DISTINCT Image (on another GameObject) only when its
+current Sprite name exactly matches that weapon slot's native BASE
+sprite `Bez-nazwy-1_..._Warstwa-...`. Every modified Image.enabled
+is backed up and restored on wheel close. Generic backgrounds, the
+WeaponImage parent, `_weaponSelectedImage`, all DLC sprites, and the
+nine-sector wheel geometry are off-limits.
+
+**Safe-failure behavior:** if the old base silhouette is not in a
+separate Image with a recognized native BASE sprite, H92 intentionally
+preserves the H90 picture and logs `No independent matching base icon`.
+Thus H92 is an experimental targeted test, NOT yet a verified full fix.
+Only in-game screenshot plus log can identify whether this remaining
+layer is distinct from the native parent.
