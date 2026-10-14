@@ -1199,3 +1199,12 @@ Expected H89 visual result in DLC: native DLC Empty underlay hidden while
 Base icon preserved. Unproven until user test. Normal-campaign DLC icons
 remain uncertain because asset loadability is unknown; if lookup returns
 0/5, audit the DLC asset storage instead of repeating a global scan.
+
+
+### V2A42-H90 WHEEL-TARGET CACHE AND REMAP TIMING (experimental)
+
+Base: H89 test, with H80 as the original user-validated baseline. User test of H89 confirms perfect visuals in DLC levels and native/base behavior intact, but reports mild opening hitches and no DLC icons in normal campaign. H89 log shows 5/5 DLC Empty silhouettes toggled/restored in DLC; in normal campaign native 5 DLC WeaponIds exist but 0/5 DLC Rose sprites are available through `Resources.Load`, initial sprite cache 5/10.
+
+H90 is a perf-only experiment, not an icon fix. It caches canonical ScriptableObject WeaponIds for 5 slots per category, scoped to the current PlayerWeaponWheelComponent instance, and invalidates both caches whenever the wheel object changes. The cache is populated only after all five are found. No GC handles, no mutation of inventory/selection logic. One-time first-open discovery remains. Elapsed milliseconds logged for delayed BASE/DLC cross-mode remapping. Repeated identical crosshair state log rows are removed, without altering alpha updates. Watch for regression after scene transitions and new games; cache lifetime correctness must be confirmed in runtime.
+
+Asset follow-up: locate/extract DLC sprites from original game's Unity serialized assets/bundles, then supply via an ASI memory-only loading path if supported. H89 conclusively found no direct Resources path for the five names; do not repeat guesses or claim that assets are loadable until verified.
