@@ -91,3 +91,22 @@ H91 experiment is developed and tested separately on
 `WeaponImage` parent secondary Image in the normal -> DLC direction,
 strictly preserving H89's reverse fix, H90 performance caches and H74/H77
 input/init.
+
+
+## H91 rejected, H92 verified-independent-layer candidate
+
+User H91 regression: "tu as enlevé les icônes DLC ... il fallait
+enlever le fond des armes non-DLC". H90 in normal mode displayed
+the correct DLC icon, DLC background, *and* unwanted normal background.
+H91 blindly disabled the parent `WeaponImage` Image and consequently
+removed legitimate DLC graphics, so H91 is permanently rejected.
+
+H92 branches from H90 already merged to main. Retains H89's confirmed
+DLC->BASE `_Empty` removal, H90 cache/performance changes and wheel logic.
+During NORMAL->DLC only, searches within the specific button's Image
+components and can hide only independently located Image components whose
+Sprite name is the *exact* original BASE sprite for the paired slot.
+The selected DLC image, its immediate parent `WeaponImage` Image, and
+all sector decorations are excluded; old enabled values are restored.
+If no distinct confirmed BASE Image is found, it logs a non-destructive
+miss. Results require game test, especially after scene transitions.
