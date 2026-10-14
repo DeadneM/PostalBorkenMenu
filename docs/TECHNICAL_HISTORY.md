@@ -1236,3 +1236,15 @@ H96 passes SlotIndexH59(slot) separately for silhouette/retained sprite checks.
 H94 retention remains confirmed for DLC -> normal; cold loading unresolved.
 See H96_TEST.md in docs. Runtime visual result pending.
 
+
+## H96 delivery verification - 2026-10-14
+CONSTRUIT / CONTROLE / EXPERIMENTAL, not user-validated.
+Release/source: 55e7114394e3940fc752d5da71062290935ef0b9.
+CI success: https://github.com/DeadneM/PostalBorkenMenu/actions/runs/38597020252
+Release: https://github.com/DeadneM/PostalBorkenMenu/releases/tag/V2A42-H96-TEST
+Published ZIP downloaded: exactly dxgi.dll (9216), PostalBorkenMenu.asi (133120),
+PostalBorkenMenu.ini (2296), README.txt (2712), all at root. AMD64 PE verified.
+SHA256 b10e7eca6e7cca3a01c7b84ab06fe7b7b14ca9d43924d5d4c458a6faf362b45d
+matches GitHub digest. Main unchanged at 7d660eb; INI/loader/H94 rooting preserved.
+Next: five H96 alpha changes/restores plus user's visual verdict. H95 rejected;
+H94 retention remains the confirmed feature for warmed same-process transitions.
