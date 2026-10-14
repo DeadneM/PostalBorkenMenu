@@ -1,3 +1,10 @@
+H97 EXPERIMENTAL - based on user-validated H96
+Fresh restart -> normal campaign directly -> DLC wheel, no DLC level visit.
+Loads verified postalplayer_dlc Resources asset once; never Instantiate.
+Expect cold retained DLC sprites: 5, correct DLC art and no normal silhouettes.
+Initial loading may hitch; cold runtime result unproven. H96 fallback preserved.
+Rollback: exit and reinstall H96, preserve personal INI.
+
 H96 EXPERIMENTAL - H94 retention + corrected weapon-slot matching
 H95 visually rejected. H96 corrects which five normal silhouettes are targeted.
 Test DLC wheel in DLC -> normal DLC wheel without exiting; expect five alpha=0

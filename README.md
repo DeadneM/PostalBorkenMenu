@@ -301,3 +301,12 @@ H95 confused button traversal backup index with canonical weapon-slot index.
 H96 passes SlotIndexH59(slot) separately for silhouette/retained sprite checks.
 H94 retention remains confirmed for DLC -> normal; cold loading unresolved.
 See H96_TEST.md in docs. Runtime visual result pending.
+
+## H97 - H96 validated, cold prefab loading experiment
+User validates H96 icons/backings and normal underlay removal after DLC -> normal.
+Read-only ResourceManager audit identifies postalplayer_dlc -> resources.assets
+GameObject 2369; its WeaponSelectedImage descendants reference all five Rose sprites.
+H97 loads only this prefab asset without Instantiate, captures exact sprites into
+H94 retained cache, preserves H96 rendering. Runtime cold loading pending.
+See H97_TEST.md in docs for evidence, limits, test and rollback.
+

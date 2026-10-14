@@ -1248,3 +1248,12 @@ SHA256 b10e7eca6e7cca3a01c7b84ab06fe7b7b14ca9d43924d5d4c458a6faf362b45d
 matches GitHub digest. Main unchanged at 7d660eb; INI/loader/H94 rooting preserved.
 Next: five H96 alpha changes/restores plus user's visual verdict. H95 rejected;
 H94 retention remains the confirmed feature for warmed same-process transitions.
+
+## H97 - H96 validated, cold prefab loading experiment
+User validates H96 icons/backings and normal underlay removal after DLC -> normal.
+Read-only ResourceManager audit identifies postalplayer_dlc -> resources.assets
+GameObject 2369; its WeaponSelectedImage descendants reference all five Rose sprites.
+H97 loads only this prefab asset without Instantiate, captures exact sprites into
+H94 retained cache, preserves H96 rendering. Runtime cold loading pending.
+See H97_TEST.md in docs for evidence, limits, test and rollback.
+

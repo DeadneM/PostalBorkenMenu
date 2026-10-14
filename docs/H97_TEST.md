@@ -1,0 +1,54 @@
+# H97 - cold DLC sprites from verified Resources prefab
+
+Base: H96 source/tag 55e7114, documentation head 767ddcf. User explicitly
+validated H96: DLC Rose icons/backings retained and normal underlays removed
+after visiting DLC. Remaining issue: cold normal campaign requires DLC warmup.
+H95 rejected; H94 retention and H96 slot-correct alpha remain accepted features.
+
+Read-only asset audit of user-owned installation on 2026-10-14:
+- All five expected Sprite objects are in resources.assets: NyanBrella 226,
+  Piss Gun 265, Wiener-Grinder 218, Bubble Gun2 243, UrAnusium2 251 (path IDs).
+- globalgamemanagers ResourceManager.m_Container contains postalplayer_dlc ->
+  file ID 5 / path ID 2369. External file 5 is resources.assets.
+- Those five Sprites do not have their own ResourceManager container entry;
+  the old H89 Resources.Load(sprite-name, Sprite) attempts used non-addresses.
+- Prefab traversal covers 232 GameObjects. Descendant WeaponSelectedImage
+  components serialize local PPtrs at byte offset 88 to all five exact sprites.
+  There is also an UrAnusium1 variant, deliberately ignored by exact-name checks.
+  Scripted type layouts are stripped: raw component references are evidence of
+  prefab dependencies, not an independent proof of managed field layout.
+- Reproducible read-only audit: docs/audit_h97_resources.py, UnityPy 1.25.4.
+  No textures or game assets are copied into the mod or published.
+
+Goal: from a completely fresh process, go directly to normal campaign and
+open DLC wheel with correct five icons/backings and no stale normal underlays.
+
+Implementation: after existing DLC ownership/live normal wheel checks, one
+bounded Resources.Load("postalplayer_dlc", GameObject) at first normal DLC wheel
+request. Never Instantiate, activate, spawn a player or load a DLC level. Traverse
+only this asset's child Images (includeInactive, max 512), accept the five exact
+Rose names, then use unchanged H94 strong sprite/texture retention. Temporary
+prefab and Image-array GC roots released after capture; no Destroy/Unload calls.
+No global rescan added. H96 matching/restoration and native wheel logic unchanged.
+
+Limitations: Unity Resources.Load and prefab traversal on the existing attached
+worker still need runtime proof; thread attachment does not prove main-thread
+safety. Loading prefab dependencies may create a one-time hitch/memory increase.
+The prefab may differ on another game build. Failed APIs/load/partial capture
+leave H96 fallback (visit DLC) available; no retry loop in the process. No cold
+success claimed from serialized files or compilation alone.
+
+Test: fully exit/restart H97. Load normal campaign directly, never visit DLC.
+Open DLC wheel. Expect cold retained DLC sprites (of 5): 5, then five existing
+H96 alpha changes and corresponding color restores. Check all nine sectors,
+icons/backings, tap/hold/selection and normal wheel after close. Repeat open:
+there must be no repeated H97 prefab load. Repeat normal-level transition.
+If cold capture fails, visit DLC and verify the H96 fallback is still intact.
+Send log plus visual verdict. Failure/crash/regression -> exit and reinstall H96,
+keeping personal INI. Original game files and saves are not modified.
+
+Status: EXPERIMENTAL; user validation pending. TODO: cold result, initial load
+timing and repeated transitions. H96 remains validated until user approves H97.
+
+Unity Resources.Load requires the Resources-relative path and type:
+https://docs.unity3d.com/ja/2021.2/ScriptReference/Resources.Load.html

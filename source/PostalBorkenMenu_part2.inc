@@ -4009,6 +4009,80 @@ static int H94CaptureNativeDlcIcons(Il2CppObject* wheel,
     return found;
 }
 
+// H97: the actual Resources table exposes postalplayer_dlc, not the Rose
+// sub-sprites. Load the prefab asset once; never Instantiate or enter a scene.
+static BOOL g_h97ColdAttempted=FALSE;
+static void H97LoadDlcPrefabSprites() {
+    if(g_h97ColdAttempted) return;
+    BOOL complete=TRUE;
+    for(int k=0;k<5;k++) if(!H94GetRetainedSprite(k)) complete=FALSE;
+    if(complete) return;
+    g_h97ColdAttempted=TRUE;
+    ULONGLONG start=H90Millis();
+    Il2CppClass* resources=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Resources") : 0;
+    Il2CppClass* goClass=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","GameObject") : 0;
+    const MethodInfo* load=resources ? FindMethodExact(resources,"Load",2,g_stringClass,g_systemTypeClass) : 0;
+    const Il2CppAssembly* uiAssembly=g_il2cpp.domain_assembly_open(g_domain,"UnityEngine.UI");
+    const Il2CppImage* ui=uiAssembly ? g_il2cpp.assembly_get_image(uiAssembly) : 0;
+    Il2CppClass* imageClass=ui ? g_il2cpp.class_from_name(ui,"UnityEngine.UI","Image") : 0;
+    const MethodInfo* getSprite=imageClass ? g_il2cpp.class_get_method_from_name(imageClass,"get_sprite",0) : 0;
+    if(!load || !goClass || !imageClass || !getSprite || !g_gameObjectGetComponentsInChildren) {
+        LogA("[WHEEL H97] cold prefab APIs unavailable; H96 fallback retained.");
+        return;
+    }
+    const Il2CppType* gt=g_il2cpp.class_get_type(goClass);
+    Il2CppObject* goType=gt ? g_il2cpp.type_get_object(gt) : 0;
+    Il2CppString* path=g_il2cpp.string_new("postalplayer_dlc");
+    if(!path || !goType) return;
+    void* loadArgs[2]; loadArgs[0]=path; loadArgs[1]=goType;
+    Il2CppException* ex=0;
+    LogA("[WHEEL H97] one-shot Resources.Load postalplayer_dlc prefab asset (no Instantiate).");
+    Il2CppObject* prefab=g_il2cpp.runtime_invoke(load,0,loadArgs,&ex);
+    if(ex || !prefab) {
+        LogA("[WHEEL H97] cold prefab load failed; H96 fallback retained.");
+        if(ex) FormatExceptionToLog(ex);
+        return;
+    }
+    unsigned int root=g_il2cpp.gchandle_new(prefab,FALSE);
+    if(!root) return;
+    const Il2CppType* it=g_il2cpp.class_get_type(imageClass);
+    Il2CppObject* imageType=it ? g_il2cpp.type_get_object(it) : 0;
+    BOOL includeInactive=TRUE;
+    void* args[2]; args[0]=imageType; args[1]=&includeInactive;
+    ex=0;
+    Il2CppObject* array=imageType ? g_il2cpp.runtime_invoke(
+        g_gameObjectGetComponentsInChildren,prefab,args,&ex) : 0;
+    unsigned int arrayRoot=(!ex && array) ? g_il2cpp.gchandle_new(array,FALSE) : 0;
+    if(arrayRoot) {
+        Il2CppArray* images=(Il2CppArray*)array;
+        SIZE_T n=g_il2cpp.array_length(images);
+        LogIntA("[WHEEL H97] prefab Image count: ",(int)n);
+        if(n>512) n=512;
+        Il2CppObject** elems=(Il2CppObject**)((BYTE*)images+g_il2cpp.array_object_header_size());
+        for(SIZE_T i=0;i<n;i++) {
+            if(!elems[i]) continue;
+            ex=0;
+            Il2CppObject* sprite=g_il2cpp.runtime_invoke(getSprite,elems[i],0,&ex);
+            char name[192];
+            if(ex || !H88GetSpriteName(sprite,name,192)) continue;
+            for(int k=0;k<5;k++) if(StrEqA(name,g_h61DlcIconNames[k])) {
+                H94RetainNativeSprite(k,sprite);
+                break;
+            }
+        }
+        g_il2cpp.gchandle_free(arrayRoot);
+    } else {
+        LogA("[WHEEL H97] prefab Image traversal unavailable; H96 fallback retained.");
+        if(ex) FormatExceptionToLog(ex);
+    }
+    // Release temporary managed roots; never Destroy/Unload the game's prefab.
+    g_il2cpp.gchandle_free(root);
+    int found=0;
+    for(int k=0;k<5;k++) if(H94GetRetainedSprite(k)) ++found;
+    LogIntA("[WHEEL H97] cold retained DLC sprites (of 5): ",found);
+    if(start) LogIntA("[WHEEL H97] cold prefab load/capture ms: ",(int)(H90Millis()-start));
+}
+
 static BOOL ShowNativeDlcWeaponWheel() {
     if(!IsTheseSunnyDazeOwned()) {
         LogA("[WHEEL H54] DLC wheel blocked: These Sunny Daze ownership not confirmed.");
@@ -4034,6 +4108,8 @@ static BOOL ShowNativeDlcWeaponWheel() {
     AuditCurrentWheelLayoutH56(
         (dlcCount>0) ? "[WHEEL H56] DLC SCENE native layout" : "[WHEEL H56] NORMAL SCENE native layout",
         baseCount,dlcCount);
+
+    if(dlcCount==0) H97LoadDlcPrefabSprites();
 
     if(!InvokeInputManagerWheelEventFastH51(TRUE)) return FALSE;
     // Capture only after successful native open, before cross-mode mutation.
