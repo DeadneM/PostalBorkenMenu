@@ -1171,3 +1171,31 @@ changes. Uses the H62 original-sprite restoration arrays. If the candidate
 parent Image contains generic wheel art, no change is made and its sprite
 name is logged. This remains an unvalidated experiment: identify the
 weapon-shaped pink/violet backing rather than panel geometry.
+
+
+### V2A42-H89 EXACT DLC EMPTY UNDERLAY + BOUNDED RESOURCE LOAD TEST
+
+Branch `dev/v2a42-h89-empty-underlay-dlc-resource-load`, based on H88's
+isolated test branch, ultimately based on validated H80.
+
+H88 runtime proof:
+- Normal campaign: Sprite cache 5/10, five DLC `*_Rose` sprites absent.
+- Native weapon targets 5/5 successfully remapped.
+- DLC scene: five native `Weapon Icon_*_Empty` parent Image sprites logged.
+  They are not generic wheel sector sprites. H88 preserved them.
+- DLC -> Base input/selection/mapping 9/9 and native DLC wheel intact.
+
+H89 changes:
+- For the five confirmed `_Empty` parent images in DLC -> BASE only,
+  disable UI Image.enabled and store its previous bool state; restore on
+  closing wheel. Do not clear Sprite or disable the GameObject hierarchy.
+- For normal -> DLC, try Unity Resources.Load(string,Type(Sprite)) once
+  by exact known DLC icon name. No reliance on external DLC file patches.
+- Limit global Sprite scan to one per process, rather than two on initial
+  remap; do not retry repeatedly for unloaded sprites.
+- All H74 tap/hold, H77 lazy init and H80 wheel mappings unchanged.
+
+Expected H89 visual result in DLC: native DLC Empty underlay hidden while
+Base icon preserved. Unproven until user test. Normal-campaign DLC icons
+remain uncertain because asset loadability is unknown; if lookup returns
+0/5, audit the DLC asset storage instead of repeating a global scan.
