@@ -50,3 +50,17 @@ buffer, not only slot 0. Initial H98 prerelease was created by an earlier run
 which was cancelled during publication; it is superseded, do not use that ZIP.
 H98B is the intended test package. No user runtime result exists yet.
 
+
+## H98B delivery verification - 2026-10-14
+CONSTRUIT / CONTROLE / EXPERIMENTAL. No game runtime test by assistant.
+Source/release 1e86755455770faf596c745c401ddf333c88bacd.
+CI SUCCESS https://github.com/DeadneM/PostalBorkenMenu/actions/runs/38633964742
+Release https://github.com/DeadneM/PostalBorkenMenu/releases/tag/V2A42-H98B-TEST
+ZIP downloaded: four root files, DXGI 9216, ASI 704000, INI 2296, README 6974.
+Both binaries PE AMD64 checked. ZIP SHA256 matches GitHub asset digest:
+2f8cd81ea66a98e0bccdc41d5d35164c9963937c22252bafb1700200979dc26f
+Remote branch/tag checked. Main remains c1e4630 (H97 stable).
+part2 gameplay, INI and loader are unchanged relative to H97 stable.
+Startup log still identifies preserved H97 core; UI H98 logs and H98B menu title
+identify experimental renderer. Earlier H98 prerelease superseded by H98B.
+Next: user visual/input/resize/exit verdict and regression check of H97 wheels.
