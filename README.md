@@ -272,3 +272,38 @@ No change to H74 tap/hold, H77 lazy initialization or main UI geometry.
 
 **H90 source checkpoint prerelease:** [V2A42-H90-TEST](https://github.com/DeadneM/PostalBorkenMenu/releases/tag/V2A42-H90-TEST).
 **Public stable release:** V2A42-H80 remains available pending full visual closure.
+
+
+### H93: H90 visuals restored, DLC sprite cache lifecycle (14 October 2026)
+
+**User rejected both H91 and H92:** in a normal campaign the alternative
+DLC wheel shows the normal weapon icons rather than the DLC icons. H90 remains
+the validated working reference. H91's blanket parent-Image suppression and
+H92's speculative secondary-Image suppression are removed entirely.
+
+**Important revised diagnosis:** the H89/H90 sprite cache permits only ONE
+`Resources.FindObjectsOfTypeAll<Sprite>` scan for the entire game process.
+When the first scan happens in a normal scene, it may find 5/10 images
+(0 DLC images), and `Resources.Load` also returned 0/5. This cache will
+not automatically see the 5 DLC Sprites that Unity later loads in a DLC scene.
+This can cause inconsistent visual results between cold-start normal mode
+and sessions which previously loaded the DLC.
+
+H93 is based EXACTLY on H90 main, not H91 or H92. It contains no
+new UI Image.enabled changes. When a new native wheel instance appears,
+one further Sprite cache scan may be attempted if incomplete. When a
+DLC-native wheel is open in a DLC scene, the game has five actual
+`_weaponSelectedImage` Sprite objects; H93 captures only exact known DLC
+sprite names from those active weapon buttons and stores them in the cache
+without an expensive global resource scan. Normal campaign's native wheel
+is not modified. Logs show how many of the five DLC icons are cached.
+H90 caching and elapsed-time logging are preserved.
+
+**Limitation:** the DLC Sprite objects may not be loaded at all on a fresh
+boot straight into normal campaign, and Unity might destroy scene-only
+sprites when leaving DLC. H93 does not invent texture bytes, guarantee
+permanent object lifetime, or hide a still-unidentified base silhouette.
+For a guaranteed cold-start solution, locate the original DLC icon textures
+in game assets/bundles and load them with their proper dependencies, or
+supply verified images with the ASI. Never replace the known-good DLC
+images with arbitrary Image masking.
