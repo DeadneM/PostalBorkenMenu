@@ -762,7 +762,7 @@ static DWORD __stdcall ModThread(void*) {
     if (!CreateOverlayWindow()) return 0;
     if (!HookGameWindow()) return 0;
     LogA("[OK] Async keyboard polling enabled; hotkeys no longer depend on Unity WM_KEYDOWN delivery.");
-    LogA("[READY] H80 preserves H77/H74 behavior and performs only a compact WeaponWheelButton metadata audit after lazy init.");
+    LogA("[READY] H88 built from validated H80; only verified weapon-specific icon underlays may be swapped. No wheel-sector sprites are cleared.");
 
     if(g_noCrosshair)
         LogA("[LAZY H77] No Crosshair will become available after lazy IL2CPP initialization.");
