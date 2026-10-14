@@ -2199,9 +2199,9 @@ static BOOL ReplaceMatchingLocalIconLayersH62(Il2CppObject* button,
                                                Il2CppObject* originalSprite,
                                                Il2CppObject* targetSprite,
                                                BOOL baseState,
-                                               int index) {
+                                               int index,int nativePair) {
     ClearExtraLayersH62(baseState,index);
-    if(!button || !targetSprite || index<0 || index>=5 ||
+    if(!button || !targetSprite || index<0 || index>=5 || nativePair<0 || nativePair>=5 ||
        !g_coreImage || !g_componentGetGameObject ||
        !g_gameObjectGetComponentsInChildren)
         return FALSE;
@@ -2281,18 +2281,18 @@ static BOOL ReplaceMatchingLocalIconLayersH62(Il2CppObject* button,
         if(ex || !parentSprite) continue;
         char sourceName[192];
         if(!baseState && H88GetSpriteName(parentSprite,sourceName,192) &&
-           StrEqA(sourceName,g_h95BaseSilhouettes[index])) {
+           StrEqA(sourceName,g_h95BaseSilhouettes[nativePair])) {
             // Primary DLC assignment already succeeded before this function.
             // Require retained DLC art, so a cold normal scene keeps H90 visuals.
-            if(targetSprite!=H94GetRetainedSprite(index)) continue;
+            if(targetSprite!=H94GetRetainedSprite(nativePair)) continue;
             H95Color previous;
             if(!H95SetSilhouetteColor(image,&previous,FALSE)) {
-                LogA("[WHEEL H95] exact normal silhouette color unavailable; untouched.");
+                LogA("[WHEEL H96] exact normal silhouette color unavailable; untouched.");
                 return FALSE;
             }
             g_h95TransparentImages[index]=image;
             g_h95OriginalColors[index]=previous;
-            LogIntA("[WHEEL H95] exact normal silhouette alpha=0; DLC child preserved, pair: ",index);
+            LogIntA("[WHEEL H96] exact normal silhouette alpha=0; DLC child preserved, pair: ",index);
             return TRUE;
         }
         if(baseState && H88GetSpriteName(parentSprite,sourceName,192)) {
@@ -2350,7 +2350,7 @@ static BOOL RestoreExtraIconLayersH62(BOOL baseState,int index) {
     if(!baseState && g_h95TransparentImages[index]) {
         if(!H95SetSilhouetteColor(g_h95TransparentImages[index],
                                  &g_h95OriginalColors[index],TRUE)) ok=FALSE;
-        else LogIntA("[WHEEL H95] normal silhouette color restored, pair: ",index);
+        else LogIntA("[WHEEL H96] normal silhouette color restored, pair: ",index);
     }
 
     for(int j=0;j<count;j++) {
@@ -2415,7 +2415,7 @@ static BOOL ApplySlotIconH61(Il2CppObject* button,
     }
 
     // H62: replace any second/underlay Image still drawing the old icon.
-    ReplaceMatchingLocalIconLayersH62(button,original,sprite,baseVisualState,visualIndex);
+    ReplaceMatchingLocalIconLayersH62(button,original,sprite,baseVisualState,visualIndex,k);
 
     if(baseVisualState) {
         g_h61BaseIconButtons[visualIndex]=button;

@@ -1,3 +1,9 @@
+H96 EXPERIMENTAL - H94 retention + corrected weapon-slot matching
+H95 visually rejected. H96 corrects which five normal silhouettes are targeted.
+Test DLC wheel in DLC -> normal DLC wheel without exiting; expect five alpha=0
+and five restores. DLC icons/backings must stay, normal underlays disappear.
+Rollback: exit and reinstall H94, keep personal INI. Cold loading unresolved.
+
 H95 EXPERIMENTAL - H90 + retained H94 cache
 Test: DLC native wheel first -> normal DLC wheel in same process.
 Only exact normal silhouette Image color alpha is zeroed and restored on close.

@@ -56,3 +56,11 @@ Initial publish run encountered HTTP 403; corrected source run published success
 A subsequent workflow-only commit adds ZIP artifact preservation; it does not
 change the released source and its release-create step may report existing tag.
 Next: user confirms removal of normal underlays without loss of DLC graphics.
+
+## H96 - H95 rejected, slot mapping correction
+User reports H95 unchanged. Log: only shotgun alpha changed; four parents preserved.
+H95 confused button traversal backup index with canonical weapon-slot index.
+H96 passes SlotIndexH59(slot) separately for silhouette/retained sprite checks.
+H94 retention remains confirmed for DLC -> normal; cold loading unresolved.
+See H96_TEST.md in docs. Runtime visual result pending.
+
