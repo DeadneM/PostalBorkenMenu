@@ -1206,3 +1206,11 @@ This is narrower than protection from explicit destruction/bundle unload.
 TODO: obtain same-process DLC -> normal result and log before next build.
 No current session game logs or IL2CPP dump were available locally; analysis used
 repository source, historical audit records, user verdicts and Unity documentation.
+
+## H95 experiment - 2026-10-14
+
+User confirms H94 DLC sprites/backings survive DLC -> normal. Retain H94 cache.
+H95 tests exact normal silhouette Image.color alpha=0 and restoration on close.
+No parent disabling, sprite clearing, INI or selection changes. Cold normal
+loading unresolved. See docs/H95_TEST.md (or H95_TEST.md from docs).
+

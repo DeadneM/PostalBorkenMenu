@@ -1854,6 +1854,15 @@ static const char* g_h89DlcEmptySprites[5]={
     "Weapon Icon_UrAnusium_Empty"
 };
 static volatile LONG g_h62SpriteCacheComplete=0;
+// H95: exact BASE silhouette names observed in the user's H94 runtime log.
+static const char* g_h95BaseSilhouettes[5]={
+    "Bez-nazwy-1_0009_Warstwa-9", "Bez-nazwy-1_0014_Warstwa-4",
+    "Bez-nazwy-1_0011_Warstwa-7", "Bez-nazwy-1_0013_Warstwa-5",
+    "Bez-nazwy-1_0017_Warstwa-1"
+};
+struct H95Color { float r,g,b,a; };
+static Il2CppObject* g_h95TransparentImages[5]={0};
+static H95Color g_h95OriginalColors[5]={{0}};
 
 // H62: some WeaponWheelButton prefabs render the weapon through more than one
 // Image. H61 changed only _weaponSelectedImage, exposing the old icon below it.
@@ -1876,6 +1885,7 @@ static void ClearExtraLayersH62(BOOL baseState,int index) {
             g_h62BaseExtraOriginalSprites[index][j]=0;
         }
     } else {
+        g_h95TransparentImages[index]=0;
         g_h62DlcExtraCount[index]=0;
         for(int j=0;j<8;j++) {
             g_h62DlcExtraImages[index][j]=0;
@@ -2153,6 +2163,29 @@ static BOOL H89SetImageEnabled(Il2CppObject* image,BOOL enabled,BOOL* oldEnabled
     return TRUE;
 }
 
+static BOOL H95SetSilhouetteColor(Il2CppObject* image,H95Color* original,BOOL restore) {
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass getRuntimeClass=(FnObjectGetClass)Proc("il2cpp_object_get_class");
+    Il2CppClass* graphic=(image && getRuntimeClass) ? getRuntimeClass(image) : 0;
+    Il2CppClass* color=g_coreImage ? g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Color") : 0;
+    const MethodInfo* get=graphic ? g_il2cpp.class_get_method_from_name(graphic,"get_color",0) : 0;
+    const MethodInfo* set=(graphic && color) ? FindMethodExact(graphic,"set_color",1,color) : 0;
+    if(!image || !original || !get || !set) return FALSE;
+    H95Color value;
+    Il2CppException* ex=0;
+    if(restore) value=*original;
+    else {
+        Il2CppObject* box=g_il2cpp.runtime_invoke(get,image,0,&ex);
+        void* raw=(!ex && box) ? g_il2cpp.object_unbox(box) : 0;
+        if(!raw) return FALSE;
+        *original=*(H95Color*)raw;
+        value=*original; value.a=0.0f;
+    }
+    void* args[1]; args[0]=&value;
+    ex=0; g_il2cpp.runtime_invoke(set,image,args,&ex);
+    return !ex;
+}
+
 static BOOL ReplaceMatchingLocalIconLayersH62(Il2CppObject* button,
                                                Il2CppObject* originalSprite,
                                                Il2CppObject* targetSprite,
@@ -2238,6 +2271,21 @@ static BOOL ReplaceMatchingLocalIconLayersH62(Il2CppObject* button,
         Il2CppObject* parentSprite=g_il2cpp.runtime_invoke(getSprite,image,0,&ex);
         if(ex || !parentSprite) continue;
         char sourceName[192];
+        if(!baseState && H88GetSpriteName(parentSprite,sourceName,192) &&
+           StrEqA(sourceName,g_h95BaseSilhouettes[index])) {
+            // Primary DLC assignment already succeeded before this function.
+            // Require retained DLC art, so a cold normal scene keeps H90 visuals.
+            if(targetSprite!=H94GetRetainedSprite(index)) continue;
+            H95Color previous;
+            if(!H95SetSilhouetteColor(image,&previous,FALSE)) {
+                LogA("[WHEEL H95] exact normal silhouette color unavailable; untouched.");
+                return FALSE;
+            }
+            g_h95TransparentImages[index]=image;
+            g_h95OriginalColors[index]=previous;
+            LogIntA("[WHEEL H95] exact normal silhouette alpha=0; DLC child preserved, pair: ",index);
+            return TRUE;
+        }
         if(baseState && H88GetSpriteName(parentSprite,sourceName,192)) {
             BOOL exactDlcEmpty=FALSE;
             for(int k=0;k<5;k++) {
@@ -2290,6 +2338,11 @@ static BOOL RestoreExtraIconLayersH62(BOOL baseState,int index) {
 
     int count=baseState ? g_h62BaseExtraCount[index] : g_h62DlcExtraCount[index];
     BOOL ok=TRUE;
+    if(!baseState && g_h95TransparentImages[index]) {
+        if(!H95SetSilhouetteColor(g_h95TransparentImages[index],
+                                 &g_h95OriginalColors[index],TRUE)) ok=FALSE;
+        else LogIntA("[WHEEL H95] normal silhouette color restored, pair: ",index);
+    }
 
     for(int j=0;j<count;j++) {
         Il2CppObject* image=baseState ? g_h62BaseExtraImages[index][j] : g_h62DlcExtraImages[index][j];

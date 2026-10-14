@@ -1,3 +1,9 @@
+H95 EXPERIMENTAL - H90 + retained H94 cache
+Test: DLC native wheel first -> normal DLC wheel in same process.
+Only exact normal silhouette Image color alpha is zeroed and restored on close.
+DLC graphics, parents and native wheel logic preserved in source; test in game.
+Rollback: exit and reinstall H94, preserve personal INI.
+
 H94 EXPERIMENTAL - base H90 validated
 Open native DLC wheel first, then return to normal campaign without exiting.
 Five DLC sprite+texture pairs are retained. No new masking or cold loading.
