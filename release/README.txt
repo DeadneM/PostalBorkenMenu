@@ -1,4 +1,4 @@
-H99 EXPERIMENTAL - menu rebind / supplied defaults / Unity cursor / updater
+H99B EXPERIMENTAL - menu rebind / supplied defaults / Unity cursor / updater
 GodMode ID conflict addressed; Hotkeys tab rebinds menu key (F1 default).
 Supplied INI is the new package and compiled default configuration.
 Menu requests unlocked visible cursor without auto-pause, restores on close.

@@ -51,3 +51,8 @@ Check native normal/DLC wheels and direct cold normal DLC art as regression test
 Status: EXPERIMENTAL; build and package verification distinct from user validation.
 Rollback: exit and reinstall H98B for menu or H97 stable, preserve personal INI.
 Next: user's menu/cursor/updater verdict and logs before promoting any release.
+
+Delivery revision H99B: adds checked helper error reporting, path rechecks and
+release-tag/URL agreement. Initial H99 superseded. All forty recognized command
+keys match supplied INI; helper syntax parsed. No runtime installation performed.
+
