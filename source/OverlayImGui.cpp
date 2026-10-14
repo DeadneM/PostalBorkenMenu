@@ -127,10 +127,12 @@ HRESULT STDMETHODCALLTYPE Present(IDXGISwapChain* sc,UINT sync,UINT flags){
         if(target){
             ImGui::GetIO().MouseDrawCursor=true;
             ImGui_ImplDX11_NewFrame();ImGui_ImplWin32_NewFrame();ImGui::NewFrame();DrawMenu();ImGui::Render();
-            ID3D11RenderTargetView* oldTarget=nullptr;ID3D11DepthStencilView* oldDepth=nullptr;
-            context->OMGetRenderTargets(1,&oldTarget,&oldDepth);
+            ID3D11RenderTargetView* oldTargets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT]{};
+            ID3D11DepthStencilView* oldDepth=nullptr;
+            context->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT,oldTargets,&oldDepth);
             context->OMSetRenderTargets(1,&target,nullptr);ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-            context->OMSetRenderTargets(1,&oldTarget,oldDepth);if(oldTarget)oldTarget->Release();if(oldDepth)oldDepth->Release();
+            context->OMSetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT,oldTargets,oldDepth);
+            for(auto* old:oldTargets)if(old)old->Release();if(oldDepth)oldDepth->Release();
         }
     }
     LeaveCriticalSection(&lock);return originalPresent(sc,sync,flags);
