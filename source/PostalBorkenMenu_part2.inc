@@ -2383,6 +2383,15 @@ static int CollectCanonicalWeaponsBySlotsH59(int wantedCategory,Il2CppObject* ou
     if(currentWheel!=g_h90WeaponCacheWheel) {
         H90ResetTargetCache();
         g_h90WeaponCacheWheel=currentWheel;
+        // H93: the old one-shot Sprite scan was process-wide, but a new
+        // scene can load sprites which did not exist in the preceding scene.
+        // Re-arm just ONE scan on wheel-instance change, if incomplete.
+        // Existing cached Sprite pointers are retained as in H90.
+        if(CountCachedWheelSpritesH62()<10) {
+            g_h62SpriteScanAttempts=0;
+            g_h89DlcDirectLoadAttempted=0;
+            LogA("[WHEEL H93] new wheel scene: incomplete Sprite cache may rescan once.");
+        }
         LogA("[WHEEL H90] live wheel changed; target cache invalidated.");
     }
 
@@ -3788,6 +3797,84 @@ static BOOL RestoreDlcSwapH54() {
     return ok;
 }
 
+// H93: the DLC wheel itself contains authoritative Sprite objects when a
+// DLC scene is loaded. Remember them directly instead of scanning every
+// Unity Sprite, and keep the H90 behavior if none exist in normal campaign.
+// This DOES NOT make scene-only sprites load at a cold normal start.
+static int H93CaptureNativeDlcIcons(Il2CppObject* wheel,
+                                   Il2CppClass* wheelClass,
+                                   Il2CppClass* buttonClass,
+                                   Il2CppClass* weaponIdClass) {
+    if(!wheel || !wheelClass || !buttonClass || !weaponIdClass) return 0;
+    const FieldInfo* buttonsField=g_il2cpp.class_get_field_from_name(
+        wheelClass,"_weaponWheelButtons");
+    const FieldInfo* selectedField=g_il2cpp.class_get_field_from_name(
+        buttonClass,"_weaponSelectedImage");
+    const MethodInfo* getWeapon=g_il2cpp.class_get_method_from_name(
+        buttonClass,"get_WeaponId",0);
+    const MethodInfo* getCategory=g_il2cpp.class_get_method_from_name(
+        weaponIdClass,"get_Category",0);
+    if(!buttonsField || !selectedField || !getWeapon || !getCategory) return 0;
+    Il2CppObject* collection=0;
+    g_il2cpp.field_get_value(wheel,buttonsField,&collection);
+    if(!collection) return 0;
+
+    Il2CppClass* collectionClass=0;
+    int count=0;
+    BOOL isArray=FALSE;
+    if(!GetBaseWheelButtonsCollection(
+            collection,&collectionClass,&count,&isArray)) return 0;
+    if(count>32) count=32;
+
+    typedef Il2CppClass* (*FnObjectGetClass)(Il2CppObject*);
+    FnObjectGetClass getRuntimeClass=
+        (FnObjectGetClass)Proc("il2cpp_object_get_class");
+
+    int found=0;
+    for(int i=0;i<count;i++) {
+        Il2CppObject* button=GetBaseWheelButtonFromCollection(
+            collection,collectionClass,isArray,i);
+        if(!button) continue;
+        Il2CppException* ex=0;
+        Il2CppObject* weapon=g_il2cpp.runtime_invoke(getWeapon,button,0,&ex);
+        if(ex || !weapon) continue;
+        ex=0;
+        Il2CppObject* box=g_il2cpp.runtime_invoke(getCategory,weapon,0,&ex);
+        void* raw=(!ex && box) ? g_il2cpp.object_unbox(box) : 0;
+        if(!raw || *(int*)raw!=1) continue;
+
+        int slot=-1;
+        if(!GetWeaponSlotH59(weapon,&slot)) continue;
+        int k=SlotIndexH59(slot);
+        if(k<0) continue;
+        Il2CppObject* image=0;
+        g_il2cpp.field_get_value(button,selectedField,&image);
+        if(!image) continue;
+        Il2CppClass* ic=getRuntimeClass ? getRuntimeClass(image) : 0;
+        const MethodInfo* getSprite=ic ?
+            g_il2cpp.class_get_method_from_name(ic,"get_sprite",0) : 0;
+        if(!getSprite) continue;
+        ex=0;
+        Il2CppObject* sprite=g_il2cpp.runtime_invoke(
+            getSprite,image,0,&ex);
+        if(ex || !sprite) continue;
+        char name[192];
+        if(!H88GetSpriteName(sprite,name,192)) continue;
+        if(!StrEqA(name,g_h61DlcIconNames[k])) continue;
+
+        g_h62DlcSpriteCache[k]=sprite;
+        ++found;
+    }
+    if(found) {
+        LogIntA("[WHEEL H93] native DLC icon sprites captured: ",found);
+        LogIntA("[WHEEL H93] total cached BASE+DLC sprites: ",
+                CountCachedWheelSpritesH62());
+        if(CountCachedWheelSpritesH62()==10)
+            g_h62SpriteCacheComplete=1;
+    }
+    return found;
+}
+
 static BOOL ShowNativeDlcWeaponWheel() {
     if(!IsTheseSunnyDazeOwned()) {
         LogA("[WHEEL H54] DLC wheel blocked: These Sunny Daze ownership not confirmed.");
@@ -3813,6 +3900,19 @@ static BOOL ShowNativeDlcWeaponWheel() {
     AuditCurrentWheelLayoutH56(
         (dlcCount>0) ? "[WHEEL H56] DLC SCENE native layout" : "[WHEEL H56] NORMAL SCENE native layout",
         baseCount,dlcCount);
+
+    if(dlcCount>0) {
+        // Only the native DLC scene provides valid icon sources.
+        H93CaptureNativeDlcIcons(
+            wheel,wheelClass,wheelButtonClass,weaponIdClass);
+    } else {
+        LogIntA("[WHEEL H93] normal scene DLC icons in cache (of 5): ",
+                (g_h62DlcSpriteCache[0]!=0)+
+                (g_h62DlcSpriteCache[1]!=0)+
+                (g_h62DlcSpriteCache[2]!=0)+
+                (g_h62DlcSpriteCache[3]!=0)+
+                (g_h62DlcSpriteCache[4]!=0));
+    }
 
     if(!InvokeInputManagerWheelEventFastH51(TRUE)) return FALSE;
 
