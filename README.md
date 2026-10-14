@@ -278,3 +278,38 @@ weapon-shaped silhouette has been correctly matched. If the parent Image is
 not weapon-specific, H88 leaves it alone and records the original sprite
 name in the log. The ultimate target remains the **weapon-specific pink/violet
 silhouette behind each icon**, never the wheel sectors themselves.
+
+
+### H89 experimental wheel correction (14 October 2026)
+
+User's H88 log proves **two distinct issues**:
+
+1. In These Sunny Daze, the remapped BASE wheel already displays correct
+   foreground icons, but its five parent `WeaponImage` sprites retain the
+   DLC-specific silhouette: `Weapon Icon_NyanBrella_Empty`,
+   `Weapon Icon_Piss Gun_Empty`, `Weapon Icon_Wiener-Grinder_Empty`,
+   `Weapon Icon_Bubble Gun_Empty`, `Weapon Icon_UrAnusium_Empty`.
+   H88 correctly logged and preserved them, so the visual problem remained.
+2. In the normal campaign, the H62 sprite scan cached **5/10 icons** (the
+   five BASE icons). All five `Weapon Icon_*_Rose` DLC sprites were missing
+   from the loaded scene. WeaponId remapping still succeeded, but DLC
+   foreground art could not be replaced; the extra global scan is a likely
+   contributing factor to the first-opening pause.
+
+**H89**, based on the experimental H88 code that itself derives from H80,
+disables only the exact five `_Empty` parent UI.Images **while the BASE wheel
+is remapped in the DLC level**, preserving their native sprite and previous
+`Image.enabled` value for restoration at wheel close. No sprite=NULL writes,
+no Wheel BackgroundImage/SpiralImage modifications.
+
+For the normal-level DLC wheel, H89 tries the exact five native DLC `_Rose`
+sprite names once with `UnityEngine.Resources.Load(string,Type)` after a
+single bounded `FindObjectsOfTypeAll<Sprite>` scan. This may only work if
+the DLC art is directly addressable in Resources; H89 **does not claim**
+to load scene-only/unreferenced Unity assets. It never blindly loads whole
+asset bundles or repeats a global scan on each wheel open.
+
+H89 is **EXPERIMENTAL** until tested in both scenes. Preserve H80 as the
+latest validated build; H87 is rejected. If normal-campaign DLC icon
+lookup still fails, the next phase needs a scene-independent DLC sprite
+source via exact asset-path audit, not another unbounded Resources scan.
