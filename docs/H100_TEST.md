@@ -32,3 +32,13 @@ ignored by H99D. H97 remains the stable gameplay fallback.
 
 TODO: user runtime validation; identify exact native F3 component type before exposing
 or changing it. No assertion that build/static checks establish visual behavior.
+
+### H100 delivery verification
+CONSTRUIT / CONTROLE, EXPERIMENTAL; no live-game validation.
+Source/tag 615ada81332e4aaba636269e4ba9bd840af4a54e.
+CI 38726888611: all steps successful. Downloaded published ZIP, verified exact four
+root files and AMD64 DLL/ASI. SHA256:
+25691b687747e0379afefd44ece08b650eaf64f78359856a76df53a7c6f6e72a.
+ZIP: dxgi.dll 9216; ASI 993280; INI 2489; README 11241 bytes.
+Main verified unchanged at c1e4630767db8be3b6eab6d6c351e3a7fe23eff3.
+Runtime TODO remains as above; no game files changed or game launched.
