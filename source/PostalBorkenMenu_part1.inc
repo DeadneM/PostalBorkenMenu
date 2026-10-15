@@ -82,6 +82,7 @@ __declspec(dllimport) HMODULE __stdcall LoadLibraryW(LPCWSTR);
 __declspec(dllimport) HANDLE __stdcall CreateThread(void*, SIZE_T, LPTHREAD_START_ROUTINE, void*, DWORD, DWORD*);
 __declspec(dllimport) void __stdcall Sleep(DWORD);
 __declspec(dllimport) DWORD __stdcall GetCurrentProcessId(void);
+__declspec(dllimport) DWORD __stdcall GetTickCount(void);
 __declspec(dllimport) DWORD __stdcall GetModuleFileNameW(HMODULE, LPWSTR, DWORD);
 __declspec(dllimport) UINT __stdcall GetSystemDirectoryW(LPWSTR, UINT);
 __declspec(dllimport) BOOL __stdcall DisableThreadLibraryCalls(HMODULE);

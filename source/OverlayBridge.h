@@ -11,6 +11,7 @@ int PBUI_Ready();
 int PBUI_Stopping();
 int PBUI_MenuKey(wchar_t* key,int capacity);
 int PBUI_MenuCapturing();
+int PBUI_KeyName(int vk,wchar_t* text,int capacity);
 int PBUI_Beta();
 void* PBUI_Window();
 void* PBUI_LegacyWindow();

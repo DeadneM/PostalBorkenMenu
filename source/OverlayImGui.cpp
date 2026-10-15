@@ -58,13 +58,14 @@ void DrawMenu(){
     ImGui::SetNextWindowSizeConstraints(ImVec2(650,360),ImVec2(FLT_MAX,FLT_MAX));
     bool open=true;
     if(ImGui::Begin("PostalBorkenMenu",&open,ImGuiWindowFlags_NoCollapse)){
-        ImGui::TextUnformatted("POSTAL: BRAIN-DAMAGED  |  ASI Overlay H99D TEST");
+        ImGui::TextUnformatted("POSTAL: BRAIN-DAMAGED  |  ASI Overlay H100 TEST");
         wchar_t menuKeyWide[48];PBUI_MenuKey(menuKeyWide,48);char menuKey[160];Utf8(menuKeyWide,menuKey,sizeof(menuKey));
         ImGui::SameLine();ImGui::TextDisabled("| %s to close",menuKey);ImGui::Separator();
         ImGui::TextDisabled(PBUI_Ready()?"Gameplay commands ready":"Initializing gameplay commands...");
         static const char* tabs[]={"Gameplay","Weapons","Arsenal","Special","Visual"};
         if(ImGui::BeginTabBar("MainTabs")){
             for(int tab=0;tab<5;tab++)if(ImGui::BeginTabItem(tabs[tab])){
+                if(tab==4)ImGui::TextWrapped("Checked states are saved for startup. No Menu hides the game menus; the mod menu stays available.");
                 ImGui::Spacing();
                 if(ImGui::BeginTable("Commands",6,ImGuiTableFlags_RowBg|ImGuiTableFlags_BordersInnerH|ImGuiTableFlags_SizingStretchProp|ImGuiTableFlags_ScrollY,ImVec2(0,ImGui::GetContentRegionAvail().y-28))){
                     ImGui::TableSetupColumn("Action",ImGuiTableColumnFlags_WidthStretch,3.0f);
@@ -125,7 +126,7 @@ void DrawMenu(){
             }
             if(ImGui::BeginTabItem("Updates")){
                 auto update=postal::update::GetStatus();bool beta=PBUI_Beta()!=0;
-                ImGui::TextUnformatted("Current build: V2A42-H99D-TEST");
+                ImGui::TextUnformatted("Current build: V2A42-H100-TEST");
                 ImGui::BeginDisabled(update.busy||update.queued);
                 if(ImGui::Checkbox("Beta updates (experimental)",&beta))PBUI_Request(-1,10,beta?1:0);
                 if(ImGui::Button("Check for Updates"))postal::update::Check(beta);
@@ -202,6 +203,19 @@ DWORD WINAPI Install(void*){
 }
 extern "C" void PBUI_StartRenderer(){if(started.exchange(true))return;HANDLE thread=CreateThread(nullptr,0,Install,nullptr,0,nullptr);if(thread)CloseHandle(thread);}
 extern "C" int PBUI_RendererReady(){return ready.load()?1:0;}
+extern "C" int PBUI_KeyName(int vk,wchar_t* text,int capacity){
+    if(!text||capacity<2||vk<=0||vk>255)return 0;
+    HWND window=(HWND)PBUI_Window();
+    HKL layout=GetKeyboardLayout(window?GetWindowThreadProcessId(window,nullptr):0);
+    UINT scan=MapVirtualKeyExW((UINT)vk,MAPVK_VK_TO_VSC_EX,layout);
+    if(vk>=VK_OEM_1 && vk<=VK_OEM_102){
+        UINT symbol=MapVirtualKeyExW((UINT)vk,MAPVK_VK_TO_CHAR,layout)&0x7FFFFFFF;
+        if(symbol>=32 && symbol<=0xFFFF){text[0]=(wchar_t)symbol;text[1]=0;return 1;}
+    }
+    LONG code=(LONG)((scan&0xFF)<<16);
+    if(scan&0xFF00)code|=1<<24;
+    return scan && GetKeyNameTextW(code,text,capacity)>0;
+}
 extern "C" int PBUI_Message(void* window,unsigned int msg,unsigned long long wp,long long lp){
     if(!lockReady || !ready || !PBUI_Visible() || PBUI_Stopping())return 0;
     EnterCriticalSection(&lock);if(!gui){LeaveCriticalSection(&lock);return 0;}ImGui::SetCurrentContext(gui);

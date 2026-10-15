@@ -4429,6 +4429,35 @@ static BOOL ApplyTimeScaleToggle(int i) {
     return TRUE;
 }
 
+// H100: UI reads cached values; native state is read only on command/game thread.
+static const char* g_visualNames[4]={"NoHud","NoHudWithCrossHair","NoModel","NoMenu"};
+static const WCHAR* g_visualIni[4]={L"NoHud",L"NoHudWithCrossHair",L"NoModel",L"NoMenu"};
+static volatile LONG g_visualDesired[4]={0,0,0,0};
+static volatile LONG g_visualObserved[4]={0,0,0,0};
+static int VisualSlot(int command){
+    for(int j=0;j<4;j++)if(StrEqA(g_cmds[command].className,g_visualNames[j]))return j;
+    return -1;
+}
+static BOOL ReadVisualState(int slot,BOOL* state){
+    Il2CppClass* klass=FindClassBySimpleName("DebugManager");
+    const char* getters[4]={"get_NoHud","get_NoHudWithCrossHair","get_NoModel","get_NoMenu"};
+    const MethodInfo* method=klass?g_il2cpp.class_get_method_from_name(klass,getters[slot],0):0;
+    if(!method)return FALSE;
+    Il2CppException* ex=0;Il2CppObject* box=g_il2cpp.runtime_invoke(method,0,0,&ex);
+    void* raw=(!ex && box)?g_il2cpp.object_unbox(box):0;
+    if(!raw)return FALSE;
+    *state=*(BYTE*)raw!=0;g_visualObserved[slot]=*state;return TRUE;
+}
+static BOOL SetVisualState(int command,BOOL desired,BOOL save){
+    int slot=VisualSlot(command);BOOL current=FALSE;
+    if(slot<0 || !ReadVisualState(slot,&current)){LogA("[VISUAL H100] State getter unavailable; command not toggled.");return FALSE;}
+    if(current!=desired)InvokeNativeCommand(command);
+    if(!ReadVisualState(slot,&current) || current!=desired){LogA("[VISUAL H100] Native state verification failed; setting not saved.");return FALSE;}
+    g_visualDesired[slot]=current;
+    if(save){WritePrivateProfileStringW(L"Visual",g_visualIni[slot],current?L"1":L"0",g_iniPath);WritePrivateProfileStringW(0,0,0,g_iniPath);}
+    LogA("[VISUAL H100] Native state verified.");return TRUE;
+}
+
 static void ExecuteCommandIndex(int i) {
     if (!g_ready || g_shuttingDown || i<0 || i>=CMD_COUNT) return;
     BOOL attached=FALSE; void* thread=0;
@@ -4448,6 +4477,11 @@ static void ExecuteCommandIndex(int i) {
     else if (StrEqA(g_cmds[i].className,"__BaseWeaponWheel")) LogA("[WHEEL] Bind Base Weapon Wheel to a key, then HOLD that key to open it.");
     else if (StrEqA(g_cmds[i].className,"__DlcWeaponWheel")) LogA("[WHEEL] Bind DLC Weapon Wheel to a key, then HOLD it. V2A20-style wheel shell opens even when no DLC button is live.");
     else if (StrEqA(g_cmds[i].className,"TimeScale")) ApplyTimeScaleToggle(i);
+    else if(VisualSlot(i)>=0){
+        BOOL current=FALSE;
+        if(ReadVisualState(VisualSlot(i),&current))SetVisualState(i,!current,TRUE);
+        else LogA("[VISUAL H100] Cannot read native state; toggle skipped.");
+    }
     else InvokeNativeCommand(i);
 
     ReleaseIl2CppThread(attached,thread);

@@ -3,6 +3,7 @@
 #include "OverlayBridge.h"
 #define WM_APP_IMGUI (WM_APP + 0x3A)
 #define WM_APP_CURSOR (WM_APP + 0x3B)
+#define WM_APP_VISUAL (WM_APP + 0x3C)
 static int g_menuVk=112;
 static int g_updaterBeta=0;
 static void QueueOverlayCursor(){if(g_gameHwnd && g_ready && !g_shuttingDown)PostMessageW(g_gameHwnd,WM_APP_CURSOR,0,0);}
@@ -11,6 +12,7 @@ static void VkName(int vk, WCHAR* out, int cap) {
     if (!out || cap<2) return;
     out[0]=0;
     if (vk==0) { CopyW(out,cap,L"Unbound"); return; }
+    if(PBUI_KeyName(vk,out,cap))return;
     if (vk>=VK_F1 && vk<=VK_F24) { out[0]=L'F'; WCHAR n[8]; UIntToW((unsigned int)(vk-VK_F1+1),n,8); out[1]=0; AppendW(out,cap,n); return; }
     if (vk>='A' && vk<='Z') { out[0]=(WCHAR)vk; out[1]=0; return; }
     if (vk>='0' && vk<='9') { out[0]=(WCHAR)vk; out[1]=0; return; }
@@ -56,6 +58,7 @@ static void LoadConfig() {
     if(g_menuVk<8 || g_menuVk>255 || g_menuVk==VK_ESCAPE || g_menuVk==VK_BACK)g_menuVk=112;
     g_updaterBeta=(int)GetPrivateProfileIntW(L"Settings",L"UpdaterBeta",0,g_iniPath);
     g_noCrosshair=(LONG)GetPrivateProfileIntW(L"Settings",L"NoCrosshair",1,g_iniPath);
+    for(int j=0;j<4;j++){g_visualDesired[j]=GetPrivateProfileIntW(L"Visual",g_visualIni[j],0,g_iniPath)!=0;g_visualObserved[j]=g_visualDesired[j];}
     g_skipIntroVideos=0; // game already owns its own Skip Intro Videos option; mod leaves it alone
     g_skipStartupLogos=(LONG)GetPrivateProfileIntW(L"Settings",L"SkipStartupLogos",1,g_iniPath);
 }
@@ -405,6 +408,7 @@ extern "C" int PBUI_Get(int i,PBUiCommand* row){
     else if(DecodeWeaponListCommand(i,&category,&slot))row->kind=3;
     else if(StrEqA(name,"__SkipStartupLogos")){row->kind=4;row->enabled=g_skipStartupLogos!=0;}
     else if(StrEqA(name,"__NoCrosshair")){row->kind=5;row->enabled=g_noCrosshair!=0;}
+    else if(VisualSlot(i)>=0){row->kind=5;row->enabled=g_visualObserved[VisualSlot(i)]!=0;}
     return 1;
 }
 
@@ -521,6 +525,16 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
     }
 
     if(msg==WM_APP_IMGUI){HandleImGuiAction((int)wp,(int)((lp>>16)&0xFFFF),(int)(lp&0xFFFF));return 0;}
+    if(msg==WM_APP_VISUAL){
+        if(g_ready){
+            BOOL attached=FALSE;void* thread=0;
+            if(EnsureIl2CppThread(&attached,&thread)){
+                for(int ci=0;ci<CMD_COUNT;ci++)if(VisualSlot(ci)>=0)SetVisualState(ci,g_visualDesired[VisualSlot(ci)]!=0,FALSE);
+                ReleaseIl2CppThread(attached,thread);
+            }
+        }
+        return 0;
+    }
     if(msg==WM_APP_CURSOR){ApplyOverlayCursorH99();return 0;}
     if(PBUI_Message(hwnd,msg,wp,lp))return 0;
     if (msg==WM_MOUSEWHEEL && g_menuVisible) {
@@ -856,7 +870,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H99D INPUT DEFAULTS AND UPDATER TEST");
+    LogA("PostalBorkenMenu V2A42-H100 INPUT DEFAULTS AND UPDATER TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
@@ -886,6 +900,11 @@ static DWORD __stdcall ModThread(void*) {
     if(g_noCrosshair)
         LogA("[LAZY H77] No Crosshair will become available after lazy IL2CPP initialization.");
 
+    // Explicit native Visual preferences opt into delayed automatic initialization.
+    // Default all-off keeps H77 lazy initialization unchanged.
+    BOOL visualPending=FALSE;
+    for(int j=0;j<4;j++)if(g_visualDesired[j])visualPending=TRUE;
+    DWORD visualStart=GetTickCount();
     MSG m;
     while (!g_shuttingDown) {
         while (PeekMessageW(&m,0,0,0,PM_REMOVE)) {
@@ -895,6 +914,11 @@ static DWORD __stdcall ModThread(void*) {
         }
         if (g_shuttingDown) break;
         PollHotkeys();
+        if(visualPending && PBUI_RendererReady() && GetTickCount()-visualStart>=10000){
+            visualPending=FALSE;
+            if(EnsureLazyIl2CppH77("[VISUAL H100] Trigger: explicit saved startup preference, delayed 10 seconds."))
+                PostMessageW(g_gameHwnd,WM_APP_VISUAL,0,0);
+        }
         Sleep(10);
     }
 

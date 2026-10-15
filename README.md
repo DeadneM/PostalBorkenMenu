@@ -319,3 +319,11 @@ H98B overlay retained; GodMode ID collision and locked cursor reported.
 H99 scopes row IDs, adds menu-key setting, imports supplied defaults, requests
 Unity cursor unlock/restore and introduces explicit post-exit updater/rollback.
 See H99_TEST.md in docs. Gameplay part2 remains unchanged from H97.
+
+
+## H100 experimental
+
+Keyboard layout names and persistent native Visual checkboxes; opt-in delayed startup.
+H97 wheel assets/capture/alpha paths and updater/cursor implementation retained.
+Native F3 camera toggle found statically; exact effect unresolved and left intact.
+See docs/H100_TEST.md for limitations, rollback and runtime test criteria.
