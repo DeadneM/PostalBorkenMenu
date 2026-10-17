@@ -58,13 +58,14 @@ void DrawMenu(){
     ImGui::SetNextWindowSizeConstraints(ImVec2(650,360),ImVec2(FLT_MAX,FLT_MAX));
     bool open=true;
     if(ImGui::Begin("PostalBorkenMenu",&open,ImGuiWindowFlags_NoCollapse)){
-        ImGui::TextUnformatted("POSTAL: BRAIN-DAMAGED  |  ASI Overlay H100 TEST");
+        ImGui::TextUnformatted("POSTAL: BRAIN-DAMAGED  |  ASI Overlay H101 TEST");
         wchar_t menuKeyWide[48];PBUI_MenuKey(menuKeyWide,48);char menuKey[160];Utf8(menuKeyWide,menuKey,sizeof(menuKey));
         ImGui::SameLine();ImGui::TextDisabled("| %s to close",menuKey);ImGui::Separator();
         ImGui::TextDisabled(PBUI_Ready()?"Gameplay commands ready":"Initializing gameplay commands...");
         static const char* tabs[]={"Gameplay","Weapons","Arsenal","Special","Visual"};
         if(ImGui::BeginTabBar("MainTabs")){
             for(int tab=0;tab<5;tab++)if(ImGui::BeginTabItem(tabs[tab])){
+                if(tab==4){ImGui::TextDisabled(PBUI_WeaponF3Status()==1?"Native F3 shortcut blocked | F3 available for mod bindings":"Native F3 shortcut NOT blocked (see log)");}
                 if(tab==4)ImGui::TextWrapped("Checked states are saved for startup. No Menu hides the game menus; the mod menu stays available.");
                 ImGui::Spacing();
                 if(ImGui::BeginTable("Commands",6,ImGuiTableFlags_RowBg|ImGuiTableFlags_BordersInnerH|ImGuiTableFlags_SizingStretchProp|ImGuiTableFlags_ScrollY,ImVec2(0,ImGui::GetContentRegionAvail().y-28))){
@@ -126,7 +127,7 @@ void DrawMenu(){
             }
             if(ImGui::BeginTabItem("Updates")){
                 auto update=postal::update::GetStatus();bool beta=PBUI_Beta()!=0;
-                ImGui::TextUnformatted("Current build: V2A42-H100-TEST");
+                ImGui::TextUnformatted("Current build: V2A42-H101-TEST");
                 ImGui::BeginDisabled(update.busy||update.queued);
                 if(ImGui::Checkbox("Beta updates (experimental)",&beta))PBUI_Request(-1,10,beta?1:0);
                 if(ImGui::Button("Check for Updates"))postal::update::Check(beta);
@@ -193,7 +194,8 @@ DWORD WINAPI Install(void*){
     HRESULT hr=window?D3D11CreateDeviceAndSwapChain(nullptr,D3D_DRIVER_TYPE_HARDWARE,nullptr,0,nullptr,0,D3D11_SDK_VERSION,&desc,&dummy,&d,nullptr,&c):E_FAIL;
     if(SUCCEEDED(hr)){
         void** table=*(void***)dummy;
-        if(MH_Initialize()==MH_OK && MH_CreateHook(table[8],(void*)Present,(void**)&originalPresent)==MH_OK && MH_CreateHook(table[13],(void*)Resize,(void**)&originalResize)==MH_OK){
+        auto initialized=MH_Initialize();
+        if((initialized==MH_OK || initialized==MH_ERROR_ALREADY_INITIALIZED) && MH_CreateHook(table[8],(void*)Present,(void**)&originalPresent)==MH_OK && MH_CreateHook(table[13],(void*)Resize,(void**)&originalResize)==MH_OK){
             if(MH_EnableHook(table[13])==MH_OK && MH_EnableHook(table[8])==MH_OK)PBUI_Log("[UI H98] Present/Resize hooks installed; waiting for game DX11 swap chain.");
             else PBUI_Log("[UI H98] hook activation failed; legacy menu remains available.");
         }else PBUI_Log("[UI H98] hook installation failed; legacy menu remains available.");

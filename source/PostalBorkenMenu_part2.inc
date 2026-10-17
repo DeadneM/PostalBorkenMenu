@@ -1,3 +1,4 @@
+#include "OverlayBridge.h"
 
 static Il2CppClass* FindClassBySimpleName(const char* target) {
     if (!g_assemblyCSharp || !target) return 0;
@@ -4429,6 +4430,69 @@ static BOOL ApplyTimeScaleToggle(int i) {
     return TRUE;
 }
 
+// H101: Resolve the same live camera and URP property used by native F3.
+static volatile LONG g_weaponPostDesired=-1; // -1: preserve native/default scene state
+static volatile LONG g_weaponPostObserved=0;
+static volatile LONG g_weaponPostAvailable=0;
+static Il2CppClass* g_weaponCameraClass=0;
+static const MethodInfo* g_weaponGetCamera=0;
+static const MethodInfo* g_weaponGetAdditional=0;
+static const MethodInfo* g_weaponGetPost=0;
+static const MethodInfo* g_weaponSetPost=0;
+static void ResolveWeaponPostH101(){
+    g_weaponCameraClass=g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerWeaponCamera");
+    Il2CppClass* playerCamera=g_il2cpp.class_from_name(g_assemblyCSharp,"Hyperstrange.PBD.PlayerComponents","PlayerCamera");
+    const Il2CppAssembly* urp=g_il2cpp.domain_assembly_open(g_domain,"Unity.RenderPipelines.Universal.Runtime");
+    const Il2CppImage* image=urp?g_il2cpp.assembly_get_image(urp):0;
+    Il2CppClass* extensions=image?g_il2cpp.class_from_name(image,"UnityEngine.Rendering.Universal","CameraExtensions"):0;
+    Il2CppClass* data=image?g_il2cpp.class_from_name(image,"UnityEngine.Rendering.Universal","UniversalAdditionalCameraData"):0;
+    g_weaponGetCamera=playerCamera?FindMethodExact(playerCamera,"get_Camera",0):0;
+    g_weaponGetAdditional=extensions?FindMethodExact(extensions,"GetUniversalAdditionalCameraData",1):0;
+    g_weaponGetPost=data?FindMethodExact(data,"get_renderPostProcessing",0):0;
+    g_weaponSetPost=data?FindMethodExact(data,"set_renderPostProcessing",1,g_boolClass):0;
+    LogA(g_weaponCameraClass && g_weaponGetCamera && g_weaponGetAdditional && g_weaponGetPost && g_weaponSetPost
+         ?"[RENDER H101] Weapon camera URP post-processing metadata resolved.":"[RENDER H101] Weapon camera URP bridge unavailable.");
+}
+static Il2CppObject* GetLiveWeaponPostDataH101(){
+    if(!g_weaponCameraClass || !g_findObjectOfType2 || !g_weaponGetCamera || !g_weaponGetAdditional || !g_weaponGetPost || !g_weaponSetPost)return 0;
+    const Il2CppType* type=g_il2cpp.class_get_type(g_weaponCameraClass);
+    Il2CppObject* typeObject=type?g_il2cpp.type_get_object(type):0;
+    if(!typeObject)return 0;
+    BOOL includeInactive=FALSE;void* args[2]={typeObject,&includeInactive};Il2CppException* ex=0;
+    Il2CppObject* playerCamera=g_il2cpp.runtime_invoke(g_findObjectOfType2,0,args,&ex);
+    if(ex || !playerCamera)return 0;
+    ex=0;Il2CppObject* camera=g_il2cpp.runtime_invoke(g_weaponGetCamera,playerCamera,0,&ex);
+    if(ex || !camera)return 0;
+    void* cp[1]={camera};ex=0;
+    Il2CppObject* data=g_il2cpp.runtime_invoke(g_weaponGetAdditional,0,cp,&ex);
+    return ex?0:data;
+}
+static BOOL ReadWeaponPostH101(Il2CppObject* data,BOOL* value){
+    Il2CppException* ex=0;Il2CppObject* box=g_il2cpp.runtime_invoke(g_weaponGetPost,data,0,&ex);
+    void* raw=(!ex && box)?g_il2cpp.object_unbox(box):0;
+    if(!raw)return FALSE;
+    *value=*(BYTE*)raw!=0;g_weaponPostObserved=*value;return TRUE;
+}
+static void UpdateWeaponPostH101(BOOL toggle){
+    // Called only through a game-window message; no scene object cached across scenes.
+    Il2CppObject* data=GetLiveWeaponPostDataH101();BOOL current=FALSE;
+    g_weaponPostAvailable=data && ReadWeaponPostH101(data,&current);
+    if(!g_weaponPostAvailable){if(toggle)LogA("[RENDER H101] No active weapon camera; load a playable level. Preference unchanged.");return;}
+    int desired=toggle?!current:(int)g_weaponPostDesired;
+    if(desired<0)return;
+    if(current!=desired){
+        BYTE value=desired?1:0;void* args[1]={&value};Il2CppException* ex=0;
+        g_il2cpp.runtime_invoke(g_weaponSetPost,data,args,&ex);
+        if(ex || !ReadWeaponPostH101(data,&current) || current!=desired){LogA("[RENDER H101] Native post-processing verification failed; not saved.");return;}
+        LogA(current?"[RENDER H101] Weapon post-processing ON, verified.":"[RENDER H101] Weapon post-processing OFF, verified.");
+    }
+    if(toggle){
+        g_weaponPostDesired=current;
+        WritePrivateProfileStringW(L"Visual",L"WeaponPostProcessing",current?L"1":L"0",g_iniPath);
+        WritePrivateProfileStringW(0,0,0,g_iniPath);
+    }
+}
+
 // H100: UI reads cached values; native state is read only on command/game thread.
 static const char* g_visualNames[4]={"NoHud","NoHudWithCrossHair","NoModel","NoMenu"};
 static const WCHAR* g_visualIni[4]={L"NoHud",L"NoHudWithCrossHair",L"NoModel",L"NoMenu"};
@@ -4468,6 +4532,7 @@ static void ExecuteCommandIndex(int i) {
     int listCategory=0, listSlot=0;
     if (DecodeNamedWeaponCommand(i,&exactWeaponName,&exactSpecial)) ExecuteNamedWeaponByUnityName(exactWeaponName,exactSpecial);
     else if (DecodeWeaponListCommand(i,&listCategory,&listSlot)) EquipMappedWeaponCategorySlot(listCategory,listSlot);
+    else if (StrEqA(g_cmds[i].className,"__WeaponPostProcessing")) UpdateWeaponPostH101(TRUE);
     else if (StrEqA(g_cmds[i].className,"__NoCrosshair")) ToggleNoCrosshair();
     else if (StrEqA(g_cmds[i].className,"__SkipIntroVideos")) ToggleSkipIntroVideos();
     else if (StrEqA(g_cmds[i].className,"__SkipStartupLogos")) ToggleSkipStartupLogos();
@@ -4574,6 +4639,7 @@ static BOOL InitIl2Cpp() {
     if (g_timeScaleGetter) LogA("[OK] TimeManager.get_GameTimeScale bridge resolved");
     else LogA("[WARN] TimeManager.get_GameTimeScale bridge unavailable; local-state fallback active");
 
+    ResolveWeaponPostH101();
     ReleaseIl2CppThread(attached,thread);
     LogA("[OK] Startup worker detached from IL2CPP after metadata resolution");
 

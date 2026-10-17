@@ -151,3 +151,11 @@ Keyboard layout names and persistent native Visual checkboxes; opt-in delayed st
 H97 wheel assets/capture/alpha paths and updater/cursor implementation retained.
 Native F3 camera toggle found statically; exact effect unresolved and left intact.
 See docs/H100_TEST.md for limitations, rollback and runtime test criteria.
+
+
+## H101 experimental
+
+Exact F3 effect identified as URP weapon-camera renderPostProcessing. Added a
+rebindable persistent Visual row and signature-guarded F3-only Update hook.
+H100 remains experimental; H97 is the validated stable gameplay base.
+See docs/H101_TEST.md for exact evidence, test criteria, limitations and rollback.

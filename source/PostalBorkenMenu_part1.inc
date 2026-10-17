@@ -573,6 +573,7 @@ static CommandRec g_cmds[] = {
     {"UnlockAll", L"Unlock All", L"UnlockAll", 0,0,0,0,0,0,0,{0}},
     {"NoMenu", L"No Menu", L"NoMenu", 0,0,0,0,0,0,0,{0}},
     {"KillPresident", L"Kill President", L"KillPresident", 0,0,0,0,0,0,0,{0}},
+    {"__WeaponPostProcessing", L"Weapon Camera Post-processing", L"WeaponPostProcessing", 0,0,0,0,0,0,0,{0}},
 };
 static const int CMD_COUNT = sizeof(g_cmds)/sizeof(g_cmds[0]);
 

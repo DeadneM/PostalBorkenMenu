@@ -13,6 +13,8 @@ int PBUI_MenuKey(wchar_t* key,int capacity);
 int PBUI_MenuCapturing();
 int PBUI_KeyName(int vk,wchar_t* text,int capacity);
 int PBUI_Beta();
+int PBUI_InstallWeaponF3Hook();
+int PBUI_WeaponF3Status();
 void* PBUI_Window();
 void* PBUI_LegacyWindow();
 void PBUI_Request(int index,int action,int value);
