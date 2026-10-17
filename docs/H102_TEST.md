@@ -45,3 +45,14 @@ Restart with timer saved ON. Enable No Crosshair, equip DLC NuclearSyringe, zoom
 swap to other weapons and verify only sniper retains crosshair. Recheck F3 and wheel.
 Rollback: restore H101 ASI + backed-up personal INI; H101 ignores LevelTimer keys.
 TODO: user timer/pause/end/load and sniper scope verdict, then decide next stable release.
+
+## Delivery verification
+CONSTRUIT / CONTROLE / EXPERIMENTAL: user runtime validation pending for the two additions.
+Source/tag 361995960e30e80ebb9fe8e34c23681b28ad5790.
+CI 39067520319 completed successfully, including native F3 hook fixture and timer
+format boundaries (zero, last centisecond before minute, minute rollover, hour, uint max).
+Published ZIP downloaded and digest matched:
+4ca95a8e34c16ed802714aaed2586741a94d417129eb52ca64d9f7b33d5e346e.
+Exact four root files / AMD64 verified: dxgi.dll 9216, ASI 1002496, INI 2638,
+README.txt 18986 bytes. Main unchanged c1e4630767db8be3b6eab6d6c351e3a7fe23eff3.
+No game launched or game installation changed. Next: user native timer + sniper scope test.
