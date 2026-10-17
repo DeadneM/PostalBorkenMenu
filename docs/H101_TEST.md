@@ -58,3 +58,15 @@ restart and change of level; verify base/DLC wheel cold start and mouse restorat
 No Menu can hide game menus; mod menu remains available.
 Rollback to H100 files and backed-up INI; removing H101 ASI on restart restores native
 F3. Stable fallback H97. TODO: user runtime verdict; do not promote stable from CI.
+
+## Delivery evidence
+CONSTRUIT / CONTROLE / EXPERIMENTAL, not user-validated in game.
+Source/tag e75fe226fb49ce25cda90eb0080bcc05d76f50b7.
+CI 39066026548: build, isolated F3 hook fixture, loader, package and release succeeded.
+Local game method, embedded guard and test fixture compared equal (86 bytes), SHA256
+2fdce544dbc85112abd3b652a54fb48132205caa66e32b148597c00d8939fe14.
+Published ZIP downloaded, GitHub digest matched, four root entries and AMD64 checked:
+dxgi.dll 9216; PostalBorkenMenu.asi 997888; PostalBorkenMenu.ini 2610; README.txt 15573.
+ZIP SHA256 3ea98fbad7b4886b6657e4441fe2f26baf7783392704f886a1e5ef76f71c2101.
+Main still c1e4630767db8be3b6eab6d6c351e3a7fe23eff3. No game launch/install changes.
+Next: user F3/rebind/camera scene test above. No promotion to stable from this evidence.
