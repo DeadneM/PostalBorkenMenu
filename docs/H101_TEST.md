@@ -70,3 +70,8 @@ dxgi.dll 9216; PostalBorkenMenu.asi 997888; PostalBorkenMenu.ini 2610; README.tx
 ZIP SHA256 3ea98fbad7b4886b6657e4441fe2f26baf7783392704f886a1e5ef76f71c2101.
 Main still c1e4630767db8be3b6eab6d6c351e3a7fe23eff3. No game launch/install changes.
 Next: user F3/rebind/camera scene test above. No promotion to stable from this evidence.
+
+
+## Subsequent user verdict
+2026-10-17: user accepted H101 ("oui cest super"). Retained as H102 working base.
+New requests: native level timer and DLC sniper scope exception for No Crosshair.

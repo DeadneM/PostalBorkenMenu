@@ -4,6 +4,7 @@
 #include <cfloat>
 #include "OverlayBridge.h"
 #include "UpdateFeature.h"
+#include "LevelTimerFormat.h"
 #include "imgui.h"
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx11.h"
@@ -11,6 +12,7 @@
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND,UINT,WPARAM,LPARAM);
 
 namespace {
+std::atomic<unsigned long long> timerSnapshot{0};
 using PresentFn=HRESULT (STDMETHODCALLTYPE*)(IDXGISwapChain*,UINT,UINT);
 using ResizeFn=HRESULT (STDMETHODCALLTYPE*)(IDXGISwapChain*,UINT,UINT,UINT,DXGI_FORMAT,UINT);
 PresentFn originalPresent=nullptr;
@@ -58,7 +60,7 @@ void DrawMenu(){
     ImGui::SetNextWindowSizeConstraints(ImVec2(650,360),ImVec2(FLT_MAX,FLT_MAX));
     bool open=true;
     if(ImGui::Begin("PostalBorkenMenu",&open,ImGuiWindowFlags_NoCollapse)){
-        ImGui::TextUnformatted("POSTAL: BRAIN-DAMAGED  |  ASI Overlay H101 TEST");
+        ImGui::TextUnformatted("POSTAL: BRAIN-DAMAGED  |  ASI Overlay H102 TEST");
         wchar_t menuKeyWide[48];PBUI_MenuKey(menuKeyWide,48);char menuKey[160];Utf8(menuKeyWide,menuKey,sizeof(menuKey));
         ImGui::SameLine();ImGui::TextDisabled("| %s to close",menuKey);ImGui::Separator();
         ImGui::TextDisabled(PBUI_Ready()?"Gameplay commands ready":"Initializing gameplay commands...");
@@ -127,7 +129,7 @@ void DrawMenu(){
             }
             if(ImGui::BeginTabItem("Updates")){
                 auto update=postal::update::GetStatus();bool beta=PBUI_Beta()!=0;
-                ImGui::TextUnformatted("Current build: V2A42-H101-TEST");
+                ImGui::TextUnformatted("Current build: V2A42-H102-TEST");
                 ImGui::BeginDisabled(update.busy||update.queued);
                 if(ImGui::Checkbox("Beta updates (experimental)",&beta))PBUI_Request(-1,10,beta?1:0);
                 if(ImGui::Button("Check for Updates"))postal::update::Check(beta);
@@ -157,18 +159,32 @@ void DrawMenu(){
     }
     ImGui::End();if(!open)PBUI_Request(-1,5,0);
 }
+void DrawLevelTimer(){
+    auto snapshot=timerSnapshot.load();
+    if(!(snapshot&(1ull<<63)) || !(snapshot&(1ull<<62)))return;
+    char time[48];FormatLevelTimer((unsigned int)snapshot,time,sizeof(time));
+    auto viewport=ImGui::GetMainViewport();
+    float scale=viewport->Size.y/1080.0f;if(scale<0.85f)scale=0.85f;if(scale>2.0f)scale=2.0f;
+    ImGui::SetNextWindowPos(ImVec2(viewport->Pos.x+viewport->Size.x-20*scale,viewport->Pos.y+50*scale),ImGuiCond_Always,ImVec2(1,0));
+    ImGui::SetNextWindowBgAlpha(0.65f);
+    if(ImGui::Begin("Level Timer##HUD",nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_AlwaysAutoResize|ImGuiWindowFlags_NoInputs|ImGuiWindowFlags_NoNav|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoFocusOnAppearing)){
+        ImGui::SetWindowFontScale(1.5f*scale);
+        ImGui::TextUnformatted(time);
+    }
+    ImGui::End();
+}
 HRESULT STDMETHODCALLTYPE Present(IDXGISwapChain* sc,UINT sync,UINT flags){
     if(flags&DXGI_PRESENT_TEST)return originalPresent(sc,sync,flags);
     EnterCriticalSection(&lock);
     if(PBUI_Stopping()){if(gui)Cleanup();LeaveCriticalSection(&lock);return originalPresent(sc,sync,flags);}
     if(!chain)Init(sc);
-    if(sc==chain && ready && PBUI_Visible()){
+    if(sc==chain && ready && (PBUI_Visible() || (timerSnapshot.load()&(1ull<<63)))){
         ImGui::SetCurrentContext(gui);
-        if(GetForegroundWindow()==(HWND)PBUI_Window())ClipCursor(nullptr);
+        if(PBUI_Visible() && GetForegroundWindow()==(HWND)PBUI_Window())ClipCursor(nullptr);
         if(!target)CreateTarget(sc);
         if(target){
-            ImGui::GetIO().MouseDrawCursor=true;
-            ImGui_ImplDX11_NewFrame();ImGui_ImplWin32_NewFrame();ImGui::NewFrame();DrawMenu();ImGui::Render();
+            ImGui::GetIO().MouseDrawCursor=PBUI_Visible()!=0;
+            ImGui_ImplDX11_NewFrame();ImGui_ImplWin32_NewFrame();ImGui::NewFrame();DrawLevelTimer();if(PBUI_Visible())DrawMenu();ImGui::Render();
             ID3D11RenderTargetView* oldTargets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT]{};
             ID3D11DepthStencilView* oldDepth=nullptr;
             context->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT,oldTargets,&oldDepth);
@@ -225,4 +241,8 @@ extern "C" int PBUI_Message(void* window,unsigned int msg,unsigned long long wp,
     bool mouse=(msg>=WM_MOUSEFIRST && msg<=WM_MOUSELAST)||msg==WM_INPUT;
     bool keyboard=(msg>=WM_KEYFIRST && msg<=WM_KEYLAST);
     bool swallow=mouse||keyboard;LeaveCriticalSection(&lock);return swallow?1:0;
+}
+
+extern "C" void PBUI_SetLevelTimer(int enabled,int valid,unsigned int milliseconds){
+    timerSnapshot.store((enabled?(1ull<<63):0)|(valid?(1ull<<62):0)|milliseconds);
 }

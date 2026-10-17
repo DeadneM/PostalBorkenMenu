@@ -20,6 +20,8 @@ set_target_properties(PostalBorkenMenu PROPERTIES PREFIX "" SUFFIX ".asi")
 
 option(PB_BUILD_HOOK_TESTS "Build isolated native F3 hook fixture" OFF)
 if(PB_BUILD_HOOK_TESTS)
+  add_executable(LevelTimerFormatTest tests/LevelTimerFormatTest.cpp)
+  target_include_directories(LevelTimerFormatTest PRIVATE source)
   add_executable(WeaponRenderHookTest tests/WeaponRenderHookTest.cpp source/WeaponRenderHook.cpp
     vendor/minhook/src/buffer.c vendor/minhook/src/hook.c
     vendor/minhook/src/trampoline.c vendor/minhook/src/hde/hde64.c)

@@ -5,6 +5,7 @@
 #define WM_APP_CURSOR (WM_APP + 0x3B)
 #define WM_APP_VISUAL (WM_APP + 0x3C)
 #define WM_APP_WEAPON_POST (WM_APP + 0x3D)
+#define WM_APP_LEVEL_TIMER (WM_APP + 0x3E)
 static int g_menuVk=112;
 static int g_updaterBeta=0;
 static void QueueOverlayCursor(){if(g_gameHwnd && g_ready && !g_shuttingDown)PostMessageW(g_gameHwnd,WM_APP_CURSOR,0,0);}
@@ -62,6 +63,8 @@ static void LoadConfig() {
     for(int j=0;j<4;j++){g_visualDesired[j]=GetPrivateProfileIntW(L"Visual",g_visualIni[j],0,g_iniPath)!=0;g_visualObserved[j]=g_visualDesired[j];}
     g_weaponPostDesired=(LONG)GetPrivateProfileIntW(L"Visual",L"WeaponPostProcessing",-1,g_iniPath);
     if(g_weaponPostDesired<0 || g_weaponPostDesired>1)g_weaponPostDesired=-1;
+    g_levelTimer=GetPrivateProfileIntW(L"Settings",L"LevelTimer",0,g_iniPath)!=0;
+    PBUI_SetLevelTimer(g_levelTimer!=0,0,0);
     g_skipIntroVideos=0; // game already owns its own Skip Intro Videos option; mod leaves it alone
     g_skipStartupLogos=(LONG)GetPrivateProfileIntW(L"Settings",L"SkipStartupLogos",1,g_iniPath);
 }
@@ -120,7 +123,7 @@ static int CommandMenuTab(int i) {
         StrEqA(n,"__NoCrosshair") ||
         StrEqA(n,"NoHudWithCrossHair") ||
         StrEqA(n,"NoModel") ||
-        StrEqA(n,"NoMenu") || StrEqA(n,"__WeaponPostProcessing")) return 4; // Visual
+        StrEqA(n,"NoMenu") || StrEqA(n,"__WeaponPostProcessing") || StrEqA(n,"__LevelTimer")) return 4; // Visual
 
     return 0; // Gameplay, including Skip Intro Videos
 }
@@ -411,6 +414,7 @@ extern "C" int PBUI_Get(int i,PBUiCommand* row){
     else if(DecodeWeaponListCommand(i,&category,&slot))row->kind=3;
     else if(StrEqA(name,"__SkipStartupLogos")){row->kind=4;row->enabled=g_skipStartupLogos!=0;}
     else if(StrEqA(name,"__NoCrosshair")){row->kind=5;row->enabled=g_noCrosshair!=0;}
+    else if(StrEqA(name,"__LevelTimer")){row->kind=5;row->enabled=g_levelTimer!=0;}
     else if(StrEqA(name,"__WeaponPostProcessing")){
         row->kind=5;row->enabled=g_weaponPostObserved!=0;
         if(!g_weaponPostAvailable)CopyW(row->argument,128,L"Load a level");
@@ -532,6 +536,11 @@ static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
     }
 
     if(msg==WM_APP_IMGUI){HandleImGuiAction((int)wp,(int)((lp>>16)&0xFFFF),(int)(lp&0xFFFF));return 0;}
+    if(msg==WM_APP_LEVEL_TIMER){
+        if(g_ready){BOOL attached=FALSE;void* thread=0;
+            if(EnsureIl2CppThread(&attached,&thread)){RefreshLevelTimerH102();ReleaseIl2CppThread(attached,thread);}}
+        g_timerMessagePending=0;return 0;
+    }
     if(msg==WM_APP_WEAPON_POST){
         if(g_ready){BOOL attached=FALSE;void* thread=0;
             if(EnsureIl2CppThread(&attached,&thread)){UpdateWeaponPostH101(FALSE);ReleaseIl2CppThread(attached,thread);}}
@@ -882,7 +891,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H101 INPUT DEFAULTS AND UPDATER TEST");
+    LogA("PostalBorkenMenu V2A42-H102 TIMER AND SCOPE DEFAULTS AND UPDATER TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");
@@ -914,10 +923,11 @@ static DWORD __stdcall ModThread(void*) {
 
     // Explicit native Visual preferences opt into delayed automatic initialization.
     // Default all-off keeps H77 lazy initialization unchanged.
-    BOOL visualPending=g_weaponPostDesired>=0;
+    BOOL visualPending=g_weaponPostDesired>=0 || g_levelTimer;
     for(int j=0;j<4;j++)if(g_visualDesired[j])visualPending=TRUE;
     DWORD visualStart=GetTickCount();
     DWORD renderTick=0;
+    DWORD timerTick=0;
     MSG m;
     while (!g_shuttingDown) {
         while (PeekMessageW(&m,0,0,0,PM_REMOVE)) {
@@ -930,6 +940,10 @@ static DWORD __stdcall ModThread(void*) {
             renderTick=GetTickCount();
             PBUI_InstallWeaponF3Hook();
             if(g_ready)PostMessageW(g_gameHwnd,WM_APP_WEAPON_POST,0,0);
+        }
+        if(g_levelTimer && g_ready && !g_timerMessagePending && GetTickCount()-timerTick>=50){
+            timerTick=GetTickCount();g_timerMessagePending=1;
+            if(!PostMessageW(g_gameHwnd,WM_APP_LEVEL_TIMER,0,0))g_timerMessagePending=0;
         }
         PollHotkeys();
         if(visualPending && PBUI_RendererReady() && GetTickCount()-visualStart>=10000){

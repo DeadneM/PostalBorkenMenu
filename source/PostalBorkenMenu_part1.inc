@@ -478,6 +478,7 @@ struct Il2CppApi {
     const Il2CppType* (*method_get_return_type)(const MethodInfo*);
     unsigned int (*method_get_param_count)(const MethodInfo*);
     BOOL (*method_is_instance)(const MethodInfo*);
+    Il2CppClass* (*object_get_class)(Il2CppObject*);
     Il2CppObject* (*object_new)(Il2CppClass*);
     Il2CppObject* (*runtime_invoke)(const MethodInfo*, void*, void**, Il2CppException**);
     Il2CppString* (*string_new)(const char*);
@@ -574,6 +575,7 @@ static CommandRec g_cmds[] = {
     {"NoMenu", L"No Menu", L"NoMenu", 0,0,0,0,0,0,0,{0}},
     {"KillPresident", L"Kill President", L"KillPresident", 0,0,0,0,0,0,0,{0}},
     {"__WeaponPostProcessing", L"Weapon Camera Post-processing", L"WeaponPostProcessing", 0,0,0,0,0,0,0,{0}},
+    {"__LevelTimer", L"Level Timer (game time)", L"LevelTimer", 0,0,0,0,0,0,0,{0}},
 };
 static const int CMD_COUNT = sizeof(g_cmds)/sizeof(g_cmds[0]);
 
@@ -596,6 +598,7 @@ static BOOL ResolveIl2CppApi() {
     RESOLVE(method_get_return_type)
     RESOLVE(method_get_param_count)
     RESOLVE(method_is_instance)
+    RESOLVE(object_get_class)
     RESOLVE(object_new)
     RESOLVE(runtime_invoke)
     RESOLVE(string_new)

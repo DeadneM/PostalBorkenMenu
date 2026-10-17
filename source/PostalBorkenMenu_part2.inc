@@ -4207,6 +4207,18 @@ static void RunTargetedNoVideoAndCrosshairAuditH13() {
     LogA("[H13 META] ===== audit end =====");
 }
 
+static float CrosshairAlphaH102(Il2CppObject* crosshair,float requested){
+    Il2CppClass* klass=crosshair?g_il2cpp.object_get_class(crosshair):0;
+    const char* name=klass?g_il2cpp.class_get_name(klass):0;
+    const char* ns=klass?g_il2cpp.class_get_namespace(klass):0;
+    // This exact DLC crosshair owns the sniper zoom/scope visual. Keep it whole.
+    if(name && ns && StrEqA(ns,"Hyperstrange.PBD.PlayerComponents.Crosshairs") && StrEqA(name,"CrosshairNuclearSyringe")){
+        static BOOL reported=FALSE;
+        if(!reported){reported=TRUE;LogA("[CROSSHAIR H102] DLC NuclearSyringe sniper scope/reticle exempt from No Crosshair.");}
+        return 1.0f;
+    }
+    return requested;
+}
 static BOOL SetCrosshairVisualAlpha(float alpha) {
     if (!g_crosshairControllerClass || !g_currentCrosshairField || !g_componentGetGameObject ||
         !g_gameObjectGetComponentsInChildren || !g_canvasRendererSetAlpha || !g_canvasRendererTypeObject) {
@@ -4247,6 +4259,7 @@ static BOOL SetCrosshairVisualAlpha(float alpha) {
                     g_il2cpp.field_get_value(controller,g_currentCrosshairField,&crosshair);
                     if (!crosshair) continue;
                     ++controllersWithCrosshair;
+                    float effectiveAlpha=CrosshairAlphaH102(crosshair,alpha);
 
                     ex=0;
                     Il2CppObject* go=g_il2cpp.runtime_invoke(g_componentGetGameObject,crosshair,0,&ex);
@@ -4271,7 +4284,7 @@ static BOOL SetCrosshairVisualAlpha(float alpha) {
                     for (SIZE_T i=0;i<n;i++) {
                         Il2CppObject* renderer=renderers[i];
                         if (!renderer) continue;
-                        void* alphaPars[1]; alphaPars[0]=&alpha;
+                        void* alphaPars[1]; alphaPars[0]=&effectiveAlpha;
                         ex=0;
                         g_il2cpp.runtime_invoke(g_canvasRendererSetAlpha,renderer,alphaPars,&ex);
                         if (ex) {
@@ -4301,6 +4314,7 @@ static BOOL SetCrosshairVisualAlpha(float alpha) {
             return FALSE;
         }
         controllersWithCrosshair=1;
+        float effectiveAlpha=CrosshairAlphaH102(crosshair,alpha);
 
         Il2CppException* ex=0;
         Il2CppObject* go=g_il2cpp.runtime_invoke(g_componentGetGameObject,crosshair,0,&ex);
@@ -4325,7 +4339,7 @@ static BOOL SetCrosshairVisualAlpha(float alpha) {
         for (SIZE_T i=0;i<n;i++) {
             Il2CppObject* renderer=elems[i];
             if (!renderer) continue;
-            void* alphaPars[1]; alphaPars[0]=&alpha;
+            void* alphaPars[1]; alphaPars[0]=&effectiveAlpha;
             ex=0;
             g_il2cpp.runtime_invoke(g_canvasRendererSetAlpha,renderer,alphaPars,&ex);
             if (ex) {
@@ -4430,6 +4444,47 @@ static BOOL ApplyTimeScaleToggle(int i) {
     return TRUE;
 }
 
+// H102 read-only display of the level's own CompletionTime, never a second clock.
+static volatile LONG g_levelTimer=0;
+static volatile LONG g_timerMessagePending=0;
+static Il2CppClass* g_timerLevelClass=0;
+static const MethodInfo* g_timerGetController=0;
+static const MethodInfo* g_timerGetTime=0;
+static void ResolveLevelTimerH102(){
+    g_timerLevelClass=FindClassBySimpleName("LevelController");
+    Il2CppClass* time=FindClassBySimpleName("TimeController");
+    g_timerGetController=g_timerLevelClass?FindMethodExact(g_timerLevelClass,"get_TimeController",0):0;
+    g_timerGetTime=time?FindMethodExact(time,"get_CompletionTime",0):0;
+    LogA(g_timerGetController && g_timerGetTime?"[TIMER H102] Native level CompletionTime getter resolved.":"[TIMER H102] Native level timer unavailable.");
+}
+static BOOL ReadLevelTimerH102(unsigned int* milliseconds){
+    if(!g_levelTimer || !g_findObjectOfType2 || !g_timerGetController || !g_timerGetTime)return FALSE;
+    const Il2CppType* type=g_il2cpp.class_get_type(g_timerLevelClass);
+    Il2CppObject* typeObject=type?g_il2cpp.type_get_object(type):0;
+    if(!typeObject)return FALSE;
+    BOOL inactive=FALSE;void* args[2]={typeObject,&inactive};Il2CppException* ex=0;
+    Il2CppObject* level=g_il2cpp.runtime_invoke(g_findObjectOfType2,0,args,&ex);
+    if(ex || !level)return FALSE;
+    ex=0;Il2CppObject* time=g_il2cpp.runtime_invoke(g_timerGetController,g_il2cpp.method_is_instance(g_timerGetController)?level:0,0,&ex);
+    if(ex || !time)return FALSE;
+    ex=0;Il2CppObject* box=g_il2cpp.runtime_invoke(g_timerGetTime,time,0,&ex);
+    void* raw=(!ex && box)?g_il2cpp.object_unbox(box):0;
+    if(!raw)return FALSE;
+    float seconds=*(float*)raw;
+    if(!(seconds>=0.0f && seconds<4294967.0f))return FALSE;
+    *milliseconds=(unsigned int)(seconds*1000.0f);return TRUE;
+}
+static void RefreshLevelTimerH102(){
+    unsigned int milliseconds=0;BOOL valid=ReadLevelTimerH102(&milliseconds);
+    PBUI_SetLevelTimer(g_levelTimer!=0,valid!=0,milliseconds);
+}
+static void ToggleLevelTimerH102(){
+    g_levelTimer=g_levelTimer?0:1;
+    WritePrivateProfileStringW(L"Settings",L"LevelTimer",g_levelTimer?L"1":L"0",g_iniPath);
+    WritePrivateProfileStringW(0,0,0,g_iniPath);
+    RefreshLevelTimerH102();
+}
+
 // H101: Resolve the same live camera and URP property used by native F3.
 static volatile LONG g_weaponPostDesired=-1; // -1: preserve native/default scene state
 static volatile LONG g_weaponPostObserved=0;
@@ -4532,6 +4587,7 @@ static void ExecuteCommandIndex(int i) {
     int listCategory=0, listSlot=0;
     if (DecodeNamedWeaponCommand(i,&exactWeaponName,&exactSpecial)) ExecuteNamedWeaponByUnityName(exactWeaponName,exactSpecial);
     else if (DecodeWeaponListCommand(i,&listCategory,&listSlot)) EquipMappedWeaponCategorySlot(listCategory,listSlot);
+    else if (StrEqA(g_cmds[i].className,"__LevelTimer")) ToggleLevelTimerH102();
     else if (StrEqA(g_cmds[i].className,"__WeaponPostProcessing")) UpdateWeaponPostH101(TRUE);
     else if (StrEqA(g_cmds[i].className,"__NoCrosshair")) ToggleNoCrosshair();
     else if (StrEqA(g_cmds[i].className,"__SkipIntroVideos")) ToggleSkipIntroVideos();
@@ -4640,6 +4696,7 @@ static BOOL InitIl2Cpp() {
     else LogA("[WARN] TimeManager.get_GameTimeScale bridge unavailable; local-state fallback active");
 
     ResolveWeaponPostH101();
+    ResolveLevelTimerH102();
     ReleaseIl2CppThread(attached,thread);
     LogA("[OK] Startup worker detached from IL2CPP after metadata resolution");
 

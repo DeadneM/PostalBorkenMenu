@@ -159,3 +159,11 @@ Exact F3 effect identified as URP weapon-camera renderPostProcessing. Added a
 rebindable persistent Visual row and signature-guarded F3-only Update hook.
 H100 remains experimental; H97 is the validated stable gameplay base.
 See docs/H101_TEST.md for exact evidence, test criteria, limitations and rollback.
+
+
+## H102 experimental from user-accepted H101
+
+User accepted H101 on 2026-10-17. H102 adds an optional native level game-time HUD
+and exempts only CrosshairNuclearSyringe (DLC sniper scope) from No Crosshair.
+Main/release H97 unchanged; experimental branch retains H101 acquired behavior.
+See docs/H102_TEST.md for native evidence, defaults, tests, limitations and rollback.
