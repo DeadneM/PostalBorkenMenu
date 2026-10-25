@@ -1380,3 +1380,10 @@ Personal settings become matching ASI/INI defaults; all command shortcuts remove
 F1 menu access retained. H103 quit crash maps to thread attach in queued timer handler.
 Early native Quit hooks fence mod work before forwarding the normal exit path.
 See docs/H104_TEST.md for evidence, risk, checks and rollback. Runtime exit unvalidated.
+
+
+## H104 release acceptance - 2026-10-25
+
+User reports installed H104 TEST appears okay and explicitly requests GitHub release.
+Promote the tested behavior unchanged; only version labels/delivery docs change.
+See docs/H104_RELEASE.md. Test history remains separate and cumulative.

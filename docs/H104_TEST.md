@@ -65,3 +65,10 @@ Personal INI preserved except explicitly requested Keys all 0 and WeaponKeysMode
 MenuKey=112 and existing Settings/Visual preferences retained. Original INI backed up.
 No game launched. Quit correction remains EXPERIMENTAL; user must confirm normal exit.
 Main/release H103 not replaced by this test branch/tag. Timer and scope paths unchanged.
+
+
+## H104 release acceptance - 2026-10-25
+
+User reports installed H104 TEST appears okay and explicitly requests GitHub release.
+Promote the tested behavior unchanged; only version labels/delivery docs change.
+See docs/H104_RELEASE.md. Test history remains separate and cumulative.

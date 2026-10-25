@@ -10,11 +10,15 @@
 
 ## Current project state
 
-**V2A42-H80** is the current stable public release.
+**V2A42-H104** is the current release checkpoint, accepted by the user after testing
+H104 TEST. It includes the integrated ImGui menu, native DLC wheel sprites/cold
+loading, scope-only sniper exception, level game-time timer and early quit fence.
 
-**V2A42-H97** is the user-approved source checkpoint: DLC icons/backings load directly in normal campaign, persist across scenes, and normal underlays are removed.
+All command shortcuts default to unbound; **F1** opens the menu. ASI and packaged
+INI defaults match. Personal INI files are preserved by the updater.
 
-It preserves the validated H74 weapon-wheel behavior and the H77 lazy IL2CPP startup architecture. H80 is user-validated in normal use; the only remaining known issue is visual: the icon background on the alternative cross-mode weapon wheel is still incorrect.
+See [H104 release notes](docs/H104_RELEASE.md) for defaults, validation and rollback.
+The sections below retain earlier implementation history and validation milestones.
 
 Validated H43 behavior:
 
