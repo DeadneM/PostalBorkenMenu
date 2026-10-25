@@ -58,12 +58,12 @@ static void LoadConfig() {
     }
     g_menuVk=(int)GetPrivateProfileIntW(L"Settings",L"MenuKey",112,g_iniPath);
     if(g_menuVk<8 || g_menuVk>255 || g_menuVk==VK_ESCAPE || g_menuVk==VK_BACK)g_menuVk=112;
-    g_updaterBeta=(int)GetPrivateProfileIntW(L"Settings",L"UpdaterBeta",0,g_iniPath);
+    g_updaterBeta=(int)GetPrivateProfileIntW(L"Settings",L"UpdaterBeta",1,g_iniPath);
     g_noCrosshair=(LONG)GetPrivateProfileIntW(L"Settings",L"NoCrosshair",1,g_iniPath);
     for(int j=0;j<4;j++){g_visualDesired[j]=GetPrivateProfileIntW(L"Visual",g_visualIni[j],0,g_iniPath)!=0;g_visualObserved[j]=g_visualDesired[j];}
-    g_weaponPostDesired=(LONG)GetPrivateProfileIntW(L"Visual",L"WeaponPostProcessing",-1,g_iniPath);
+    g_weaponPostDesired=(LONG)GetPrivateProfileIntW(L"Visual",L"WeaponPostProcessing",0,g_iniPath);
     if(g_weaponPostDesired<0 || g_weaponPostDesired>1)g_weaponPostDesired=-1;
-    g_levelTimer=GetPrivateProfileIntW(L"Settings",L"LevelTimer",0,g_iniPath)!=0;
+    g_levelTimer=GetPrivateProfileIntW(L"Settings",L"LevelTimer",1,g_iniPath)!=0;
     PBUI_SetLevelTimer(g_levelTimer!=0,0,0);
     g_skipIntroVideos=0; // game already owns its own Skip Intro Videos option; mod leaves it alone
     g_skipStartupLogos=(LONG)GetPrivateProfileIntW(L"Settings",L"SkipStartupLogos",1,g_iniPath);
@@ -517,6 +517,10 @@ static WNDPROC BeginEarlyShutdown(HWND hwnd, const char* reason) {
     return old;
 }
 
+extern "C" void PBUI_BeginQuit(){
+    BeginEarlyShutdown(g_gameHwnd,"[QUIT H104] Native quit intercepted before Unity teardown; timer/render/input work fenced.");
+}
+
 static LRESULT __stdcall GameWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     // WM_CLOSE is earlier than WM_NCDESTROY and is the important V2A8 fence.
     // The previous exit fix waited until teardown was already too far along.
@@ -891,7 +895,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H103 SCOPE ONLY RELEASE DEFAULTS AND UPDATER TEST");
+    LogA("PostalBorkenMenu V2A42-H104 DEFAULTS AND EARLY QUIT TEST DEFAULTS AND UPDATER TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");

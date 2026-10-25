@@ -175,3 +175,11 @@ See docs/H102_TEST.md for native evidence, defaults, tests, limitations and roll
 while retaining scope, then GitHub release. Replaces broad H102 exemption with
 per-renderer scope/mask ancestry and explicit dot exclusion. Timer code unchanged.
 See docs/H103_RELEASE.md for status, runtime checks and rollback.
+
+
+## H104 experimental - defaults / early Quit
+
+Personal settings become matching ASI/INI defaults; all command shortcuts removed,
+F1 menu access retained. H103 quit crash maps to thread attach in queued timer handler.
+Early native Quit hooks fence mod work before forwarding the normal exit path.
+See docs/H104_TEST.md for evidence, risk, checks and rollback. Runtime exit unvalidated.

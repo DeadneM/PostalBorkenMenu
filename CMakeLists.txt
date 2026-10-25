@@ -4,7 +4,7 @@ enable_language(RC)
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/Updater.rc" "101 RCDATA \"${CMAKE_CURRENT_SOURCE_DIR}/source/PostalUpdater.ps1\"\n")
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 add_library(PostalBorkenMenu SHARED
-    source/PostalBorkenMenu.cpp source/OverlayImGui.cpp source/UpdateFeature.cpp source/WeaponRenderHook.cpp
+    source/PostalBorkenMenu.cpp source/OverlayImGui.cpp source/UpdateFeature.cpp source/WeaponRenderHook.cpp source/QuitHooks.cpp
     "${CMAKE_CURRENT_BINARY_DIR}/Updater.rc"
     vendor/imgui/imgui.cpp vendor/imgui/imgui_draw.cpp
     vendor/imgui/imgui_tables.cpp vendor/imgui/imgui_widgets.cpp
@@ -20,6 +20,11 @@ set_target_properties(PostalBorkenMenu PROPERTIES PREFIX "" SUFFIX ".asi")
 
 option(PB_BUILD_HOOK_TESTS "Build isolated native F3 hook fixture" OFF)
 if(PB_BUILD_HOOK_TESTS)
+  add_executable(QuitHooksTest tests/QuitHooksTest.cpp source/QuitHooks.cpp
+    vendor/minhook/src/buffer.c vendor/minhook/src/hook.c
+    vendor/minhook/src/trampoline.c vendor/minhook/src/hde/hde64.c)
+  target_include_directories(QuitHooksTest PRIVATE source vendor/minhook/include)
+  target_compile_features(QuitHooksTest PRIVATE cxx_std_17)
   add_executable(LevelTimerFormatTest tests/LevelTimerFormatTest.cpp)
   target_include_directories(LevelTimerFormatTest PRIVATE source)
   add_executable(WeaponRenderHookTest tests/WeaponRenderHookTest.cpp source/WeaponRenderHook.cpp

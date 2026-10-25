@@ -60,7 +60,7 @@ void DrawMenu(){
     ImGui::SetNextWindowSizeConstraints(ImVec2(650,360),ImVec2(FLT_MAX,FLT_MAX));
     bool open=true;
     if(ImGui::Begin("PostalBorkenMenu",&open,ImGuiWindowFlags_NoCollapse)){
-        ImGui::TextUnformatted("POSTAL: BRAIN-DAMAGED  |  ASI Overlay H103 RELEASE");
+        ImGui::TextUnformatted("POSTAL: BRAIN-DAMAGED  |  ASI Overlay H104 TEST");
         wchar_t menuKeyWide[48];PBUI_MenuKey(menuKeyWide,48);char menuKey[160];Utf8(menuKeyWide,menuKey,sizeof(menuKey));
         ImGui::SameLine();ImGui::TextDisabled("| %s to close",menuKey);ImGui::Separator();
         ImGui::TextDisabled(PBUI_Ready()?"Gameplay commands ready":"Initializing gameplay commands...");
@@ -129,7 +129,7 @@ void DrawMenu(){
             }
             if(ImGui::BeginTabItem("Updates")){
                 auto update=postal::update::GetStatus();bool beta=PBUI_Beta()!=0;
-                ImGui::TextUnformatted("Current build: V2A42-H103");
+                ImGui::TextUnformatted("Current build: V2A42-H104-TEST");
                 ImGui::BeginDisabled(update.busy||update.queued);
                 if(ImGui::Checkbox("Beta updates (experimental)",&beta))PBUI_Request(-1,10,beta?1:0);
                 if(ImGui::Button("Check for Updates"))postal::update::Check(beta);
@@ -176,7 +176,7 @@ void DrawLevelTimer(){
 HRESULT STDMETHODCALLTYPE Present(IDXGISwapChain* sc,UINT sync,UINT flags){
     if(flags&DXGI_PRESENT_TEST)return originalPresent(sc,sync,flags);
     EnterCriticalSection(&lock);
-    if(PBUI_Stopping()){if(gui)Cleanup();LeaveCriticalSection(&lock);return originalPresent(sc,sync,flags);}
+    if(PBUI_Stopping()){LeaveCriticalSection(&lock);return originalPresent(sc,sync,flags);}
     if(!chain)Init(sc);
     if(sc==chain && ready && (PBUI_Visible() || (timerSnapshot.load()&(1ull<<63)))){
         ImGui::SetCurrentContext(gui);
@@ -196,6 +196,7 @@ HRESULT STDMETHODCALLTYPE Present(IDXGISwapChain* sc,UINT sync,UINT flags){
     LeaveCriticalSection(&lock);return originalPresent(sc,sync,flags);
 }
 HRESULT STDMETHODCALLTYPE Resize(IDXGISwapChain* sc,UINT count,UINT width,UINT height,DXGI_FORMAT format,UINT flags){
+    if(PBUI_Stopping())return originalResize(sc,count,width,height,format,flags);
     EnterCriticalSection(&lock);if(sc==chain)ReleaseTarget();
     HRESULT hr=originalResize(sc,count,width,height,format,flags);
     LeaveCriticalSection(&lock);return hr;

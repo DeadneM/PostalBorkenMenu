@@ -70,7 +70,7 @@ static BOOL IsSynthetic(const char* n) {
 static BOOL EnsureIl2CppThread(BOOL* attachedByUs, void** threadOut) {
     if (attachedByUs) *attachedByUs=FALSE;
     if (threadOut) *threadOut=0;
-    if (!g_domain) return FALSE;
+    if (!g_domain || g_shuttingDown) return FALSE;
     void* cur=g_il2cpp.thread_current ? g_il2cpp.thread_current() : 0;
     if (cur) { if(threadOut)*threadOut=cur; return TRUE; }
     void* t=g_il2cpp.thread_attach(g_domain);
@@ -4752,6 +4752,12 @@ static BOOL InitIl2Cpp() {
 
     ResolveWeaponPostH101();
     ResolveLevelTimerH102();
+    Il2CppClass* exitManager=FindClassBySimpleName("GameManager");
+    Il2CppClass* application=g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Application");
+    const MethodInfo* exitMethod=exitManager?FindMethodExact(exitManager,"ExitGame",0):0;
+    const MethodInfo* quitEvent=application?FindMethodExact(application,"Internal_ApplicationQuit",0):0;
+    int quitHooks=PBUI_InstallQuitHooks(exitMethod?*(void**)exitMethod:0,exitMethod?g_il2cpp.method_is_instance(exitMethod):0,quitEvent?*(void**)quitEvent:0);
+    LogIntA("[QUIT H104] Early quit hook mask (1=GameManager,2=Unity): ",quitHooks);
     ReleaseIl2CppThread(attached,thread);
     LogA("[OK] Startup worker detached from IL2CPP after metadata resolution");
 

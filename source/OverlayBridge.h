@@ -5,6 +5,8 @@ struct PBUiCommand {
 };
 extern "C" {
 int PBUI_Count();
+void PBUI_BeginQuit();
+int PBUI_InstallQuitHooks(void* gameExit,int instance,void* applicationQuit);
 int PBUI_Get(int index,PBUiCommand* command);
 int PBUI_Visible();
 int PBUI_Ready();
