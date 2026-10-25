@@ -56,3 +56,8 @@ Published ZIP downloaded and digest matched:
 Exact four root files / AMD64 verified: dxgi.dll 9216, ASI 1002496, INI 2638,
 README.txt 18986 bytes. Main unchanged c1e4630767db8be3b6eab6d6c351e3a7fe23eff3.
 No game launched or game installation changed. Next: user native timer + sniper scope test.
+
+
+## Subsequent user verdict - 2026-10-25
+Level timer VALIDATED ("le level timer est super"). Broad sniper exemption rejected:
+remove reticle dot, preserve only scope. H103 applies that correction.

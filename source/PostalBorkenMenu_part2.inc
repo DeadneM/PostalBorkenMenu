@@ -4207,16 +4207,69 @@ static void RunTargetedNoVideoAndCrosshairAuditH13() {
     LogA("[H13 META] ===== audit end =====");
 }
 
-static float CrosshairAlphaH102(Il2CppObject* crosshair,float requested){
+// H103: keep only the DLC scope branches; the dot has explicit exclusion priority.
+struct ScopeRootsH103 {
+    Il2CppObject* dot;
+    Il2CppObject* zoom;
+    Il2CppObject* mask;
+    const MethodInfo* componentTransform;
+    const MethodInfo* isChildOf;
+};
+static Il2CppObject* ScopeTransformH103(Il2CppObject* value,const MethodInfo* goTransform){
+    if(!value || !goTransform)return 0;
+    Il2CppClass* klass=g_il2cpp.object_get_class(value);
+    const char* name=klass?g_il2cpp.class_get_name(klass):0;
+    const char* ns=klass?g_il2cpp.class_get_namespace(klass):0;
+    Il2CppException* ex=0;Il2CppObject* go=value;
+    if(!name || !ns || !StrEqA(name,"GameObject") || !StrEqA(ns,"UnityEngine")){
+        go=g_il2cpp.runtime_invoke(g_componentGetGameObject,value,0,&ex);
+        if(ex || !go)return 0;
+    }
+    ex=0;Il2CppObject* transform=g_il2cpp.runtime_invoke(goTransform,go,0,&ex);
+    return ex?0:transform;
+}
+static ScopeRootsH103 FindScopeRootsH103(Il2CppObject* crosshair){
+    ScopeRootsH103 roots={0};
     Il2CppClass* klass=crosshair?g_il2cpp.object_get_class(crosshair):0;
     const char* name=klass?g_il2cpp.class_get_name(klass):0;
     const char* ns=klass?g_il2cpp.class_get_namespace(klass):0;
-    // This exact DLC crosshair owns the sniper zoom/scope visual. Keep it whole.
-    if(name && ns && StrEqA(ns,"Hyperstrange.PBD.PlayerComponents.Crosshairs") && StrEqA(name,"CrosshairNuclearSyringe")){
-        static BOOL reported=FALSE;
-        if(!reported){reported=TRUE;LogA("[CROSSHAIR H102] DLC NuclearSyringe sniper scope/reticle exempt from No Crosshair.");}
-        return 1.0f;
+    if(!name || !ns || !StrEqA(ns,"Hyperstrange.PBD.PlayerComponents.Crosshairs") || !StrEqA(name,"CrosshairNuclearSyringe"))return roots;
+    Il2CppClass* go=g_il2cpp.class_from_name(g_coreImage,"UnityEngine","GameObject");
+    Il2CppClass* component=g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Component");
+    Il2CppClass* transform=g_il2cpp.class_from_name(g_coreImage,"UnityEngine","Transform");
+    const MethodInfo* goTransform=go?FindMethodExact(go,"get_transform",0):0;
+    roots.componentTransform=component?FindMethodExact(component,"get_transform",0):0;
+    roots.isChildOf=transform?FindMethodExact(transform,"IsChildOf",1,transform):0;
+    const char* fields[3]={"_dot","_zoomedInVisual","_maskImage"};
+    Il2CppObject** values[3]={&roots.dot,&roots.zoom,&roots.mask};
+    for(int i=0;i<3;i++){
+        const FieldInfo* field=g_il2cpp.class_get_field_from_name(klass,fields[i]);
+        Il2CppObject* value=0;
+        if(field)g_il2cpp.field_get_value(crosshair,field,&value);
+        *values[i]=ScopeTransformH103(value,goTransform);
     }
+    static BOOL reported=FALSE;
+    if(!reported){reported=TRUE;LogA(roots.dot && roots.zoom && roots.mask && roots.componentTransform && roots.isChildOf
+        ?"[CROSSHAIR H103] DLC scope/mask roots resolved; dot branch excluded from scope preservation."
+        :"[CROSSHAIR H103] DLC scope bridge incomplete; no broad crosshair exemption applied.");}
+    return roots;
+}
+static BOOL ScopeDescendantH103(Il2CppObject* child,Il2CppObject* root,const MethodInfo* isChildOf){
+    if(!child || !root || !isChildOf)return FALSE;
+    if(child==root)return TRUE;
+    void* args[1]={root};Il2CppException* ex=0;
+    Il2CppObject* box=g_il2cpp.runtime_invoke(isChildOf,child,args,&ex);
+    void* raw=(!ex && box)?g_il2cpp.object_unbox(box):0;
+    return raw && *(BYTE*)raw!=0;
+}
+static float ScopeRendererAlphaH103(const ScopeRootsH103& roots,Il2CppObject* renderer,float requested){
+    if(requested>0.0f || !roots.dot || !roots.componentTransform || !roots.isChildOf)return requested;
+    Il2CppException* ex=0;
+    Il2CppObject* tr=g_il2cpp.runtime_invoke(roots.componentTransform,renderer,0,&ex);
+    if(ex || !tr)return requested;
+    // Dot exclusion comes first even if it is nested inside the scope visual.
+    if(ScopeDescendantH103(tr,roots.dot,roots.isChildOf))return requested;
+    if(ScopeDescendantH103(tr,roots.zoom,roots.isChildOf) || ScopeDescendantH103(tr,roots.mask,roots.isChildOf))return 1.0f;
     return requested;
 }
 static BOOL SetCrosshairVisualAlpha(float alpha) {
@@ -4259,7 +4312,7 @@ static BOOL SetCrosshairVisualAlpha(float alpha) {
                     g_il2cpp.field_get_value(controller,g_currentCrosshairField,&crosshair);
                     if (!crosshair) continue;
                     ++controllersWithCrosshair;
-                    float effectiveAlpha=CrosshairAlphaH102(crosshair,alpha);
+                    ScopeRootsH103 scope=FindScopeRootsH103(crosshair);
 
                     ex=0;
                     Il2CppObject* go=g_il2cpp.runtime_invoke(g_componentGetGameObject,crosshair,0,&ex);
@@ -4284,6 +4337,7 @@ static BOOL SetCrosshairVisualAlpha(float alpha) {
                     for (SIZE_T i=0;i<n;i++) {
                         Il2CppObject* renderer=renderers[i];
                         if (!renderer) continue;
+                        float effectiveAlpha=ScopeRendererAlphaH103(scope,renderer,alpha);
                         void* alphaPars[1]; alphaPars[0]=&effectiveAlpha;
                         ex=0;
                         g_il2cpp.runtime_invoke(g_canvasRendererSetAlpha,renderer,alphaPars,&ex);
@@ -4314,7 +4368,7 @@ static BOOL SetCrosshairVisualAlpha(float alpha) {
             return FALSE;
         }
         controllersWithCrosshair=1;
-        float effectiveAlpha=CrosshairAlphaH102(crosshair,alpha);
+        ScopeRootsH103 scope=FindScopeRootsH103(crosshair);
 
         Il2CppException* ex=0;
         Il2CppObject* go=g_il2cpp.runtime_invoke(g_componentGetGameObject,crosshair,0,&ex);
@@ -4339,6 +4393,7 @@ static BOOL SetCrosshairVisualAlpha(float alpha) {
         for (SIZE_T i=0;i<n;i++) {
             Il2CppObject* renderer=elems[i];
             if (!renderer) continue;
+            float effectiveAlpha=ScopeRendererAlphaH103(scope,renderer,alpha);
             void* alphaPars[1]; alphaPars[0]=&effectiveAlpha;
             ex=0;
             g_il2cpp.runtime_invoke(g_canvasRendererSetAlpha,renderer,alphaPars,&ex);

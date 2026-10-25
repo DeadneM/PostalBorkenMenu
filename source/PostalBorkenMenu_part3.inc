@@ -891,7 +891,7 @@ static DWORD __stdcall ModThread(void*) {
     H39WatchAndCancelNativeSplash();
 
     LogA("============================================================");
-    LogA("PostalBorkenMenu V2A42-H102 TIMER AND SCOPE DEFAULTS AND UPDATER TEST");
+    LogA("PostalBorkenMenu V2A42-H103 SCOPE ONLY RELEASE DEFAULTS AND UPDATER TEST");
     LogA("[OK] PostalBorkenMenu.asi loaded by ASI loader");
     LogA("Target: native IL2CPP developer command bridge");
     LogA("No EXE/GameAssembly/Unity asset file patching is performed.");

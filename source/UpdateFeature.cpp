@@ -17,7 +17,7 @@ std::mutex mutex;
 Status state;
 struct Package{std::string tag,url,hash,name;long long size=0;};
 Package selected;
-constexpr char current[]="V2A42-H102-TEST";
+constexpr char current[]="V2A42-H103";
 std::wstring Wide(const std::string& s){int n=MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,s.data(),(int)s.size(),nullptr,0);if(n<=0)throw std::runtime_error("Invalid text");std::wstring out(n,0);MultiByteToWideChar(CP_UTF8,0,s.data(),(int)s.size(),out.data(),n);return out;}
 struct Internet{HINTERNET h;~Internet(){if(h)WinHttpCloseHandle(h);}};
 std::string Fetch(bool beta){

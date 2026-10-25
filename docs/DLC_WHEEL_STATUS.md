@@ -167,3 +167,11 @@ User accepted H101 on 2026-10-17. H102 adds an optional native level game-time H
 and exempts only CrosshairNuclearSyringe (DLC sniper scope) from No Crosshair.
 Main/release H97 unchanged; experimental branch retains H101 acquired behavior.
 See docs/H102_TEST.md for native evidence, defaults, tests, limitations and rollback.
+
+
+## H103 release - scope only
+
+2026-10-25: user validates H102 level timer; requests removal of DLC sniper dot
+while retaining scope, then GitHub release. Replaces broad H102 exemption with
+per-renderer scope/mask ancestry and explicit dot exclusion. Timer code unchanged.
+See docs/H103_RELEASE.md for status, runtime checks and rollback.
