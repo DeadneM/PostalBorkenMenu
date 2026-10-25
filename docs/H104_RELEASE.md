@@ -34,3 +34,14 @@ only after release build/package verification; test branch/tag are kept separate
 
 Technical crash evidence and repair mechanism: docs/H104_TEST.md.
 TODO: retain cumulative history; investigate any new crash with its own logs/dump.
+
+## Verified release delivery
+Source/tag c103137a3f92982fa0238bffa714b9b433f08c18. CI 40216923799 successful:
+quit ABI/ordering, defaults consistency, timer boundaries and F3 fixture.
+Normal public release V2A42-H104 verified draft=false, prerelease=false, latest=true.
+Downloaded ZIP digest matched GitHub:
+5b3d9f1eb0868228238a7be51f74898c2be5c0cad9986cdafd2da29424a7a931.
+Four root entries / AMD64 verified: dxgi 9216; ASI 1006592; INI 2623; README 27507.
+Release behavior unchanged from accepted H104 TEST. Release branch and tag published;
+main remains unchanged pending separate authorization. Historical workflows unchanged.
+Local game remains on accepted H104 TEST; no game launched or personal INI modified.
