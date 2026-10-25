@@ -52,3 +52,16 @@ Fresh default test: back up personal INI, temporarily use packaged defaults, con
 all command bindings Unbound and F1 menu; timer/post preference restore after 10s.
 Rollback: H103 files and backed-up personal INI. Existing INI is not silently rewritten.
 TODO: user quit verdict and H103 scope-only verdict; only then promote quit fix.
+
+## Verified delivery and install
+Source/tag c63ccb5e07ddfdad93155e17365a69d3d5abf37c. CI 40216240856 successful:
+ASI build, quit forwarding tests for both static and instance ABI, defaults consistency,
+F3 fixture, timer-format tests, package and prerelease.
+Downloaded ZIP digest matched: ad2e25536a278cd99ee98a3a08588980dfc51e6f30e119f6b4d9d7d6696d6b49.
+Four root files / AMD64 verified: dxgi 9216; ASI 1006592; INI 2623; README 25208 bytes.
+Installed H104 TEST with game closed, all four installed file hashes verified.
+Backup: game/.PostalBorkenMenu-backups/H104-install-20261025-182607-763.
+Personal INI preserved except explicitly requested Keys all 0 and WeaponKeysMode=OFF;
+MenuKey=112 and existing Settings/Visual preferences retained. Original INI backed up.
+No game launched. Quit correction remains EXPERIMENTAL; user must confirm normal exit.
+Main/release H103 not replaced by this test branch/tag. Timer and scope paths unchanged.
