@@ -45,3 +45,9 @@ Four root entries / AMD64 verified: dxgi 9216; ASI 1006592; INI 2623; README 275
 Release behavior unchanged from accepted H104 TEST. Release branch and tag published;
 main remains unchanged pending separate authorization. Historical workflows unchanged.
 Local game remains on accepted H104 TEST; no game launched or personal INI modified.
+
+## Main promotion authorized
+User explicitly approved promotion to main after the release delivery.
+H104 release sources promoted by fast-forward, without force or rewriting history.
+Historical H43 publisher now manual-only to prevent obsolete publication on main push.
+H104 public tag/package remain unchanged; experimental branch and older release tags retained.
